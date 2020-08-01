@@ -1,0 +1,24 @@
+{
+  "name": "rest-verification",
+  "description": "A language server for rest endpoint verification",
+  "license": "MIT",
+  "version": "1.0.0",
+  "main": "./client/dist/extension",
+  "engines": {
+    "vscode": "^1.43.0"
+  },
+  "activationEvents": [
+    "onLanguage:typescript"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+  },
+  "devDependencies": {
+    "@types/node": "^14.0.27",
+    "tslint": "^6.1.2",
+    "typescript": "^3.9.7"
+  }
+}
