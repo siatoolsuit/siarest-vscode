@@ -1,13 +1,13 @@
-import { ExtensionContext, workspace, languages, window, WorkspaceEdit, Uri, Position } from 'vscode';
+import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position } from 'vscode';
 import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient';
 
 import * as path from 'path';
 
-const configTemplate: string =
+const configTemplate =
 `[
   {
     "name": "MyService",
-    "baseUrl": "http://localhost:3000/api",
+    "baseUri": "http://localhost:3000/api",
     "language": "",
     "lib": "",
     "endpoints": [
@@ -15,8 +15,7 @@ const configTemplate: string =
         "method": "POST",
         "path": "/hello",
         "response": {
-          "type": "string",
-          "name": "message"
+          "type": "string"
         },
         "parameters": [
           {
@@ -33,20 +32,20 @@ const configTemplate: string =
 let client: LanguageClient;
 
 export async function activate(context: ExtensionContext): Promise<void> {
-  //  only activate if a folder was opened
+  //  Only activate if a folder was opened
   if (!workspace.workspaceFolders || workspace.workspaceFolders.length === 0) {
     return;
   }
 
-  // check if there is a .siarc.json,
+  // Check if there is a .siarc.json,
   const rcFile = await workspace.findFiles('**/.siarc.json', '**/node_modules/**', 1);
   if (!rcFile || rcFile.length === 0) {
-    // we need the config, throw a error message
+    // We need the config, throw a error message
     const result = await window.showErrorMessage('Missing .siarc.json, the rest analyzer is not active!', 'Create file', 'Dismiss');
     if (!result || result === 'Dismiss') {
       return;
     } else {
-      // the user want that the extension creates a dummy file
+      // The user wants that the extension creates a dummy file
       const wsEdit = new WorkspaceEdit();
       const filePath = Uri.file(path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json'));
       wsEdit.createFile(filePath, { ignoreIfExists: true });
@@ -64,13 +63,14 @@ export async function activate(context: ExtensionContext): Promise<void> {
     debug: { module: serverModule, transport: TransportKind.ipc, options: { execArgv: [ '--nolazy', '--inspect=6069' ] } }
   };
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: 'file', language: 'typescript' }],
-    synchronize: {
-      fileEvents: workspace.createFileSystemWatcher('**/.siarc.json'),
-    },
+    documentSelector: [
+      { scheme: 'file', language: 'typescript' },
+      { scheme: 'untitled', language: 'typescript' },
+      { pattern: '**/.siarc.json' }
+    ],
   };
 
-  client = new LanguageClient('restVerificationServer', serverOptions, clientOptions);
+  client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);
 
   client.start();
 }

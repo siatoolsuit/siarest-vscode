@@ -1,5 +1,7 @@
+import { Diagnostic } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
 import { ConfigService, ServiceConfig } from './config';
-import { ErrorObject } from 'ajv';
 
 /**
  * The {@link Analyzer} class is the entry point of the verification API.
@@ -15,19 +17,21 @@ export class Analyzer {
    }
 
   /**
-   * Initialize this analyzer
-   */
-  public init(): void {
-    this.configValidator.init();
-  }
-
-  /**
    * Loads and validates a configuration file
    *
-   * @param configFilePath The path to the configuration file to validate
-   * @returns True if valid, errors otherwise
+   * @param textDocument The text document representation of the .siarc.json
+   * @returns Return an array of errors
    */
-  public validateAndLoadServiceConfig(configFilePath: string): ErrorObject[] | void {
-    // this.serviceConfig = this.configValidator.loadConfig(configFilePath);
+  public validateAndLoadServiceConfig(textDocument: TextDocument): Diagnostic[] {
+    const errors = this.configValidator.validate(textDocument);
+    // If there are no errors, the input can not be parsed, we only validate parsable inputs
+    if (!errors) {
+      return [];
+    }
+    if (errors.length > 0) {
+      return errors;
+    }
+    this.serviceConfig = JSON.parse(textDocument.getText()) as ServiceConfig;
+    return [];
   }
 }

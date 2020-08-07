@@ -1,12 +1,12 @@
 export interface Parameter {
-  type: object;
+  type: Record<string, unknown>;
   name: string;
 }
 
 export interface Endpoint {
   path: string,
   method: string,
-  response: object,
+  response: Record<string, unknown>,
   parameters?: Parameter[]
 }
 

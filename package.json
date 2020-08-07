@@ -8,7 +8,8 @@
     "vscode": "^1.43.0"
   },
   "activationEvents": [
-    "onLanguage:typescript"
+    "onLanguage:typescript",
+    "onLanguage:json"
   ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -18,7 +19,9 @@
   },
   "devDependencies": {
     "@types/node": "^14.0.27",
-    "tslint": "^6.1.2",
+    "@typescript-eslint/eslint-plugin": "^3.8.0",
+    "@typescript-eslint/parser": "^3.8.0",
+    "eslint": "^7.6.0",
     "typescript": "^3.9.7"
   }
 }
