@@ -1,4 +1,4 @@
-import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position } from 'vscode';
+import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands } from 'vscode';
 import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient';
 
 import * as path from 'path';
@@ -14,15 +14,10 @@ const configTemplate =
       {
         "method": "POST",
         "path": "/hello",
-        "response": {
-          "type": "string"
-        },
-        "parameters": [
-          {
-            "type": "string",
-            "name": "message"
-          }
-        ]
+        "response": "string",
+        "request": {
+          "message": "string"
+        }
       }
     ]
   }
@@ -37,25 +32,19 @@ export async function activate(context: ExtensionContext): Promise<void> {
     return;
   }
 
-  // Check if there is a .siarc.json,
-  const rcFile = await workspace.findFiles('**/.siarc.json', '**/node_modules/**', 1);
-  if (!rcFile || rcFile.length === 0) {
-    // We need the config, throw a error message
-    const result = await window.showErrorMessage('Missing .siarc.json, the rest analyzer is not active!', 'Create file', 'Dismiss');
-    if (!result || result === 'Dismiss') {
-      return;
-    } else {
-      // The user wants that the extension creates a dummy file
-      const wsEdit = new WorkspaceEdit();
-      const filePath = Uri.file(path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json'));
-      wsEdit.createFile(filePath, { ignoreIfExists: true });
-      wsEdit.insert(filePath, new Position(0, 0), configTemplate);
-      await workspace.applyEdit(wsEdit);
-      await workspace.saveAll();
-      window.showTextDocument(await workspace.openTextDocument(filePath));
-      window.showInformationMessage('Create new file: .siarc.json');
-    }
-  }
+  // Add the command to create the .siarc.json file TODO: hier so bauen das er das file nicht überschreibt und stattdessen fragt
+  const disposable = commands.registerCommand('sia-rest.createConfig', async () => {
+    // The user wants that the extension creates a dummy file
+    const wsEdit = new WorkspaceEdit();
+    const filePath = Uri.file(path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json'));
+    wsEdit.createFile(filePath, { ignoreIfExists: true });
+    wsEdit.insert(filePath, new Position(0, 0), configTemplate);
+    await workspace.applyEdit(wsEdit);
+    await workspace.saveAll();
+    window.showTextDocument(await workspace.openTextDocument(filePath));
+    window.showInformationMessage('Create new file: .siarc.json');
+  });
+  context.subscriptions.push(disposable);
 
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
   const serverOptions: ServerOptions = {

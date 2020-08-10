@@ -17,14 +17,14 @@ export class Analyzer {
    }
 
   /**
-   * Loads and validates a configuration file
+   * Validates and loads a configuration file, only loads if the file is valid
    *
    * @param textDocument The text document representation of the .siarc.json
    * @returns Return an array of errors
    */
   public validateAndLoadServiceConfig(textDocument: TextDocument): Diagnostic[] {
     const errors = this.configValidator.validate(textDocument);
-    // If there are no errors, the input can not be parsed, we only validate parsable inputs
+    // If there are no errors (return of the function is void), the input can not be parsed, we only validate parsable inputs
     if (!errors) {
       return [];
     }

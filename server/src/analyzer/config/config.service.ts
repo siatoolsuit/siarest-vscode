@@ -2,6 +2,7 @@ import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 const URI_REG = /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i;
+const PATH_REG = /\/(.+)/;
 
 export class ConfigService {
   /**
@@ -16,15 +17,8 @@ export class ConfigService {
    *       ({
    *          "method": "GET" | "POST" | "DELETE" | "PUT",
    *          "path": string,
-   *          "response": {
-   *            "type": string | object,
-   *          },
-   *          "parameters": [
-   *            ({
-   *               "type": string | object,
-   *               "name": string
-   *            })*
-   *          ]
+   *          "response": string | object,
+   *          "request": object
    *       })*
    *     ]
    *   })*
@@ -85,6 +79,10 @@ export class ConfigService {
       // Check the name
       if (!service.name) {
         diagnostics.push(this.createErrorMessage(textDocument, 'Missing "name" property', currentBlockStartIndex, currentBlockEndIndex));
+      } else if (typeof service.name !== 'string') {
+        currentBlockStartIndex = text.indexOf('"name":', currentBlockStartIndex);
+        currentBlockEndIndex = text.indexOf(',', currentBlockStartIndex);
+        diagnostics.push(this.createErrorMessage(textDocument, 'Property "name" needs to be a string', currentBlockStartIndex, currentBlockEndIndex));
       }
       // Check the base uri
       if (!service.baseUri) {
@@ -93,7 +91,7 @@ export class ConfigService {
         // Check the uri against the uri pattern
         const regEex = new RegExp(URI_REG);
         if (!regEex.test(service.baseUri)) {
-          const uriIndex = text.indexOf(`"baseUri":`, currentBlockStartIndex);
+          const uriIndex = text.indexOf('"baseUri":', currentBlockStartIndex);
           diagnostics.push(this.createErrorMessage(textDocument, 'Wrong uri pattern, expected http(s)://xxxx:xxxx/xxx/yy', uriIndex, uriIndex));
         }
       }
@@ -103,7 +101,7 @@ export class ConfigService {
       } else {
         // Check the language is set to Typescript or Java
         if (service.language !== 'Typescript' && service.language !== 'Java') {
-          const languageIndex = text.indexOf(`"language":`, currentBlockStartIndex);
+          const languageIndex = text.indexOf('"language":', currentBlockStartIndex);
           diagnostics.push(this.createErrorMessage(textDocument, 'Language needs to be one of the following: [ "Typescript", "Java" ]', languageIndex, languageIndex));
         }
       }
@@ -112,7 +110,7 @@ export class ConfigService {
         diagnostics.push(this.createErrorMessage(textDocument, 'Missing "lib" property', currentBlockStartIndex, currentBlockEndIndex));
       } else {
         // Check the used lib, depends on chosen language "Typescript" -> "NestJS", "Java" -> "JavaSpark"
-        const libIndex = text.indexOf(`"lib":`, currentBlockStartIndex);
+        const libIndex = text.indexOf('"lib":', currentBlockStartIndex);
         if (service.language) {
           if (service.language === 'Typescript' && service.lib !== 'NestJS') {
             diagnostics.push(this.createErrorMessage(textDocument, 'For Typescript use one of the following libs: [ "NestJS" ]', libIndex, libIndex));
@@ -129,18 +127,132 @@ export class ConfigService {
       if (!service.endpoints) {
         diagnostics.push(this.createErrorMessage(textDocument, 'Missing "endpoints" property', currentBlockStartIndex, currentBlockEndIndex));
       }
-      if (!Array.isArray(service.endpoints)) {
-        const endpointsIndex = text.indexOf(`"endpoints":`, currentBlockStartIndex);
-        diagnostics.push(this.createErrorMessage(textDocument, 'Endpoints needs to be an array', endpointsIndex, endpointsIndex));
+      if (service.endpoints && !Array.isArray(service.endpoints)) {
+        const endpointsIndexStart = text.indexOf(`"endpoints":`, currentBlockStartIndex);
+        diagnostics.push(this.createErrorMessage(textDocument, 'Endpoints needs to be an array', endpointsIndexStart, endpointsIndexStart));
       }
       if (service.endpoints && service.endpoints.length === 0) {
         const endpointsIndexStart = text.indexOf(`"endpoints":`, currentBlockStartIndex);
         const endpointsIndexEnd = text.indexOf(']', endpointsIndexStart);
         diagnostics.push(this.createErrorMessage(textDocument, 'There needs to be defined a single endpoint at least', endpointsIndexStart, endpointsIndexEnd));
       }
-      if (Array.isArray(service.endpoints)) {
+      if (service.endpoints && Array.isArray(service.endpoints)) {
+        // Skip the first open bracket
+        let endpointStartIndex = text.indexOf('[', currentBlockStartIndex) + 1;
+        let endpointEndIndex = endpointStartIndex;
         for (const endpoint of service.endpoints) {
-          // empty
+          // Check whether the current endpoint is an object or not
+          if (typeof endpoint !== 'object' || Array.isArray(endpoint)) {
+            if (typeof endpoint === 'string' || typeof endpoint === 'number' || typeof endpoint === 'boolean') {
+              if (typeof endpoint === 'string' && endpoint === '') {
+                endpointStartIndex = text.indexOf('""', endpointEndIndex);
+                endpointEndIndex = endpointStartIndex + 2;
+              } else if (typeof endpoint === 'string') {
+                const thing = `"${String(endpoint)}"`;
+                endpointStartIndex = text.indexOf(thing, endpointEndIndex);
+                endpointEndIndex = endpointStartIndex + thing.length;
+              } else {
+                const thing = String(endpoint);
+                endpointStartIndex = text.indexOf(thing, endpointEndIndex);
+                endpointEndIndex = endpointStartIndex + thing.length;
+              }
+            } else if (Array.isArray(endpoint)) {
+              endpointStartIndex = text.indexOf('[', endpointEndIndex);
+              endpointEndIndex = this.findIndexOfClosingArray(text, endpointStartIndex);
+            }
+            diagnostics.push(this.createErrorMessage(textDocument, 'Endpoint needs to be an object', endpointStartIndex, endpointEndIndex));
+            continue;
+          }
+          endpointStartIndex = text.indexOf('{', endpointEndIndex);
+          endpointEndIndex = this.findIndexOfClosingBlock(text, endpointStartIndex);
+          // Check the method
+          if (!endpoint.method) {
+            diagnostics.push(this.createErrorMessage(textDocument, 'Missing "method" property', endpointStartIndex, endpointEndIndex));
+          } else {
+            // Check the method is set to GET, POST, PUT or DELETE
+            if (endpoint.method !== 'GET' && endpoint.method !== 'POST' && endpoint.method !== 'PUT' && endpoint.method !== 'DELETE') {
+                endpointStartIndex = text.indexOf('"method":', endpointStartIndex);
+                diagnostics.push(this.createErrorMessage(textDocument, 'Method needs to be one of the following: [ "GET", "POST", "PUT", "DELETE" ]', endpointStartIndex, endpointStartIndex));
+            }
+          }
+          // Check the path
+          if (!endpoint.path) {
+            diagnostics.push(this.createErrorMessage(textDocument, 'Missing "path", property', endpointStartIndex, endpointEndIndex));
+          } else {
+            // Check the path against the path pattern
+            const regEex = new RegExp(PATH_REG);
+            if (!regEex.test(endpoint.path)) {
+              const pathIndex = text.indexOf('"path":', endpointStartIndex);
+              diagnostics.push(this.createErrorMessage(textDocument, 'Wrong path pattern, expected /xxx/yy', pathIndex, pathIndex));
+            }
+          }
+          // Check the response
+          if (!endpoint.response) {
+            diagnostics.push(this.createErrorMessage(textDocument, 'Missing "response" property', endpointStartIndex, endpointEndIndex));
+          } else {
+            // Check whether the response is a simple type string or a complex object
+            const responseStartIndex = text.indexOf('"response":', endpointStartIndex);
+            if (typeof endpoint.response === 'string') {
+              // Check the response is set to "string", "number" or "boolean"
+              if (endpoint.response !== 'string' && endpoint.response !== 'number' && endpoint.response !== 'boolean') {
+                diagnostics.push(this.createErrorMessage(textDocument, 'Response needs to be one of the following: [ "string", "number", "boolean" ]', responseStartIndex, responseStartIndex));
+              }
+            } else if(typeof endpoint.response === 'object' && !Array.isArray(endpoint.response)) {
+              // The object need to be simple "key": "value" pairs, the key is the name of an attribute and the values its type. Allowed types are [ "string", "number", "boolean" ]
+              const attrs = Object.getOwnPropertyNames(endpoint.response);
+              if (attrs.length === 0) {
+                diagnostics.push(this.createErrorMessage(textDocument, 'Response as object needs at least a single attribute pair like { "name": "string" }', responseStartIndex, responseStartIndex));
+              }
+              for (const attr of attrs) {
+                const val = endpoint.response[attr];
+                const attrIndex = text.indexOf(attr, responseStartIndex);
+                if (typeof val === 'object' && !Array.isArray(val)) {
+                  diagnostics.push(this.createErrorMessage(textDocument, 'Response attribute may not be an object', attrIndex, attrIndex));
+                } else if (Array.isArray(val)) {
+                  diagnostics.push(this.createErrorMessage(textDocument, 'Response attribute may not be an array', attrIndex, attrIndex)); 
+                } else if (typeof val === 'string') {
+                  if (val !== 'string' && val !== 'number' && val !== 'boolean') {
+                    diagnostics.push(this.createErrorMessage(textDocument, 'Response attribute value needs to one of the following: [ "string", "number", "boolean" ]',  attrIndex, attrIndex));
+                  }
+                } else {
+                  diagnostics.push(this.createErrorMessage(textDocument, 'Response attribute value needs to be a string', attrIndex, attrIndex)); 
+                }
+              }
+            } else {
+              diagnostics.push(this.createErrorMessage(textDocument, 'Response needs to be an object or one of the following: [ "string", "number", "boolean" ]',  responseStartIndex, responseStartIndex));
+            }
+          }
+          // Check the request
+          if (!endpoint.request) {
+            diagnostics.push(this.createErrorMessage(textDocument, 'Missing "request" property', endpointStartIndex, endpointEndIndex));
+          } else {
+            // Check whether the request is a complex object
+            const requestStartIndex = text.indexOf('"request":', endpointStartIndex);
+            if (typeof endpoint.request !== 'object' || Array.isArray(endpoint.request)) {
+              diagnostics.push(this.createErrorMessage(textDocument, 'Response needs to be an object with key value pairs like { "name": "string" }',  requestStartIndex, requestStartIndex));
+            } else {
+              // The object need to be simple "key": "value" pairs, the key is the name of an attribute and the values its type. Allowed types are [ "string", "number", "boolean" ]
+              const attrs = Object.getOwnPropertyNames(endpoint.request);
+              if (attrs.length === 0) {
+                diagnostics.push(this.createErrorMessage(textDocument, 'Request as object needs at least a single attribute pair like { "name": "string" }', requestStartIndex, requestStartIndex));
+              }
+              for (const attr of attrs) {
+                const val = endpoint.request[attr];
+                const attrIndex = text.indexOf(attr, requestStartIndex);
+                if (typeof val === 'object' && !Array.isArray(val)) {
+                  diagnostics.push(this.createErrorMessage(textDocument, 'Request attribute may not be an object', attrIndex, attrIndex));
+                } else if (Array.isArray(val)) {
+                  diagnostics.push(this.createErrorMessage(textDocument, 'Request attribute may not be an array', attrIndex, attrIndex)); 
+                } else if (typeof val === 'string') {
+                  if (val !== 'string' && val !== 'number' && val !== 'boolean') {
+                    diagnostics.push(this.createErrorMessage(textDocument, 'Request attribute value needs to one of the following: [ "string", "number", "boolean" ]',  attrIndex, attrIndex));
+                  }
+                } else {
+                  diagnostics.push(this.createErrorMessage(textDocument, 'Request attribute value needs to be a string', attrIndex, attrIndex)); 
+                }
+              }
+            }
+          }
         }
       }
     }

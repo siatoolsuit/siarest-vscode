@@ -8,9 +8,18 @@
     "vscode": "^1.43.0"
   },
   "activationEvents": [
+    "onCommand:sia-rest.createConfig",
     "onLanguage:typescript",
     "onLanguage:json"
   ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "sia-rest.createConfig",
+        "title": "sia: create config"
+      }
+    ]
+  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -b",
