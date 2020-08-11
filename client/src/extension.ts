@@ -1,6 +1,7 @@
 import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands } from 'vscode';
 import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient';
 
+import * as fs from 'fs';
 import * as path from 'path';
 
 const configTemplate =
@@ -8,8 +9,8 @@ const configTemplate =
   {
     "name": "MyService",
     "baseUri": "http://localhost:3000/api",
-    "language": "",
-    "lib": "",
+    "language": "MyLanguage",
+    "lib": "MyLib",
     "endpoints": [
       {
         "method": "POST",
@@ -32,17 +33,21 @@ export async function activate(context: ExtensionContext): Promise<void> {
     return;
   }
 
-  // Add the command to create the .siarc.json file TODO: hier so bauen das er das file nicht überschreibt und stattdessen fragt
+  // Add the command to create the .siarc.json file
   const disposable = commands.registerCommand('sia-rest.createConfig', async () => {
     // The user wants that the extension creates a dummy file
     const wsEdit = new WorkspaceEdit();
     const filePath = Uri.file(path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json'));
-    wsEdit.createFile(filePath, { ignoreIfExists: true });
-    wsEdit.insert(filePath, new Position(0, 0), configTemplate);
-    await workspace.applyEdit(wsEdit);
-    await workspace.saveAll();
-    window.showTextDocument(await workspace.openTextDocument(filePath));
-    window.showInformationMessage('Create new file: .siarc.json');
+    if (!fs.existsSync(filePath.fsPath)) {
+      wsEdit.createFile(filePath, { ignoreIfExists: true });
+      wsEdit.insert(filePath, new Position(0, 0), configTemplate);
+      await workspace.applyEdit(wsEdit);
+      await workspace.saveAll();
+      window.showTextDocument(await workspace.openTextDocument(filePath));
+      window.showInformationMessage('Create new file: .siarc.json');
+    } else {
+      window.showInformationMessage('.siarc.json already exists');
+    }
   });
   context.subscriptions.push(disposable);
 

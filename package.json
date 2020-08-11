@@ -18,6 +18,12 @@
         "command": "sia-rest.createConfig",
         "title": "sia: create config"
       }
+    ],
+    "snippets": [
+      {
+        "language": "json",
+        "path": "./snippets.json"
+      }
     ]
   },
   "scripts": {

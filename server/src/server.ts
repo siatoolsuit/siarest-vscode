@@ -1,4 +1,4 @@
-import { createConnection, ProposedFeatures, TextDocuments, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
+import { createConnection, ProposedFeatures, TextDocuments, InitializeParams, InitializeResult, TextDocumentSyncKind, TextDocumentPositionParams, CompletionItem } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Analyzer } from './analyzer';
@@ -20,18 +20,33 @@ connection.onInitialize((params: InitializeParams) => {
   return result;
 });
 
+connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+  // Create completion for the configuration file
+  const path = textDocumentPosition.textDocument.uri;
+  if (path.endsWith('.siarc.json')) {
+    return analyzer.createConfigCompletion(textDocumentPosition);
+  } else {
+    // TODO: Check if we have a valid config, depending on the language / library create the corresponding completion
+    return [];
+  }
+});
+
+connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+  return item;
+});
+
 documents.onDidChangeContent((change) => {
   const doc = change.document;
   if (doc.languageId === 'typescript') {
-    //validateTypescript(doc);
+    validateTypescript(doc);
   } else if (doc.languageId === 'json') {
     validateJsonConfig(doc);
   }
 });
 
-/*function validateTypescript(textDocument: TextDocument): void { 
-
-}*/
+function validateTypescript(textDocument: TextDocument): void { 
+  // TODO:
+}
 
 function validateJsonConfig(textDocument: TextDocument): void {
   const diagnostics = analyzer.validateAndLoadServiceConfig(textDocument);

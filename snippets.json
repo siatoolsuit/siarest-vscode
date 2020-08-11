@@ -1,0 +1,16 @@
+{
+  "Empty service": {
+    "prefix": "sia-service",
+    "body": [
+      "{",
+      "  \"name\": \"MyService\"",
+      "  \"baseUri\": \"http://localhost:3000/api\"",
+      "  \"language\": \"MyLanguage\"",
+      "  \"lib\": \"MyLib\"",
+      "  \"endpoints\": [",
+      "  ]",
+      "}"
+    ],
+    "description": "Creates an empty service configuration"
+  }
+}
