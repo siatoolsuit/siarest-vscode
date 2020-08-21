@@ -1,7 +1,6 @@
 import { getLanguageService, LanguageService, JSONDocument } from 'vscode-json-languageservice';
-import { Diagnostic, DiagnosticSeverity, TextDocumentPositionParams, CompletionItem, CompletionItemKind } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticSeverity, TextDocumentPositionParams, CompletionItem, CompletionItemKind, Range } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { notEqual } from 'assert';
 
 const URI_REG = /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i;
 const PATH_REG = /\/(.+)/;
@@ -290,13 +289,26 @@ export class ConfigService {
       const offset = this.textDocument.offsetAt(textDocumentPosition.position);
       const node = this.jsonDocument.getNodeFromOffset(offset);
       if (node) {
-        if (node.parent) {
-          // We want a completion in a property TODO: Liste ist leer warum dafuq
+        // The user edits a not yet finished property
+        if (node.type === 'property') {
+          if (node.keyNode.value === 'language') {
+            completions.push(
+              { label: 'Typescript', insertText: '"Typescript"', kind: CompletionItemKind.Value, data: 'lang-ts' },
+                { label: 'Java', insertText: '"Java"', kind: CompletionItemKind.Value, data: 'lang-j' }
+            );
+          }
+        } else if (node.parent) {
+          // We want a completion in a property
           if (node.parent.type === 'property') {
-            if (node.parent.keyNode.value === 'language') {
+            if (node.parent.keyNode.value === 'language' && node.parent.valueNode) {
+              const valueNode = node.parent.valueNode;
+              const range: Range = {
+                start: this.textDocument.positionAt(valueNode.offset),
+                end: this.textDocument.positionAt(valueNode.offset + valueNode.length),
+              };
               completions.push(
-                { label: 'Typescript', kind: CompletionItemKind.Value, data: 'lang-ts' },
-                { label: 'Java', kind: CompletionItemKind.Value, data: 'lang-j' }
+                { label: 'Typescript', textEdit: { newText: 'Typescript', range }, kind: CompletionItemKind.Text, data: 'lang-ts' },
+                { label: 'Java', textEdit: { newText: 'Java', range }, kind: CompletionItemKind.Text, data: 'lang-j' }
               );
             }
           }

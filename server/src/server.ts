@@ -1,4 +1,4 @@
-import { createConnection, ProposedFeatures, TextDocuments, InitializeParams, InitializeResult, TextDocumentSyncKind, TextDocumentPositionParams, CompletionItem } from 'vscode-languageserver';
+import { createConnection, ProposedFeatures, TextDocuments, InitializeParams, InitializeResult, TextDocumentSyncKind, TextDocumentPositionParams, CompletionItem, CompletionItemKind } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Analyzer } from './analyzer';
@@ -32,6 +32,18 @@ connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): Comp
 });
 
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+  switch(item.data) {
+    case 'lang-ts':
+      item.detail = 'The used language for this service is Typescript';
+      break;
+
+    case 'lang-j':
+      item.detail = 'The used language for this service is Java';
+      break;
+
+    default:
+      break;
+  }
   return item;
 });
 
@@ -39,7 +51,7 @@ documents.onDidChangeContent((change) => {
   const doc = change.document;
   if (doc.languageId === 'typescript') {
     validateTypescript(doc);
-  } else if (doc.languageId === 'json') {
+  } else if (doc.languageId === 'json' && doc.uri.endsWith('.siarc.json')) {
     validateJsonConfig(doc);
   }
 });

@@ -4,7 +4,7 @@ import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } f
 import * as fs from 'fs';
 import * as path from 'path';
 
-const configTemplate =
+const serviceConfigTemplate =
 `[
   {
     "name": "MyService",
@@ -24,8 +24,16 @@ const configTemplate =
   }
 ]
 `;
+const settingsTemplate =
+{
+  "other": true,
+  "comments": false,
+  "strings": true
+};
 
 let client: LanguageClient;
+
+// TODO: Scheiß auf language server das nervt von vorn bis hinten da die schnittstellen nie stimmen und so ein scheiß, man muss da eh für intelij neu schreiben 
 
 export async function activate(context: ExtensionContext): Promise<void> {
   //  Only activate if a folder was opened
@@ -40,7 +48,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     const filePath = Uri.file(path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json'));
     if (!fs.existsSync(filePath.fsPath)) {
       wsEdit.createFile(filePath, { ignoreIfExists: true });
-      wsEdit.insert(filePath, new Position(0, 0), configTemplate);
+      wsEdit.insert(filePath, new Position(0, 0), serviceConfigTemplate);
       await workspace.applyEdit(wsEdit);
       await workspace.saveAll();
       window.showTextDocument(await workspace.openTextDocument(filePath));
