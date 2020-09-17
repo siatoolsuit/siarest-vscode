@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "JSON Schema for SIA-REST, a statical rest api validator",
+  "description": "This tool checks for the correct use of rest API´s across a distributed microservice application. First define a list of services used in your application",
+  "type": "array",
+  "additionalItems": false,
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "description": "A short service description",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 5,
+        "description": "The name of this service, e.g. CostumerService/OrderService/DeviceService etc."
+      },
+      "baseUri": {
+        "type": "string",
+        "format": "uri",
+        "description": "The url of this service, e.g. https://myshop.com/api/customer or http://localhost:3000"
+      },
+      "language": {
+        "type": "string",
+        "description": "The language used to implement this service",
+        "oneOf": [
+          {
+            "const": "Typescript",
+            "description": "This service is implemented in Typescript"
+          },
+          {
+            "const": "Java",
+            "description": "This service is implemented in Java"
+          }
+        ]
+      },
+      "lib": {
+        "type": "string",
+        "description": "The library used to implement this service",
+        "oneOf": [
+          {
+            "const": "NestJS",
+            "description": "This service uses the NestJS typescript library"
+          },
+          {
+            "const": "JavaSpark",
+            "description": "This service uses the JavaSpark Java library"
+          }
+        ]
+      },
+      "endpoints": {
+        "type": "array",
+        "description": "A list of endpoints of this service",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "description": "A description of a single endpoint of this service",
+          "additionalProperties": false,
+          "properties": {
+            "method": {
+              "type": "string",
+              "description": "The HTTP Method of this endpoint",
+              "oneOf": [
+                {
+                  "const": "GET",
+                  "description": "Typically used for reading"
+                },
+                {
+                  "const": "POST",
+                  "description": "Typically used for creating"
+                },
+                {
+                  "const": "PUT",
+                  "description": "Typically used for updating"
+                },
+                {
+                  "const": "DELETE",
+                  "description": "Typically used for deleting"
+                }
+              ]
+            },
+            "path": {
+              "type": "string",
+              "description": "The subpath of this endpoint eg. /customer or /orders",
+              "format": "uri-reference"
+            },
+            "response": {
+              "description": "The response type of this endpoint. May be an string for a primitive type like boolean or number. Can also be a complex data type.",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "description": "Use a simple type as return type.",
+                  "oneOf": [
+                    {
+                      "const": "string",
+                      "description": "This endpoint returns a string"
+                    },
+                    {
+                      "const": "number",
+                      "description": "This endpoint returns a number (integer or double)"
+                    },
+                    {
+                      "const": "boolean",
+                      "description": "This endpoint returns a boolean"
+                    }
+                  ]
+                },
+                {
+                  "type": "object",
+                  "description": "Use a complex object type as return type",
+                  "properties": {
+                    "isArray": {
+                      "type": "boolean",
+                      "description": "Is this response an array type, true or false"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "request": {
+              "type": "object",
+              "description": "Use a complex object type as request type",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "method": "POST"
+              },
+              "then": {
+                "required": [ "request" ]
+              }
+            },
+            {
+              "if": {
+                "method": "PUT"
+              },
+              "then": {
+                "required": [ "request" ]
+              }
+            }
+          ],
+          "required": [ "method", "path", "response" ]
+        }
+      }
+    },
+    "if": {
+      "properties": { "language": { "const": "Typescript" } }
+    },
+    "then": {
+      "properties": { "lib": { "type": "string", "description": "The library used to implement this service", "oneOf": [ { "const": "NestJS", "description": "This service uses the NestJS typescript library" } ] } }
+    },
+    "else": {
+      "properties": { "lib": { "type": "string", "description": "The library used to implement this service", "oneOf": [ { "const": "JavaSpark", "description": "This service uses the JavaSpark Java library" } ] } }
+    },
+    "required": [ "name", "baseUri", "language", "lib", "endpoints" ]
+  }
+}

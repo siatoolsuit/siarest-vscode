@@ -12,5 +12,19 @@
       "}"
     ],
     "description": "Creates an empty service configuration"
+  },
+  "Empty endpoint": {
+    "prefix": "sia-endpoint",
+    "body": [
+      "{",
+      "  \"method\": \"GET\",",
+      "  \"path\": \"/hello\",",
+      "  \"response\": \"string\",",
+      "  \"request\": {",
+      "    \"message\": \"string\"",
+      "  }",
+      "}"
+    ],
+    "description": "Creates am empty endpoint"
   }
 }

@@ -24,16 +24,8 @@ const serviceConfigTemplate =
   }
 ]
 `;
-const settingsTemplate =
-{
-  "other": true,
-  "comments": false,
-  "strings": true
-};
 
 let client: LanguageClient;
-
-// TODO: Scheiß auf language server das nervt von vorn bis hinten da die schnittstellen nie stimmen und so ein scheiß, man muss da eh für intelij neu schreiben 
 
 export async function activate(context: ExtensionContext): Promise<void> {
   //  Only activate if a folder was opened
@@ -68,7 +60,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     documentSelector: [
       { scheme: 'file', language: 'typescript' },
       { scheme: 'untitled', language: 'typescript' },
-      { pattern: '**/.siarc.json' }
+      { language: 'json', pattern: '**/.siarc.json' }
     ],
   };
 
