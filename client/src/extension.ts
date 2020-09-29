@@ -9,8 +9,6 @@ const serviceConfigTemplate =
   {
     "name": "MyService",
     "baseUri": "http://localhost:3000/api",
-    "language": "MyLanguage",
-    "lib": "MyLib",
     "endpoints": [
       {
         "method": "POST",
@@ -58,10 +56,9 @@ export async function activate(context: ExtensionContext): Promise<void> {
   };
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
-      { scheme: 'file', language: 'typescript' },
-      { scheme: 'untitled', language: 'typescript' },
+      'typescript',
       { language: 'json', pattern: '**/.siarc.json' }
-    ],
+    ]
   };
 
   client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);

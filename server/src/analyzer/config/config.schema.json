@@ -5,6 +5,9 @@
   "type": "array",
   "additionalItems": false,
   "minItems": 1,
+  "defaultSnippet": {
+    
+  },
   "items": {
     "type": "object",
     "additionalProperties": false,
@@ -20,38 +23,11 @@
         "format": "uri",
         "description": "The url of this service, e.g. https://myshop.com/api/customer or http://localhost:3000"
       },
-      "language": {
-        "type": "string",
-        "description": "The language used to implement this service",
-        "oneOf": [
-          {
-            "const": "Typescript",
-            "description": "This service is implemented in Typescript"
-          },
-          {
-            "const": "Java",
-            "description": "This service is implemented in Java"
-          }
-        ]
-      },
-      "lib": {
-        "type": "string",
-        "description": "The library used to implement this service",
-        "oneOf": [
-          {
-            "const": "NestJS",
-            "description": "This service uses the NestJS typescript library"
-          },
-          {
-            "const": "JavaSpark",
-            "description": "This service uses the JavaSpark Java library"
-          }
-        ]
-      },
       "endpoints": {
         "type": "array",
         "description": "A list of endpoints of this service",
         "minItems": 1,
+        "additionalItems": false,
         "items": {
           "type": "object",
           "description": "A description of a single endpoint of this service",
@@ -125,37 +101,10 @@
               "additionalProperties": true
             }
           },
-          "allOf": [
-            {
-              "if": {
-                "method": "POST"
-              },
-              "then": {
-                "required": [ "request" ]
-              }
-            },
-            {
-              "if": {
-                "method": "PUT"
-              },
-              "then": {
-                "required": [ "request" ]
-              }
-            }
-          ],
           "required": [ "method", "path", "response" ]
         }
       }
     },
-    "if": {
-      "properties": { "language": { "const": "Typescript" } }
-    },
-    "then": {
-      "properties": { "lib": { "type": "string", "description": "The library used to implement this service", "oneOf": [ { "const": "NestJS", "description": "This service uses the NestJS typescript library" } ] } }
-    },
-    "else": {
-      "properties": { "lib": { "type": "string", "description": "The library used to implement this service", "oneOf": [ { "const": "JavaSpark", "description": "This service uses the JavaSpark Java library" } ] } }
-    },
-    "required": [ "name", "baseUri", "language", "lib", "endpoints" ]
+    "required": [ "name", "baseUri", "endpoints" ]
   }
 }

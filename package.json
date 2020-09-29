@@ -24,6 +24,12 @@
         "language": "json",
         "path": "./snippets.json"
       }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": ".siarc.json",
+        "url": "./server/src/analyzer/config/config.schema.json"
+      }
     ]
   },
   "scripts": {

@@ -5,8 +5,6 @@
       "{",
       "  \"name\": \"MyService\",",
       "  \"baseUri\": \"http://localhost:3000/api\",",
-      "  \"language\": \"MyLanguage\",",
-      "  \"lib\": \"MyLib\",",
       "  \"endpoints\": [",
       "  ]",
       "}"
@@ -19,10 +17,7 @@
       "{",
       "  \"method\": \"GET\",",
       "  \"path\": \"/hello\",",
-      "  \"response\": \"string\",",
-      "  \"request\": {",
-      "    \"message\": \"string\"",
-      "  }",
+      "  \"response\": \"string\"",
       "}"
     ],
     "description": "Creates am empty endpoint"

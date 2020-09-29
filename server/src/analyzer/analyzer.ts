@@ -11,13 +11,7 @@ import { ServiceConfig } from './config';
 export class Analyzer {
   private validConfig!: ServiceConfig;
 
-  /**
-   * Validates and loads a configuration file, only loads if the file is valid
-   *
-   * @param textDocument The text document representation of the .siarc.json
-   * @returns Return an array of errors
-   */
-  public validateAndLoadServiceConfig(textDocument: TextDocument): Diagnostic[] {
-    return [];
+  set config(text: string) {
+    this.validConfig = JSON.parse(text);
   }
 }
