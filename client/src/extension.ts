@@ -1,4 +1,4 @@
-import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands } from 'vscode';
+import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands, languages } from 'vscode';
 import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient';
 
 import * as fs from 'fs';
