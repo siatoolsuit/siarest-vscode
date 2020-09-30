@@ -5,13 +5,21 @@
   "type": "array",
   "additionalItems": false,
   "minItems": 1,
-  "defaultSnippet": {
-    
-  },
   "items": {
     "type": "object",
     "additionalProperties": false,
     "description": "A short service description",
+    "defaultSnippets": [
+      {
+        "label": "sia-service",
+        "description": "Creates a new service",
+        "body": {
+          "name": "${1:MyService}",
+          "baseUri": "${2:http://localhost:3000/api}",
+          "endpoints": []
+        }
+      }
+    ],
     "properties": {
       "name": {
         "type": "string",
@@ -32,6 +40,17 @@
           "type": "object",
           "description": "A description of a single endpoint of this service",
           "additionalProperties": false,
+          "defaultSnippets": [
+            {
+              "label": "sia-endpoint",
+              "description": "Creates a new endpoint for this service",
+              "body": {
+                "method": "${1|GET,POST,PUT,DELETE|}",
+                "path": "${2:/hello}",
+                "response": "${3:string}"
+              }
+            }
+          ],
           "properties": {
             "method": {
               "type": "string",

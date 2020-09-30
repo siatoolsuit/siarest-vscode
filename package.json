@@ -19,12 +19,6 @@
         "title": "sia: create config"
       }
     ],
-    "snippets": [
-      {
-        "language": "json",
-        "path": "./snippets.json"
-      }
-    ],
     "jsonValidation": [
       {
         "fileMatch": ".siarc.json",

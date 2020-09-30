@@ -36,7 +36,7 @@ connection.onCompletion(async (textDocumentPosition: CompletionParams, token: Ca
   // Create completion for the configuration file or a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith('.ts')) {
-    // TODO: Check if we have a valid config, depending on the language / library create the corresponding completion
+    // TODO: Check if we have a valid config
     return [];
   }
   return null;
