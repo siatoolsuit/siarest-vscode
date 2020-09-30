@@ -19,10 +19,10 @@
         "title": "sia: create config"
       }
     ],
-    "snippets": [
+    "jsonValidation": [
       {
-        "language": "json",
-        "path": "./snippets.json"
+        "fileMatch": ".siarc.json",
+        "url": "./server/src/analyzer/config/config.schema.json"
       }
     ]
   },

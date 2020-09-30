@@ -4,13 +4,11 @@ import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } f
 import * as fs from 'fs';
 import * as path from 'path';
 
-const configTemplate =
+const serviceConfigTemplate =
 `[
   {
     "name": "MyService",
     "baseUri": "http://localhost:3000/api",
-    "language": "MyLanguage",
-    "lib": "MyLib",
     "endpoints": [
       {
         "method": "POST",
@@ -40,7 +38,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     const filePath = Uri.file(path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json'));
     if (!fs.existsSync(filePath.fsPath)) {
       wsEdit.createFile(filePath, { ignoreIfExists: true });
-      wsEdit.insert(filePath, new Position(0, 0), configTemplate);
+      wsEdit.insert(filePath, new Position(0, 0), serviceConfigTemplate);
       await workspace.applyEdit(wsEdit);
       await workspace.saveAll();
       window.showTextDocument(await workspace.openTextDocument(filePath));
@@ -58,10 +56,9 @@ export async function activate(context: ExtensionContext): Promise<void> {
   };
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
-      { scheme: 'file', language: 'typescript' },
-      { scheme: 'untitled', language: 'typescript' },
-      { pattern: '**/.siarc.json' }
-    ],
+      'typescript',
+      { language: 'json', pattern: '**/.siarc.json' }
+    ]
   };
 
   client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);
