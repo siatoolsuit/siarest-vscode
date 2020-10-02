@@ -106,6 +106,41 @@ function validateConfigSemantic(textDoc: TextDocument, jsonDoc: JSONDocument): D
               } else if (baseURIValue) {
                 baseUris.push(baseURIValue);
               }
+            } else if (property.keyNode.value === 'endpoints' && property.valueNode && property.valueNode.children) {
+              // Check each endpoint whether a endpoint with method of POST or PUT has a request defined, and viceverse
+              for (const endpoint of property.valueNode.children) {
+                if (endpoint.type === 'object') {
+                  let method, request;
+                  for (const endpointProperty of endpoint.properties) {
+                    if (!endpointProperty.valueNode) {
+                      continue;
+                    }
+                    if (endpointProperty.keyNode.value === 'method') {
+                      method = endpointProperty.valueNode.value;
+                    } else if (endpointProperty.keyNode.value === 'request') {
+                      request = endpointProperty.valueNode;
+                    }
+                  }
+                  // There need to be the request field to be defined
+                  if (method === 'POST' || method === 'PUT') {
+                    if (!request) {
+                      result.push({
+                        message: 'Missing request field',
+                        range: { start: textDoc.positionAt(endpoint.offset), end: textDoc.positionAt(endpoint.offset)},
+                        severity: DiagnosticSeverity.Error
+                      });
+                    }
+                  } else if (method === 'GET' || method === 'DELETE') {
+                    if (request) {
+                      result.push({
+                        message: 'Unnecessary request field',
+                        range: { start: textDoc.positionAt(request.offset), end: textDoc.positionAt(request.offset) },
+                        severity: DiagnosticSeverity.Error
+                      });
+                    }
+                  }
+                }
+              }
             }
           }
         }
