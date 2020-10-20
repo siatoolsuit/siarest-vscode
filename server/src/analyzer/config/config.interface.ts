@@ -8,7 +8,5 @@ export interface Endpoint {
 export interface ServiceConfig {
   name: string,
   baseUri: string,
-  language: string,
-  lib: string,
   endpoints: Endpoint[],
 }

@@ -1,4 +1,4 @@
-import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands, languages } from 'vscode';
+import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands } from 'vscode';
 import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient';
 
 import * as fs from 'fs';
@@ -7,7 +7,7 @@ import * as path from 'path';
 const serviceConfigTemplate =
 `[
   {
-    "name": "MyService",
+    "name": "my-service",
     "baseUri": "http://localhost:3000/api",
     "endpoints": [
       {
@@ -47,7 +47,6 @@ export async function activate(context: ExtensionContext): Promise<void> {
       window.showInformationMessage('.siarc.json already exists');
     }
   });
-  context.subscriptions.push(disposable);
 
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
   const serverOptions: ServerOptions = {
@@ -57,13 +56,30 @@ export async function activate(context: ExtensionContext): Promise<void> {
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
       'typescript',
-      { language: 'json', pattern: '**/.siarc.json' }
+      { language: 'json', pattern: '**/.siarc.json' },
+      { language: 'json', pattern: '**/package.json' },
     ]
   };
 
   client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);
+  client.onReady().then(async () => {
+    // Load a package.json, only if it exists
+    let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json');
+    const packDoc = await workspace.openTextDocument(Uri.file(uri));
+    if (packDoc) {
+      client.sendNotification('load/packagejson', { uri, languageId: packDoc.languageId, version: packDoc.version, content: packDoc.getText() });
+    }
 
-  client.start();
+    // Load a .siarc.json, only if it exists
+    uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
+    const siaDoc = await workspace.openTextDocument(Uri.file(uri));
+    if (siaDoc) {
+      client.sendNotification('load/siarcjson', { uri, languageId: siaDoc.languageId, version: siaDoc.version, content: siaDoc.getText() });
+    }
+  });
+
+  context.subscriptions.push(disposable);
+  context.subscriptions.push(client.start());
 }
 
 export function deactivate(): Thenable<void> | undefined {

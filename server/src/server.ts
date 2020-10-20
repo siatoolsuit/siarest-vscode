@@ -5,6 +5,14 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Analyzer } from './analyzer';
 
 import * as siaSchema from './analyzer/config/config.schema.json';
+import { SemanticError } from './analyzer/handlers';
+
+interface DocNotification {
+  uri: string;
+  languageId: string;
+  version: number;
+  content: string;
+}
 
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -12,7 +20,6 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 let jsonLanguageService: LanguageService;
 
 const analyzer: Analyzer = new Analyzer();
-
 
 connection.onInitialize((params: InitializeParams) => {
   jsonLanguageService = getLanguageService({
@@ -50,20 +57,55 @@ connection.onHover(async (textDocumentPosition: HoverParams, token: Cancellation
   }
 });
 
+connection.onNotification('load/packagejson', async (packageJson: DocNotification) => {
+  loadPackageJson(packageJson.content);
+});
+
+connection.onNotification('load/siarcjson', async (siarc: DocNotification) => {
+  const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
+  const JsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
+  await validateConfig(textDoc, JsonDoc);
+});
+
 documents.onDidChangeContent(async (change) => {
   const textDoc = change.document;
   if (textDoc.languageId === 'json') {
-    const jsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
-    const syntaxErrors = await jsonLanguageService.doValidation(textDoc, jsonDoc, { schemaValidation: "error" }, siaSchema as JSONSchema);
-    const semanticErrors = validateConfigSemantic(textDoc, jsonDoc);
-    if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
-      analyzer.config = textDoc.getText();
+    if (textDoc.uri.endsWith('.siarc.json')) {
+      const jsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
+      await validateConfig(textDoc, jsonDoc);
+    } else if (textDoc.uri.endsWith('package.json')) {
+      loadPackageJson(textDoc.getText());
     }
-    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: semanticErrors });
   } else if (textDoc.languageId === 'typescript') {
-    // TODO:
+    const diagnostics: Diagnostic[] = [];
+    analyzer.analyzeEndpoints(textDoc.getText()).forEach((error: SemanticError) => {
+      diagnostics.push({
+        message: error.message,
+        range: { start: textDoc.positionAt(error.offset), end: textDoc.positionAt(error.offset) },
+        severity: DiagnosticSeverity.Error
+      });
+    });
+    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics });
   }
 });
+
+async function validateConfig(textDoc: TextDocument, jsonDoc: JSONDocument): Promise<void> {
+  const syntaxErrors = await jsonLanguageService.doValidation(textDoc, jsonDoc, { schemaValidation: "error" }, siaSchema as JSONSchema);
+  const semanticErrors = validateConfigSemantic(textDoc, jsonDoc);
+  if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
+    analyzer.config = textDoc.getText();
+  }
+  connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: semanticErrors });
+}
+
+function loadPackageJson(text: string) {
+  if (text) {  
+    const pack = JSON.parse(text);
+    if (pack.name) {
+      analyzer.currentService = pack.name;
+    }
+  }
+}
 
 function validateConfigSemantic(textDoc: TextDocument, jsonDoc: JSONDocument): Diagnostic[] {
   const result: Diagnostic[] = [];

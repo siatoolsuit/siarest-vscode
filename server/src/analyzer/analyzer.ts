@@ -1,17 +1,44 @@
-import { Diagnostic, TextDocumentPositionParams, CompletionItem } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-
 import { ServiceConfig } from './config';
+import { SemanticError, StaticAnalyzer, StaticExpressAnalyzer } from './handlers';
 
-/**
- * The {@link Analyzer} class is the entry point of the verification API.
- * Needs to be created as an object.
- *
- */
+const enum SupportedFrameworksLibraries {
+  Express,
+  None
+}
+
 export class Analyzer {
+  private staticEndpointAnalyzerHandlers: Record<string, StaticAnalyzer>;
+
   private validConfig!: ServiceConfig;
+  private currentServiceName!: string;
+
+  constructor() {
+    this.staticEndpointAnalyzerHandlers = {};
+    this.staticEndpointAnalyzerHandlers[SupportedFrameworksLibraries.Express] = new StaticExpressAnalyzer();
+  }
 
   set config(text: string) {
     this.validConfig = JSON.parse(text);
   }
+
+  set currentService(name: string) {
+    this.currentServiceName = name;
+  }
+
+  public analyzeEndpoints(text: string): SemanticError[] {
+    const framLib = this.detectFrameworkOrLibrary(text);
+    if (framLib !== SupportedFrameworksLibraries.None) {
+      return this.staticEndpointAnalyzerHandlers[framLib].analyze(text);
+    } else {
+      return [];
+    }
+  }
+
+  private detectFrameworkOrLibrary(text: string): SupportedFrameworksLibraries {
+    if (text.includes("from 'express'")) {
+      return SupportedFrameworksLibraries.Express;
+    } else {
+      return SupportedFrameworksLibraries.None;
+    }
+  } 
 }
