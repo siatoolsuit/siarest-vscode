@@ -1,13 +1,19 @@
-import { SemanticError, StaticAnalyzer } from '../StaticAnalyzer';
+import * as ts from 'typescript';
+import { SemanticError, StaticAnalyzer } from '../../types';
 
-// TODO: Hier gehts weiter, mit pattern versuche das app object oder wie auch immer es heißt zu erkennen und dann zu schauen ob dort routen bestimmt wurden und ob diese falsch sind
-export class StaticExpressAnalyzer implements StaticAnalyzer {
+export class StaticExpressAnalyzer extends StaticAnalyzer {
   analyze(text: string): SemanticError[] {
     const result: SemanticError[] = [];
-    result.push({
-      offset: 0,
-      message: 'Hello World'
-    });
+
+    if (this.currentConfig) {
+      // 
+    } else {
+      result.push({
+        message: `Missing configuration for service ${this.currentServiceName} in .siarc.json`,
+        offset: 0
+      });
+    }
+
     return result;
   }
 }

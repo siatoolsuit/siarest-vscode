@@ -47,6 +47,13 @@ export async function activate(context: ExtensionContext): Promise<void> {
       window.showInformationMessage('.siarc.json already exists');
     }
   });
+  context.subscriptions.push(disposable);
+
+  // Try to load the a package.json and a .siarc.json
+  let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json');
+  const packageJson = fs.readFileSync(uri).toString();
+  uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
+  const siarc = fs.readFileSync(uri).toString();
 
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
   const serverOptions: ServerOptions = {
@@ -58,28 +65,16 @@ export async function activate(context: ExtensionContext): Promise<void> {
       'typescript',
       { language: 'json', pattern: '**/.siarc.json' },
       { language: 'json', pattern: '**/package.json' },
-    ]
+    ],
+    // Send the initialized package.json and .siarc.json, only if they exists
+    initializationOptions: {
+      'siarcTextDoc': { uri, languageId: 'json', version: 1, content: siarc } || '',
+      'packageJson': packageJson || '',
+    },
   };
 
   client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);
-  client.onReady().then(async () => {
-    // Load a package.json, only if it exists
-    let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json');
-    const packDoc = await workspace.openTextDocument(Uri.file(uri));
-    if (packDoc) {
-      client.sendNotification('load/packagejson', { uri, languageId: packDoc.languageId, version: packDoc.version, content: packDoc.getText() });
-    }
-
-    // Load a .siarc.json, only if it exists
-    uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
-    const siaDoc = await workspace.openTextDocument(Uri.file(uri));
-    if (siaDoc) {
-      client.sendNotification('load/siarcjson', { uri, languageId: siaDoc.languageId, version: siaDoc.version, content: siaDoc.getText() });
-    }
-  });
-
-  context.subscriptions.push(disposable);
-  context.subscriptions.push(client.start());
+  client.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {
