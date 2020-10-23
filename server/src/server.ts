@@ -93,7 +93,7 @@ async function validateConfig(textDoc: TextDocument, jsonDoc: JSONDocument): Pro
 
 async function validateTypescript(textDoc: TextDocument): Promise<void> {
   const diagnostics: Diagnostic[] = [];
-  analyzer.analyzeEndpoints(textDoc.getText()).forEach((error: SemanticError) => {
+  analyzer.analyzeEndpoints(textDoc.uri, textDoc.getText()).forEach((error: SemanticError) => {
     diagnostics.push({
       message: error.message,
       range: { start: textDoc.positionAt(error.offset), end: textDoc.positionAt(error.offset) },
