@@ -1,7 +1,7 @@
 import { ServiceConfig } from './config';
 
 export interface SemanticError {
-  offset: number;
+  position: { start: number, end: number };
   message: string;
 }
 

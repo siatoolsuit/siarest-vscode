@@ -96,7 +96,7 @@ async function validateTypescript(textDoc: TextDocument): Promise<void> {
   analyzer.analyzeEndpoints(textDoc.uri, textDoc.getText()).forEach((error: SemanticError) => {
     diagnostics.push({
       message: error.message,
-      range: { start: textDoc.positionAt(error.offset), end: textDoc.positionAt(error.offset) },
+      range: { start: textDoc.positionAt(error.position.start), end: textDoc.positionAt(error.position.end) },
       severity: DiagnosticSeverity.Error
     });
   });
