@@ -1,5 +1,5 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema",
+  "$schema": "http://json-schema.org/draft-04/schema",
   "title": "JSON Schema for SIA-REST, a statical rest api validator",
   "description": "This tool checks for the correct use of rest API´s across a distributed microservice application. First define a list of services used in your application",
   "type": "array",
@@ -14,7 +14,7 @@
         "label": "sia-service",
         "description": "Creates a new service",
         "body": {
-          "name": "${1:MyService}",
+          "name": "${1:my-service}",
           "baseUri": "${2:http://localhost:3000/api}",
           "endpoints": []
         }
@@ -24,6 +24,7 @@
       "name": {
         "type": "string",
         "minLength": 5,
+        "pattern": "^(?:@[a-z0-9-*~][a-z0-9-*._~]*/)?[a-z0-9-~][a-z0-9-._~]*$",
         "description": "The name of this service, e.g. CostumerService/OrderService/DeviceService etc."
       },
       "baseUri": {
@@ -55,24 +56,7 @@
             "method": {
               "type": "string",
               "description": "The HTTP Method of this endpoint",
-              "oneOf": [
-                {
-                  "const": "GET",
-                  "description": "Typically used for reading"
-                },
-                {
-                  "const": "POST",
-                  "description": "Typically used for creating"
-                },
-                {
-                  "const": "PUT",
-                  "description": "Typically used for updating"
-                },
-                {
-                  "const": "DELETE",
-                  "description": "Typically used for deleting"
-                }
-              ]
+              "enum": [ "GET", "POST", "PUT", "DELETE" ]
             },
             "path": {
               "type": "string",
@@ -85,20 +69,7 @@
                 {
                   "type": "string",
                   "description": "Use a simple type as return type.",
-                  "oneOf": [
-                    {
-                      "const": "string",
-                      "description": "This endpoint returns a string"
-                    },
-                    {
-                      "const": "number",
-                      "description": "This endpoint returns a number (integer or double)"
-                    },
-                    {
-                      "const": "boolean",
-                      "description": "This endpoint returns a boolean"
-                    }
-                  ]
+                  "enum": [ "string", "number", "boolean" ]
                 },
                 {
                   "type": "object",
@@ -124,6 +95,6 @@
         }
       }
     },
-    "required": [ "name", "baseUri", "endpoints" ]
+    "required": [ "name", "baseUri" ]
   }
 }

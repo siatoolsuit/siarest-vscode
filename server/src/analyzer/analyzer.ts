@@ -1,17 +1,45 @@
-import { Diagnostic, TextDocumentPositionParams, CompletionItem } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-
 import { ServiceConfig } from './config';
+import { StaticExpressAnalyzer } from './handlers';
+import { SemanticError, StaticAnalyzer } from './types';
 
-/**
- * The {@link Analyzer} class is the entry point of the verification API.
- * Needs to be created as an object.
- *
- */
 export class Analyzer {
-  private validConfig!: ServiceConfig;
+  private validConfig: ServiceConfig[] = [];
+
+  private currentServiceName!: string;
+  private staticEndpointAnalyzerHandler!: StaticAnalyzer;
 
   set config(text: string) {
     this.validConfig = JSON.parse(text);
   }
+
+  set currentService(name: string) {
+    this.currentServiceName = name;
+  }
+
+  public analyzeEndpoints(uri: string, text: string): SemanticError[] {
+    if (this.staticEndpointAnalyzerHandler) {
+      return this.staticEndpointAnalyzerHandler.analyze(uri, text);
+    } else {
+      return [];
+    }
+  }
+
+  public detectFrameworkOrLibrary(packJ: any): void {
+    // Extract the list of all compile time dependencies and look for supported frameworks and libraries
+    const deps = packJ.dependencies;
+    for (const dep of Object.keys(deps)) {
+      if (dep.includes('express')) {
+        // Try to extract the configuration for this service by name
+        let currentServiceConfig;
+        for (const config of this.validConfig) {
+          if (config.name === this.currentServiceName) {
+            currentServiceConfig = config;
+            break;
+          }
+        }
+        this.staticEndpointAnalyzerHandler = new StaticExpressAnalyzer(this.currentServiceName, currentServiceConfig);
+        break;
+      }
+    }
+  } 
 }
