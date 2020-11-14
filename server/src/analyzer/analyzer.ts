@@ -10,15 +10,24 @@ export class Analyzer {
 
   set config(text: string) {
     this.validConfig = JSON.parse(text);
+    // Load the config to all analyzer handler
+    if (this.staticEndpointAnalyzerHandler) {
+      for (const config of this.validConfig) {
+        if (config.name === this.staticEndpointAnalyzerHandler.serviceName) {
+          this.staticEndpointAnalyzerHandler.config = config;
+          break;
+        }
+      }
+    }
   }
 
   set currentService(name: string) {
     this.currentServiceName = name;
   }
 
-  public analyzeEndpoints(uri: string, text: string): SemanticError[] {
+  public analyzeEndpoints(uri: string): SemanticError[] {
     if (this.staticEndpointAnalyzerHandler) {
-      return this.staticEndpointAnalyzerHandler.analyze(uri, text);
+      return this.staticEndpointAnalyzerHandler.analyze(uri);
     } else {
       return [];
     }

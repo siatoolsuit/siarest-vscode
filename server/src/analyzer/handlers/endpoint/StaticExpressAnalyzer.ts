@@ -1,13 +1,28 @@
-import { CallExpression, createSourceFile, Expression, ExpressionStatement, Identifier, ImportDeclaration, NodeArray, PropertyAccessExpression, ScriptTarget, StringLiteral, SyntaxKind, VariableStatement } from 'typescript';
+import { ArrowFunction, Block, CallExpression, ConciseBody, createProgram, Expression, ExpressionStatement, Identifier, ImportDeclaration, NodeArray, PropertyAccessExpression, StringLiteral, SyntaxKind, TypeFormatFlags, TypePredicateKind, VariableStatement } from 'typescript';
 import { Endpoint } from '../../config';
 import { SemanticError, StaticAnalyzer } from '../../types';
 
 export class StaticExpressAnalyzer extends StaticAnalyzer {
-  private methods: string[] = [ 'get', 'post', 'put', 'delete' ];
+  private httpMethods: string[] = [ 'get', 'post', 'put', 'delete' ];
+  private sendMethods: string[] = [ 'send', 'json' ];
 
-  public analyze(uri:string, text: string): SemanticError[] {
+  public analyze(uri:string): SemanticError[] {
+    // Check uri format
+    if (uri.startsWith('file:///')) {
+      uri = uri.replace('file:///', '');
+    }
+    if (uri.includes('%3A')) {
+      uri = uri.replace('%3A', ':');
+    }
+
     // Check if the current file has some express imports, otherwise this file seems not to use the express api
-    const tsFile = createSourceFile(uri, text, ScriptTarget.ES2015, true);
+    const programm = createProgram([uri], {});
+    const checker = programm.getTypeChecker();
+    const tsFile = programm.getSourceFile(uri);
+    if (!tsFile) {
+      return [];
+    }
+
     const importStatementList: ImportDeclaration[] = tsFile.statements.filter((s) => s.kind === SyntaxKind.ImportDeclaration) as ImportDeclaration[];
     if (!this.hasExpressImportStatement(importStatementList)) {
       return [];
@@ -27,7 +42,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             if (callExpression.expression.kind === SyntaxKind.PropertyAccessExpression) {
               // Check if the current expression is a express route declaration like app.get(...)
               const propertyAccessExpression = callExpression.expression as PropertyAccessExpression;
-              if (propertyAccessExpression.expression.getText() === expressVarName && this.methods.includes(propertyAccessExpression.name.text)) {
+              if (propertyAccessExpression.expression.getText() === expressVarName && this.httpMethods.includes(propertyAccessExpression.name.text)) {
                 const method = propertyAccessExpression.name.getText().toUpperCase();
                 const { path, inlineFunction } = this.extractPathAndMethodImplementationFromArguments(callExpression.arguments);
                 // Validates the defined endpoint with the service configuration
@@ -39,9 +54,58 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
                       position: { start: propertyAccessExpression.getStart(), end: propertyAccessExpression.end }
                     });
                   }
+                  // Validate the return value of the inner function
+                  const responseVarName = this.extractResponseVariableName(inlineFunction);
+                  const returnValue = this.extractReturnValueFromFunction(responseVarName, inlineFunction.body);
+                  if (returnValue) {
+                    if (typeof endpoint.response === 'string') {
+                      if (endpoint.response === 'string' && returnValue.kind !== SyntaxKind.StringLiteral) {
+                        result.push({
+                          message: 'Return value needs to be a string.',
+                          position: { start: returnValue.getStart(), end: returnValue.end }
+                        });
+                      } else if (endpoint.response === 'number' && returnValue.kind !== SyntaxKind.NumericLiteral) {
+                        result.push({
+                          message: 'Return value needs to be a number.',
+                          position: { start: returnValue.getStart(), end: returnValue.end }
+                        });
+                      } else if (endpoint.response === 'boolean' && (returnValue.kind !== SyntaxKind.TrueKeyword && returnValue.kind !== SyntaxKind.FalseKeyword)) {
+                        result.push({
+                          message: 'Return value needs to be true or false.',
+                          position: { start: returnValue.getStart(), end: returnValue.end }
+                        });
+                      }
+                    } else if (typeof endpoint.response === 'object') {
+                      // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
+                      const responseType = endpoint.response;
+                      if (returnValue.kind === SyntaxKind.Identifier || returnValue.kind === SyntaxKind.ObjectLiteralExpression) {
+                        const type = checker.getTypeAtLocation(returnValue);
+                        // Normalize type strings and compare them
+                        const normalTypeInCodeString = checker.typeToString(type, returnValue).replace(/[ ;]/g, '');
+                        const normalTypeInConfigString = JSON.stringify(responseType).replace(/['",]/g, '');
+                        if (normalTypeInCodeString !== normalTypeInConfigString) {
+                          result.push({
+                            message: `Wrong type.\nExpected:\n${JSON.stringify(responseType)}\nActual:\n${checker.typeToString(type, returnValue)}`,
+                            position: { start: returnValue.getStart(), end: returnValue.end }
+                          });
+                        }
+                      } else {
+                        result.push({
+                          message: `Wrong type.\nExpected:\n${JSON.stringify(responseType)}\nActual:\n${returnValue.getText()}`,
+                          position: { start: returnValue.getStart(), end: returnValue.end }
+                        });
+                      }
+                    }
+                  } else {
+                    result.push({
+                      message: 'Missing return value for endpoint.',
+                      position: { start: callExpression.getStart(), end: callExpression.end }
+                    });
+                  }
+                  // TODO: Check the body, only if this function is a post or put
                 } else {
                   result.push({
-                    message: 'Endpoint is not defined for this service',
+                    message: 'Endpoint is not defined for this service.',
                     position: { start: callExpression.getStart(), end: callExpression.end }
                   });
                 }
@@ -52,7 +116,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       }
     } else {
       result.push({
-        message: `Missing configuration for service ${this.currentServiceName} in .siarc.json`,
+        message: `Missing configuration for service ${this.currentServiceName} in .siarc.json.`,
         position: { start: 0, end: 0 } 
       });
     }
@@ -90,12 +154,17 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     }
     return '';
   }
+  
+  private extractResponseVariableName(inlineFunction: ArrowFunction): string {
+    const parameters = inlineFunction.parameters;
+    if (parameters.length === 2) {
+      return parameters[1].getText();
+    }
+    return '';
+  }
 
-  private extractPathAndMethodImplementationFromArguments(args: NodeArray<Expression>): any {
-    const result = {
-      path: '',
-      inlineFunction: {}
-    };
+  private extractPathAndMethodImplementationFromArguments(args: NodeArray<Expression>): { path: string, inlineFunction: ArrowFunction } {
+    const result: any = {};
     for (const node of args) {
       if (node.kind === SyntaxKind.StringLiteral && args.indexOf(node) === 0) {
         result.path = (node as StringLiteral).text;
@@ -111,6 +180,27 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       for (const endpoint of this.currentConfig.endpoints) {
         if (endpoint.path === path) {
           return endpoint;
+        }
+      }
+    }
+  }
+
+  private extractReturnValueFromFunction(responseVarName: string, functionBody: ConciseBody): Expression | undefined {
+    let statementList: ExpressionStatement[] = [];
+    switch (functionBody.kind) {
+      case SyntaxKind.Block:
+        statementList = (functionBody as Block).statements.filter((s) => s.kind === SyntaxKind.ExpressionStatement) as ExpressionStatement[];
+        break;
+    }
+    for (const statement of statementList) {
+      if (statement.expression.kind === SyntaxKind.CallExpression) {
+        const callExpression = statement.expression as CallExpression;
+        if (callExpression.expression.kind === SyntaxKind.PropertyAccessExpression) {
+          // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
+          const propertyAccessExpression = callExpression.expression as PropertyAccessExpression;
+          if (propertyAccessExpression.expression.getText() === responseVarName && this.sendMethods.includes(propertyAccessExpression.name.text)) {
+            return callExpression.arguments[0];
+          }
         }
       }
     }

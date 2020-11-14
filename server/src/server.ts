@@ -15,7 +15,7 @@ const analyzer: Analyzer = new Analyzer();
 
 connection.onInitialize(async (params: InitializeParams) => {
   jsonLanguageService = getLanguageService({
-    clientCapabilities: params.capabilities 
+    clientCapabilities: params.capabilities
   });
 
   const result: InitializeResult = {
@@ -83,17 +83,18 @@ documents.onDidChangeContent(async (change) => {
 });
 
 async function validateConfig(textDoc: TextDocument, jsonDoc: JSONDocument): Promise<void> {
-  const syntaxErrors = await jsonLanguageService.doValidation(textDoc, jsonDoc, { schemaValidation: "error" }, siaSchema as JSONSchema);
+  const syntaxErrors = await jsonLanguageService.doValidation(textDoc, jsonDoc, { schemaValidation: "error", trailingCommas: 'error' }, siaSchema as JSONSchema);
   const semanticErrors = validateConfigSemantic(textDoc, jsonDoc);
   if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
     analyzer.config = textDoc.getText();
+    //TODO: Revaluate the typescript files
   }
   connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: semanticErrors });
 }
 
 async function validateTypescript(textDoc: TextDocument): Promise<void> {
   const diagnostics: Diagnostic[] = [];
-  analyzer.analyzeEndpoints(textDoc.uri, textDoc.getText()).forEach((error: SemanticError) => {
+  analyzer.analyzeEndpoints(textDoc.uri).forEach((error: SemanticError) => {
     diagnostics.push({
       message: error.message,
       range: { start: textDoc.positionAt(error.position.start), end: textDoc.positionAt(error.position.end) },
