@@ -6,6 +6,8 @@ import { Analyzer, SemanticError } from './analyzer';
 
 import * as siaSchema from './analyzer/config/config.schema.json';
 
+// TODO: Timeouts hinzufügen um und ein delay um das validieren nach jedem tastenanschlag zu verhindern, holt performance raus 
+
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
@@ -67,7 +69,15 @@ documents.onDidChangeContent(async (change) => {
   if (textDoc.languageId === 'json') {
     if (textDoc.uri.endsWith('.siarc.json')) {
       const jsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
-      await validateConfig(textDoc, jsonDoc);
+      const success: boolean = await validateConfig(textDoc, jsonDoc);
+      if (success) {
+        // Revalidate all typescript files
+        documents.all().forEach(async (doc: TextDocument) => {
+          if (doc.languageId === 'typescript') {
+            await validateTypescript(doc);
+          }
+        });
+      }
     } else if (textDoc.uri.endsWith('package.json')) {
       loadPackageJson(textDoc.getText());
       // Revalidate all typescript files
@@ -82,14 +92,19 @@ documents.onDidChangeContent(async (change) => {
   }
 });
 
-async function validateConfig(textDoc: TextDocument, jsonDoc: JSONDocument): Promise<void> {
+documents.onDidClose((event) => {
+  connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
+});
+
+async function validateConfig(textDoc: TextDocument, jsonDoc: JSONDocument): Promise<boolean> {
   const syntaxErrors = await jsonLanguageService.doValidation(textDoc, jsonDoc, { schemaValidation: "error", trailingCommas: 'error' }, siaSchema as JSONSchema);
   const semanticErrors = validateConfigSemantic(textDoc, jsonDoc);
   if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
     analyzer.config = textDoc.getText();
-    //TODO: Revaluate the typescript files
+    return true;
   }
   connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: semanticErrors });
+  return false;
 }
 
 async function validateTypescript(textDoc: TextDocument): Promise<void> {

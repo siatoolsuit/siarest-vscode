@@ -1,4 +1,4 @@
-import { ArrowFunction, Block, CallExpression, ConciseBody, createProgram, Expression, ExpressionStatement, Identifier, ImportDeclaration, NodeArray, PropertyAccessExpression, StringLiteral, SyntaxKind, TypeFormatFlags, TypePredicateKind, VariableStatement } from 'typescript';
+import { ArrowFunction, BindingName, Block, CallExpression, ConciseBody, createProgram, Expression, ExpressionStatement, Identifier, ImportDeclaration, NodeArray, PropertyAccessExpression, StringLiteral, SyntaxKind, VariableStatement } from 'typescript';
 import { Endpoint } from '../../config';
 import { SemanticError, StaticAnalyzer } from '../../types';
 
@@ -6,6 +6,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
   private httpMethods: string[] = [ 'get', 'post', 'put', 'delete' ];
   private sendMethods: string[] = [ 'send', 'json' ];
 
+  // TODO: Perfmance verbessern, dafür alle wichtigen variablen auf einmal extrahieren und nicht tausendmal drüber rödeln
   public analyze(uri:string): SemanticError[] {
     // Check uri format
     if (uri.startsWith('file:///')) {
@@ -102,7 +103,29 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
                       position: { start: callExpression.getStart(), end: callExpression.end }
                     });
                   }
-                  // TODO: Check the body, only if this function is a post or put
+                  // Check the body, only if this function is a post or put
+                  if (method === 'POST' || method === 'PUT') {
+                    const requestType = endpoint.request;
+                    const requestVarName = this.extractRequestVariableName(inlineFunction);
+                    const body = this.extractBodyFromFunction(requestVarName, inlineFunction.body);
+                    if (body) {
+                      const type = checker.getTypeAtLocation(body);
+                      // Normalize type strings and compare them
+                      const normalTypeInCodeString = checker.typeToString(type, returnValue).replace(/[ ;]/g, '');
+                      const normalTypeInConfigString = JSON.stringify(requestType).replace(/['",]/g, '');
+                      if (normalTypeInCodeString !== normalTypeInConfigString) {
+                        result.push({
+                          message: `Wrong type.\nExpected:\n${JSON.stringify(requestType)}\nActual:\n${checker.typeToString(type, returnValue)}`,
+                          position: { start: body.getStart(), end: body.end }
+                        });
+                      }
+                    } else {
+                      result.push({
+                        message: `Endpoint with method "${method}" has a missing body handling.`,
+                        position: { start: callExpression.getStart(), end: callExpression.end }
+                      });
+                    }
+                  }
                 } else {
                   result.push({
                     message: 'Endpoint is not defined for this service.',
@@ -163,6 +186,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return '';
   }
 
+  private extractRequestVariableName(inlineFunction: ArrowFunction): string {
+    const parameters = inlineFunction.parameters;
+    if (parameters.length === 2) {
+      return parameters[0].getText();
+    }
+    return '';
+  }
+
   private extractPathAndMethodImplementationFromArguments(args: NodeArray<Expression>): { path: string, inlineFunction: ArrowFunction } {
     const result: any = {};
     for (const node of args) {
@@ -200,6 +231,29 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
           const propertyAccessExpression = callExpression.expression as PropertyAccessExpression;
           if (propertyAccessExpression.expression.getText() === responseVarName && this.sendMethods.includes(propertyAccessExpression.name.text)) {
             return callExpression.arguments[0];
+          }
+        }
+      }
+    }
+  }
+
+  private extractBodyFromFunction(requestVarName: string, functionBody: ConciseBody): BindingName | undefined {
+    let statementList: VariableStatement[] = [];
+    switch (functionBody.kind) {
+      case SyntaxKind.Block:
+        statementList = (functionBody as Block).statements.filter((s) => s.kind === SyntaxKind.VariableStatement) as VariableStatement[];
+        break;
+    }
+    for (const statement of statementList) {
+      for (const varDecl  of statement.declarationList.declarations) {
+        if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
+          const callExpression = varDecl.initializer as CallExpression;
+          if (callExpression.expression.kind === SyntaxKind.PropertyAccessExpression) {
+            // Check if the current expression is a express body declaration like req.body()
+            const propertyAccessExpression = callExpression.expression as PropertyAccessExpression;
+            if (propertyAccessExpression.expression.getText() === requestVarName && propertyAccessExpression.name.text === 'body') {
+              return varDecl.name;
+            }
           }
         }
       }
