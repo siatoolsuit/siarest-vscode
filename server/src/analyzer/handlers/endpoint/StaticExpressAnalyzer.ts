@@ -1,13 +1,37 @@
-import { ArrowFunction, BindingName, Block, CallExpression, ConciseBody, createProgram, Expression, ExpressionStatement, Identifier, ImportDeclaration, NodeArray, PropertyAccessExpression, StringLiteral, SyntaxKind, VariableStatement } from 'typescript';
+import {
+  ArrowFunction,
+  BindingName,
+  Block,
+  CallExpression,
+  ConciseBody,
+  createNodeArray,
+  createProgram,
+  Expression,
+  ExpressionStatement,
+  Identifier,
+  ImportDeclaration,
+  NodeArray,
+  PropertyAccessExpression,
+  Statement,
+  StringLiteral,
+  SyntaxKind,
+  VariableStatement,
+} from 'typescript';
 import { Endpoint } from '../../config';
 import { SemanticError, StaticAnalyzer } from '../../types';
 
-export class StaticExpressAnalyzer extends StaticAnalyzer {
-  private httpMethods: string[] = [ 'get', 'post', 'put', 'delete' ];
-  private sendMethods: string[] = [ 'send', 'json' ];
+interface EndpointExpression {
+  readonly expr: CallExpression;
+  readonly method: string;
+  readonly path: string;
+  readonly inlineFunction: ArrowFunction;
+}
 
-  // TODO: Perfmance verbessern, dafür alle wichtigen variablen auf einmal extrahieren und nicht tausendmal drüber rödeln
-  public analyze(uri:string): SemanticError[] {
+export class StaticExpressAnalyzer extends StaticAnalyzer {
+  private httpMethods: string[] = ['get', 'post', 'put', 'delete'];
+  private sendMethods: string[] = ['send', 'json'];
+
+  public analyze(uri: string): SemanticError[] {
     // Check uri format
     if (uri.startsWith('file:///')) {
       uri = uri.replace('file:///', '');
@@ -16,185 +40,272 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       uri = uri.replace('%3A', ':');
     }
 
-    // Check if the current file has some express imports, otherwise this file seems not to use the express api
-    const programm = createProgram([uri], {});
-    const checker = programm.getTypeChecker();
-    const tsFile = programm.getSourceFile(uri);
+    // Get open file or open it
+    let program = this.openFiles[uri];
+    if (!program) {
+      program = createProgram([uri], {});
+      this.openFiles[uri] = program;
+    }
+    const checker = program.getTypeChecker();
+    const tsFile = program.getSourceFile(uri);
+
     if (!tsFile) {
       return [];
     }
 
-    const importStatementList: ImportDeclaration[] = tsFile.statements.filter((s) => s.kind === SyntaxKind.ImportDeclaration) as ImportDeclaration[];
-    if (!this.hasExpressImportStatement(importStatementList)) {
+    // Extract all higher functions like express import, app declarations and endpoint declarations
+    const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile.statements);
+
+    if (!expressImport) {
       return [];
     }
 
     const result: SemanticError[] = [];
     if (this.currentConfig) {
-      // Serach for the declaration of the express app variable and look for route definitions
-      const variableStatementList: VariableStatement[] = tsFile.statements.filter((s) => s.kind === SyntaxKind.VariableStatement) as VariableStatement[];
-      const expressVarName = this.extractExpressVariableName(variableStatementList);
-      if (expressVarName) {
-        const expressionStatementList: ExpressionStatement[] = tsFile.statements.filter((s) => s.kind === SyntaxKind.ExpressionStatement) as ExpressionStatement[];
-        for (const expressionStatement of expressionStatementList) {
-          // Check if this expression is a function call
-          if (expressionStatement.expression.kind === SyntaxKind.CallExpression) {
-            const callExpression = expressionStatement.expression as CallExpression;
-            if (callExpression.expression.kind === SyntaxKind.PropertyAccessExpression) {
-              // Check if the current expression is a express route declaration like app.get(...)
-              const propertyAccessExpression = callExpression.expression as PropertyAccessExpression;
-              if (propertyAccessExpression.expression.getText() === expressVarName && this.httpMethods.includes(propertyAccessExpression.name.text)) {
-                const method = propertyAccessExpression.name.getText().toUpperCase();
-                const { path, inlineFunction } = this.extractPathAndMethodImplementationFromArguments(callExpression.arguments);
-                // Validates the defined endpoint with the service configuration
-                const endpoint = this.findEndpointForPath(path);
-                if (endpoint) {
-                  if (endpoint.method !== method) {
+      if (endpointExpressions.length > 0) {
+        for (const endpointExprs of endpointExpressions) {
+          const expr = endpointExprs.expr;
+          const endpoint = this.findEndpointForPath(endpointExprs.path);
+          // Validates the defined endpoint with the service configuration
+          if (endpoint) {
+            if (endpoint.method !== endpointExprs.method) {
+              result.push({
+                message: `Wrong HTTP method use ${endpoint.method} instead.`,
+                position: {
+                  start: expr.expression.getStart(),
+                  end: expr.expression.end,
+                },
+              });
+            }
+
+            const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
+            // Validate the return value of the inner function
+            if (resVal) {
+              const resConf = endpoint.response;
+              if (typeof resConf === 'string') {
+                if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
+                  result.push({
+                    message: 'Return value needs to be a string.',
+                    position: { start: resVal.getStart(), end: resVal.end },
+                  });
+                } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
+                  result.push({
+                    message: 'Return value needs to be a number.',
+                    position: { start: resVal.getStart(), end: resVal.end },
+                  });
+                } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
+                  result.push({
+                    message: 'Return value needs to be true or false.',
+                    position: { start: resVal.getStart(), end: resVal.end },
+                  });
+                }
+              } else if (typeof resConf === 'object') {
+                // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
+                const resType = endpoint.response;
+                if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
+                  const type = checker.getTypeAtLocation(resVal);
+                  // Normalize type strings and compare them
+                  const normalTypeInCodeString = checker.typeToString(type, expr).replace(/[ ;]/g, '');
+                  const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
+                  if (normalTypeInCodeString !== normalTypeInConfigString) {
                     result.push({
-                      message: `Wrong HTTP method use ${endpoint.method} instead.`,
-                      position: { start: propertyAccessExpression.getStart(), end: propertyAccessExpression.end }
+                      message: `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${checker.typeToString(type, expr)}`,
+                      position: { start: resVal.getStart(), end: resVal.end },
                     });
-                  }
-                  // Validate the return value of the inner function
-                  const responseVarName = this.extractResponseVariableName(inlineFunction);
-                  const returnValue = this.extractReturnValueFromFunction(responseVarName, inlineFunction.body);
-                  if (returnValue) {
-                    if (typeof endpoint.response === 'string') {
-                      if (endpoint.response === 'string' && returnValue.kind !== SyntaxKind.StringLiteral) {
-                        result.push({
-                          message: 'Return value needs to be a string.',
-                          position: { start: returnValue.getStart(), end: returnValue.end }
-                        });
-                      } else if (endpoint.response === 'number' && returnValue.kind !== SyntaxKind.NumericLiteral) {
-                        result.push({
-                          message: 'Return value needs to be a number.',
-                          position: { start: returnValue.getStart(), end: returnValue.end }
-                        });
-                      } else if (endpoint.response === 'boolean' && (returnValue.kind !== SyntaxKind.TrueKeyword && returnValue.kind !== SyntaxKind.FalseKeyword)) {
-                        result.push({
-                          message: 'Return value needs to be true or false.',
-                          position: { start: returnValue.getStart(), end: returnValue.end }
-                        });
-                      }
-                    } else if (typeof endpoint.response === 'object') {
-                      // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
-                      const responseType = endpoint.response;
-                      if (returnValue.kind === SyntaxKind.Identifier || returnValue.kind === SyntaxKind.ObjectLiteralExpression) {
-                        const type = checker.getTypeAtLocation(returnValue);
-                        // Normalize type strings and compare them
-                        const normalTypeInCodeString = checker.typeToString(type, returnValue).replace(/[ ;]/g, '');
-                        const normalTypeInConfigString = JSON.stringify(responseType).replace(/['",]/g, '');
-                        if (normalTypeInCodeString !== normalTypeInConfigString) {
-                          result.push({
-                            message: `Wrong type.\nExpected:\n${JSON.stringify(responseType)}\nActual:\n${checker.typeToString(type, returnValue)}`,
-                            position: { start: returnValue.getStart(), end: returnValue.end }
-                          });
-                        }
-                      } else {
-                        result.push({
-                          message: `Wrong type.\nExpected:\n${JSON.stringify(responseType)}\nActual:\n${returnValue.getText()}`,
-                          position: { start: returnValue.getStart(), end: returnValue.end }
-                        });
-                      }
-                    }
-                  } else {
-                    result.push({
-                      message: 'Missing return value for endpoint.',
-                      position: { start: callExpression.getStart(), end: callExpression.end }
-                    });
-                  }
-                  // Check the body, only if this function is a post or put
-                  if (method === 'POST' || method === 'PUT') {
-                    const requestType = endpoint.request;
-                    const requestVarName = this.extractRequestVariableName(inlineFunction);
-                    const body = this.extractBodyFromFunction(requestVarName, inlineFunction.body);
-                    if (body) {
-                      const type = checker.getTypeAtLocation(body);
-                      // Normalize type strings and compare them
-                      const normalTypeInCodeString = checker.typeToString(type, returnValue).replace(/[ ;]/g, '');
-                      const normalTypeInConfigString = JSON.stringify(requestType).replace(/['",]/g, '');
-                      if (normalTypeInCodeString !== normalTypeInConfigString) {
-                        result.push({
-                          message: `Wrong type.\nExpected:\n${JSON.stringify(requestType)}\nActual:\n${checker.typeToString(type, returnValue)}`,
-                          position: { start: body.getStart(), end: body.end }
-                        });
-                      }
-                    } else {
-                      result.push({
-                        message: `Endpoint with method "${method}" has a missing body handling.`,
-                        position: { start: callExpression.getStart(), end: callExpression.end }
-                      });
-                    }
                   }
                 } else {
                   result.push({
-                    message: 'Endpoint is not defined for this service.',
-                    position: { start: callExpression.getStart(), end: callExpression.end }
+                    message: `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`,
+                    position: { start: resVal.getStart(), end: resVal.end },
                   });
                 }
               }
+            } else {
+              result.push({
+                message: 'Missing return value for endpoint.',
+                position: { start: expr.getStart(), end: expr.end },
+              });
             }
+
+            // Check the body, only if this function is a post or put
+            if (endpointExprs.method === 'POST' || endpointExprs.method === 'PUT') {
+              const reqType = endpoint.request;
+              if (reqVal) {
+                const type = checker.getTypeAtLocation(reqVal);
+                // Normalize type strings and compare them
+                const normalTypeInCodeString = checker.typeToString(type, expr).replace(/[ ;]/g, '');
+                const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
+                if (normalTypeInCodeString !== normalTypeInConfigString) {
+                  result.push({
+                    message: `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${checker.typeToString(type, expr)}`,
+                    position: { start: reqVal.getStart(), end: reqVal.end },
+                  });
+                }
+              } else {
+                result.push({
+                  message: `Endpoint with method "${endpointExprs.method}" has a missing body handling.`,
+                  position: { start: expr.getStart(), end: expr.end },
+                });
+              }
+            }
+          } else {
+            result.push({
+              message: 'Endpoint is not defined for this service.',
+              position: { start: expr.getStart(), end: expr.end },
+            });
           }
         }
       }
     } else {
       result.push({
         message: `Missing configuration for service ${this.currentServiceName} in .siarc.json.`,
-        position: { start: 0, end: 0 } 
+        position: { start: 0, end: 0 },
       });
     }
 
     return result;
   }
 
-  private hasExpressImportStatement(importStatementList: ImportDeclaration[]): boolean {
-    let hasImport = false;
-    for (const importStatement of importStatementList) {
-      if (importStatement.importClause && importStatement.importClause.name) {
-        if (importStatement.importClause.name.escapedText == 'express') {
-          hasImport = true;
-          break;
-        }
-      } 
+  public fileClosed(uri: string) {
+    // Check uri format
+    if (uri.startsWith('file:///')) {
+      uri = uri.replace('file:///', '');
     }
-    return hasImport;
+    if (uri.includes('%3A')) {
+      uri = uri.replace('%3A', ':');
+    }
+    delete this.openFiles[uri];
   }
 
-  private extractExpressVariableName(variableStatementList: VariableStatement[]): string {
-    for (const variableStatement of variableStatementList) {
-      const varDecls = variableStatement.declarationList.declarations;
-      for (const varDecl of varDecls) {
-        if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
-          const initExp = varDecl.initializer as CallExpression;
-          if (initExp.expression.kind === SyntaxKind.Identifier) {
-            const initIden = initExp.expression as Identifier;
-            if (initIden.escapedText === 'express') {
-              return varDecl.name.getText();
+  private extractExpressExpressions(
+    statements: NodeArray<Statement>,
+  ): {
+    expressImport: ImportDeclaration | undefined;
+    endpointExpressions: EndpointExpression[];
+  } {
+    const result: {
+      expressImport: ImportDeclaration | undefined;
+      endpointExpressions: EndpointExpression[];
+    } = {
+      expressImport: undefined,
+      endpointExpressions: [],
+    };
+
+    let expressVarName;
+    for (const statement of statements) {
+      switch (statement.kind) {
+        case SyntaxKind.ImportDeclaration:
+          const importDecl = statement as ImportDeclaration;
+          if (importDecl.importClause && importDecl.importClause.name) {
+            if (importDecl.importClause.name.escapedText === 'express') {
+              result.expressImport = importDecl;
             }
           }
-        }
+          break;
+
+        case SyntaxKind.VariableStatement:
+          const varDecls = statement as VariableStatement;
+          for (const varDecl of varDecls.declarationList.declarations) {
+            if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
+              const initExp = varDecl.initializer as CallExpression;
+              if (initExp.expression.kind === SyntaxKind.Identifier) {
+                const initIden = initExp.expression as Identifier;
+                if (initIden.escapedText === 'express') {
+                  expressVarName = varDecl.name.getText();
+                }
+              }
+            }
+          }
+          break;
+
+        case SyntaxKind.ExpressionStatement:
+          if (!expressVarName) {
+            continue;
+          }
+          const expr = statement as ExpressionStatement;
+          if (expr.expression.kind === SyntaxKind.CallExpression) {
+            const callExpr = expr.expression as CallExpression;
+            if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+              // Check if the current expression is a express route declaration like app.get(...)
+              const propAccExpr = callExpr.expression as PropertyAccessExpression;
+              if (propAccExpr.expression.getText() === expressVarName && this.httpMethods.includes(propAccExpr.name.text)) {
+                const { path, inlineFunction } = this.extractPathAndMethodImplementationFromArguments(callExpr.arguments);
+                result.endpointExpressions.push({
+                  expr: callExpr,
+                  method: propAccExpr.name.text.toUpperCase(),
+                  path,
+                  inlineFunction,
+                });
+              }
+            }
+          }
+          break;
       }
     }
-    return '';
-  }
-  
-  private extractResponseVariableName(inlineFunction: ArrowFunction): string {
-    const parameters = inlineFunction.parameters;
-    if (parameters.length === 2) {
-      return parameters[1].getText();
-    }
-    return '';
+
+    return result;
   }
 
-  private extractRequestVariableName(inlineFunction: ArrowFunction): string {
-    const parameters = inlineFunction.parameters;
-    if (parameters.length === 2) {
-      return parameters[0].getText();
+  private extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: BindingName | undefined } {
+    const result: {
+      resVal: Expression | undefined;
+      reqVal: BindingName | undefined;
+    } = {
+      resVal: undefined,
+      reqVal: undefined,
+    };
+
+    const params = inlineFunction.parameters;
+    if (params.length !== 2) {
+      return result;
     }
-    return '';
+    const reqVarName = params[0].getText();
+    const resVarNAme = params[1].getText();
+    const funcBody = inlineFunction.body;
+    let statList: NodeArray<Statement> = createNodeArray();
+    switch (funcBody.kind) {
+      case SyntaxKind.Block:
+        statList = (funcBody as Block).statements;
+        break;
+    }
+    for (const stat of statList) {
+      switch (stat.kind) {
+        case SyntaxKind.ExpressionStatement:
+          const exprStat = stat as ExpressionStatement;
+          if (exprStat.expression.kind === SyntaxKind.CallExpression) {
+            const callExpr = exprStat.expression as CallExpression;
+            if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+              // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
+              const propAccExpr = callExpr.expression as PropertyAccessExpression;
+              if (propAccExpr.expression.getText() === resVarNAme && this.sendMethods.includes(propAccExpr.name.text)) {
+                result.resVal = callExpr.arguments[0];
+              }
+            }
+          }
+          break;
+
+        case SyntaxKind.VariableStatement:
+          const varStat = stat as VariableStatement;
+          for (const varDecl of varStat.declarationList.declarations) {
+            if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
+              const callExpr = varDecl.initializer as CallExpression;
+              if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+                // Check if the current expression is a express body declaration like req.body()
+                const propAccExpr = callExpr.expression as PropertyAccessExpression;
+                if (propAccExpr.expression.getText() === reqVarName && propAccExpr.name.text === 'body') {
+                  result.reqVal = varDecl.name;
+                }
+              }
+            }
+          }
+          break;
+      }
+    }
+
+    return result;
   }
 
-  private extractPathAndMethodImplementationFromArguments(args: NodeArray<Expression>): { path: string, inlineFunction: ArrowFunction } {
+  private extractPathAndMethodImplementationFromArguments(args: NodeArray<Expression>): { path: string; inlineFunction: ArrowFunction } {
     const result: any = {};
     for (const node of args) {
       if (node.kind === SyntaxKind.StringLiteral && args.indexOf(node) === 0) {
@@ -211,50 +322,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       for (const endpoint of this.currentConfig.endpoints) {
         if (endpoint.path === path) {
           return endpoint;
-        }
-      }
-    }
-  }
-
-  private extractReturnValueFromFunction(responseVarName: string, functionBody: ConciseBody): Expression | undefined {
-    let statementList: ExpressionStatement[] = [];
-    switch (functionBody.kind) {
-      case SyntaxKind.Block:
-        statementList = (functionBody as Block).statements.filter((s) => s.kind === SyntaxKind.ExpressionStatement) as ExpressionStatement[];
-        break;
-    }
-    for (const statement of statementList) {
-      if (statement.expression.kind === SyntaxKind.CallExpression) {
-        const callExpression = statement.expression as CallExpression;
-        if (callExpression.expression.kind === SyntaxKind.PropertyAccessExpression) {
-          // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
-          const propertyAccessExpression = callExpression.expression as PropertyAccessExpression;
-          if (propertyAccessExpression.expression.getText() === responseVarName && this.sendMethods.includes(propertyAccessExpression.name.text)) {
-            return callExpression.arguments[0];
-          }
-        }
-      }
-    }
-  }
-
-  private extractBodyFromFunction(requestVarName: string, functionBody: ConciseBody): BindingName | undefined {
-    let statementList: VariableStatement[] = [];
-    switch (functionBody.kind) {
-      case SyntaxKind.Block:
-        statementList = (functionBody as Block).statements.filter((s) => s.kind === SyntaxKind.VariableStatement) as VariableStatement[];
-        break;
-    }
-    for (const statement of statementList) {
-      for (const varDecl  of statement.declarationList.declarations) {
-        if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
-          const callExpression = varDecl.initializer as CallExpression;
-          if (callExpression.expression.kind === SyntaxKind.PropertyAccessExpression) {
-            // Check if the current expression is a express body declaration like req.body()
-            const propertyAccessExpression = callExpression.expression as PropertyAccessExpression;
-            if (propertyAccessExpression.expression.getText() === requestVarName && propertyAccessExpression.name.text === 'body') {
-              return varDecl.name;
-            }
-          }
         }
       }
     }

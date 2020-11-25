@@ -33,6 +33,12 @@ export class Analyzer {
     }
   }
 
+  public fileClosed(uri: string): void {
+    if (this.staticEndpointAnalyzerHandler) {
+      this.staticEndpointAnalyzerHandler.fileClosed(uri);
+    }
+  }
+
   public detectFrameworkOrLibrary(packJ: any): void {
     // Extract the list of all compile time dependencies and look for supported frameworks and libraries
     const deps = packJ.dependencies;
@@ -50,5 +56,5 @@ export class Analyzer {
         break;
       }
     }
-  } 
+  }
 }

@@ -4,8 +4,7 @@ import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } f
 import * as fs from 'fs';
 import * as path from 'path';
 
-const serviceConfigTemplate =
-`[
+const serviceConfigTemplate = `[
   {
     "name": "my-service",
     "baseUri": "http://localhost:3000/api",
@@ -58,18 +57,18 @@ export async function activate(context: ExtensionContext): Promise<void> {
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
   const serverOptions: ServerOptions = {
     run: { module: serverModule, transport: TransportKind.ipc },
-    debug: { module: serverModule, transport: TransportKind.ipc, options: { execArgv: [ '--nolazy', '--inspect=6069' ] } }
+    debug: {
+      module: serverModule,
+      transport: TransportKind.ipc,
+      options: { execArgv: ['--nolazy', '--inspect=6069'] },
+    },
   };
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [
-      'typescript',
-      { language: 'json', pattern: '**/.siarc.json' },
-      { language: 'json', pattern: '**/package.json' },
-    ],
+    documentSelector: ['typescript', { language: 'json', pattern: '**/.siarc.json' }, { language: 'json', pattern: '**/package.json' }],
     // Send the initialized package.json and .siarc.json, only if they exists
     initializationOptions: {
-      'siarcTextDoc': { uri, languageId: 'json', version: 1, content: siarc } || '',
-      'packageJson': packageJson || '',
+      siarcTextDoc: { uri, languageId: 'json', version: 1, content: siarc } || '',
+      packageJson: packageJson || '',
     },
   };
 
@@ -79,7 +78,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
 export function deactivate(): Thenable<void> | undefined {
   if (!client) {
-      return undefined;
+    return undefined;
   }
   return client.stop();
 }

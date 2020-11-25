@@ -1,5 +1,6 @@
 {
 	"parser": "@typescript-eslint/parser",
+	"root": true,
 	"parserOptions": {
 		"ecmaVersion": 11,
 		"sourceType": "module"
@@ -7,12 +8,18 @@
 	"env": {
 		"node": true
 	},
+	"plugins": [
+		"@typescript-eslint"
+	],
+	"extends": [
+		"eslint-recommended",
+		"plugin:@typescript-eslint/recommended"
+	],
 	"rules": {
-		"semi": "error",
-		"no-extra-semi": "warn",
-		"curly": "warn",
-		"quotes": ["error", "single", { "allowTemplateLiterals": true } ],
-		"eqeqeq": "error",
-		"indent": ["warn", "tab", { "SwitchCase": 1 } ]
+		"semi": [2, "always"],
+		"@typescript-eslint/no-unused-vars": "off",
+		"@typescript-eslint/no-explicit-any": "off",
+		"@typescript-eslint/explicit-module-boundary-types": "off",
+		"@typescript-eslint/no-non-null-assertion": "off"
 	}
 }
