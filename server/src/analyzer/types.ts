@@ -1,4 +1,4 @@
-import { Program } from 'typescript';
+import { TypeChecker } from 'typescript';
 import { ServiceConfig } from './config';
 
 export interface SemanticError {
@@ -7,12 +7,9 @@ export interface SemanticError {
 }
 
 export abstract class StaticAnalyzer {
-  protected openFiles: { [uri: string]: Program } = {};
-
   constructor(protected currentServiceName: string, protected currentConfig?: ServiceConfig) {}
 
   public abstract analyze(uri: string): SemanticError[];
-  public abstract fileClosed(uri: string): void;
 
   set config(newConfig: ServiceConfig) {
     this.currentConfig = newConfig;

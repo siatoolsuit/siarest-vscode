@@ -3,7 +3,6 @@ import {
   BindingName,
   Block,
   CallExpression,
-  ConciseBody,
   createNodeArray,
   createProgram,
   Expression,
@@ -40,15 +39,10 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       uri = uri.replace('%3A', ':');
     }
 
-    // Get open file or open it
-    let program = this.openFiles[uri];
-    if (!program) {
-      program = createProgram([uri], {});
-      this.openFiles[uri] = program;
-    }
+    // Create a new program for type checking
+    const program = createProgram([uri], {});
     const checker = program.getTypeChecker();
     const tsFile = program.getSourceFile(uri);
-
     if (!tsFile) {
       return [];
     }
@@ -128,22 +122,25 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             }
 
             // Check the body, only if this function is a post or put
-            if (endpointExprs.method === 'POST' || endpointExprs.method === 'PUT') {
+            if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
               if (reqVal) {
-                const type = checker.getTypeAtLocation(reqVal);
-                // Normalize type strings and compare them
-                const normalTypeInCodeString = checker.typeToString(type, expr).replace(/[ ;]/g, '');
-                const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
-                if (normalTypeInCodeString !== normalTypeInConfigString) {
-                  result.push({
-                    message: `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${checker.typeToString(type, expr)}`,
-                    position: { start: reqVal.getStart(), end: reqVal.end },
-                  });
+                const symbol = checker.getSymbolAtLocation(reqVal);
+                if (symbol) {
+                  const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration);
+                  // Normalize type strings and compare them
+                  const normalTypeInCodeString = checker.typeToString(type, expr).replace(/[ ;]/g, '');
+                  const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
+                  if (normalTypeInCodeString !== normalTypeInConfigString) {
+                    result.push({
+                      message: `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${checker.typeToString(type, expr)}`,
+                      position: { start: reqVal.getStart(), end: reqVal.end },
+                    });
+                  }
                 }
               } else {
                 result.push({
-                  message: `Endpoint with method "${endpointExprs.method}" has a missing body handling.`,
+                  message: `Endpoint with method "${endpoint.method}" has a missing body handling.`,
                   position: { start: expr.getStart(), end: expr.end },
                 });
               }
@@ -164,17 +161,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     }
 
     return result;
-  }
-
-  public fileClosed(uri: string) {
-    // Check uri format
-    if (uri.startsWith('file:///')) {
-      uri = uri.replace('file:///', '');
-    }
-    if (uri.includes('%3A')) {
-      uri = uri.replace('%3A', ':');
-    }
-    delete this.openFiles[uri];
   }
 
   private extractExpressExpressions(

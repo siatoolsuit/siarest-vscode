@@ -64,7 +64,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     },
   };
   const clientOptions: LanguageClientOptions = {
-    documentSelector: ['typescript', { language: 'json', pattern: '**/.siarc.json' }, { language: 'json', pattern: '**/package.json' }],
+    documentSelector: [{ language: 'typescript', scheme: 'file' }, { language: 'json', pattern: '**/.siarc.json' }, { language: 'json', pattern: '**/package.json' }],
     // Send the initialized package.json and .siarc.json, only if they exists
     initializationOptions: {
       siarcTextDoc: { uri, languageId: 'json', version: 1, content: siarc } || '',

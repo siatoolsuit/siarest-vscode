@@ -5,7 +5,6 @@ import {
   TextDocuments,
   InitializeParams,
   InitializeResult,
-  TextDocumentSyncKind,
   CancellationToken,
   HoverParams,
   CompletionParams,
@@ -29,7 +28,7 @@ const analyzer: Analyzer = new Analyzer();
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
 
-// TODO: Da geht irgendwas mit dem dreck zur Optimierung nicht 
+// TODO: on init scheint nicht mehr beim startup gecalled zu werden, warum auch immer
 connection.onInitialize(async (params: InitializeParams) => {
   jsonLanguageService = getLanguageService({
     clientCapabilities: params.capabilities,
@@ -37,7 +36,6 @@ connection.onInitialize(async (params: InitializeParams) => {
 
   const result: InitializeResult = {
     capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Incremental,
       completionProvider: {
         resolveProvider: false,
       },
@@ -60,32 +58,20 @@ connection.onInitialize(async (params: InitializeParams) => {
   return result;
 });
 
-documents.onDidChangeContent(async (change) => {
-  const textDoc = change.document;
-  if (textDoc.languageId === 'json') {
-    if (textDoc.uri.endsWith('.siarc.json')) {
-      triggerConfValidation(textDoc);
-    } else if (textDoc.uri.endsWith('package.json')) {
-      loadPackageJson(textDoc.getText());
-      // Revalidate all typescript files
-      documents.all().forEach(async (doc: TextDocument) => {
-        if (doc.languageId === 'typescript') {
-          triggerTypescriptValidation(doc);
-        }
-      });
-    }
-  } else if (textDoc.languageId === 'typescript') {
-    triggerTypescriptValidation(textDoc);
-  }
+documents.onDidOpen((event) => {
+  checkForValidation(event.document);
+});
+
+documents.onDidSave((event) => {
+  checkForValidation(event.document);
 });
 
 documents.onDidClose((event) => {
   cleanPendingValidations(event.document);
-  analyzer.fileClosed(event.document.uri);
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-connection.onCompletion(async (textDocumentPosition: CompletionParams, token: CancellationToken) => {
+connection.onCompletion((textDocumentPosition: CompletionParams, token: CancellationToken) => {
   // Create completion for the configuration file or a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith('.ts')) {
@@ -95,7 +81,7 @@ connection.onCompletion(async (textDocumentPosition: CompletionParams, token: Ca
   return null;
 });
 
-connection.onHover(async (textDocumentPosition: HoverParams, token: CancellationToken) => {
+connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken) => {
   // Create hover description for the configuration file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith('.ts')) {
@@ -127,6 +113,24 @@ function triggerTypescriptValidation(textDoc: TextDocument): void {
   }, validationDelay);
 }
 
+function checkForValidation(textDoc: TextDocument): void {
+  if (textDoc.languageId === 'json') {
+    if (textDoc.uri.endsWith('.siarc.json')) {
+      triggerConfValidation(textDoc);
+    } else if (textDoc.uri.endsWith('package.json')) {
+      loadPackageJson(textDoc.getText());
+      // Revalidate all typescript files
+      documents.all().forEach((doc: TextDocument) => {
+        if (doc.languageId === 'typescript') {
+          triggerTypescriptValidation(doc);
+        }
+      });
+    }
+  } else if (textDoc.languageId === 'typescript') {
+    triggerTypescriptValidation(textDoc);
+  }
+}
+
 async function validateConfig(textDoc: TextDocument): Promise<void> {
   const jsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
 
@@ -140,25 +144,21 @@ async function validateConfig(textDoc: TextDocument): Promise<void> {
 
   if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
     analyzer.config = textDoc.getText();
-    connection.sendDiagnostics({
-      uri: textDoc.uri,
-      diagnostics: [],
-    });
+    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: [] });
     documents.all().forEach(async (doc: TextDocument) => {
       if (doc.languageId === 'typescript') {
         triggerTypescriptValidation(doc);
       }
     });
   } else {
-    connection.sendDiagnostics({
-      uri: textDoc.uri,
-      diagnostics: semanticErrors,
-    });
+    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: semanticErrors });
   }
 }
 
 function validateTypescript(textDoc: TextDocument): void {
   const diagnostics: Diagnostic[] = [];
+
+  const version = textDoc.version;
   analyzer.analyzeEndpoints(textDoc.uri).forEach((error: SemanticError) => {
     diagnostics.push({
       message: error.message,
@@ -169,7 +169,14 @@ function validateTypescript(textDoc: TextDocument): void {
       severity: DiagnosticSeverity.Error,
     });
   });
-  connection.sendDiagnostics({ uri: textDoc.uri, diagnostics });
+
+  setImmediate(() => {
+    // To be clear to send the correct diagnostics to the current document
+    const currDoc = documents.get(textDoc.uri);
+    if (currDoc && currDoc.version === version) {
+      connection.sendDiagnostics({ uri: textDoc.uri, diagnostics });
+    }
+  });
 }
 
 function loadPackageJson(text: string) {
