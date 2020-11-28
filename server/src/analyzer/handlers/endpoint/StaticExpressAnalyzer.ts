@@ -7,13 +7,17 @@ import {
   createProgram,
   Expression,
   ExpressionStatement,
+  flattenDiagnosticMessageText,
   Identifier,
   ImportDeclaration,
   NodeArray,
   PropertyAccessExpression,
+  PropertySignature,
   Statement,
   StringLiteral,
   SyntaxKind,
+  Type,
+  TypeChecker,
   VariableStatement,
 } from 'typescript';
 import { Endpoint } from '../../config';
@@ -99,11 +103,12 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
                 if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
                   const type = checker.getTypeAtLocation(resVal);
                   // Normalize type strings and compare them
-                  const normalTypeInCodeString = checker.typeToString(type, expr).replace(/[ ;]/g, '');
+                  const { fullString, normalString } = this.typeToString(type, checker);
+                  const normalTypeInCodeString = normalString;
                   const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
                   if (normalTypeInCodeString !== normalTypeInConfigString) {
                     result.push({
-                      message: `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${checker.typeToString(type, expr)}`,
+                      message: `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`,
                       position: { start: resVal.getStart(), end: resVal.end },
                     });
                   }
@@ -129,11 +134,12 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
                 if (symbol) {
                   const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration);
                   // Normalize type strings and compare them
-                  const normalTypeInCodeString = checker.typeToString(type, expr).replace(/[ ;]/g, '');
+                  const { fullString, normalString } = this.typeToString(type, checker);
+                  const normalTypeInCodeString = normalString;
                   const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
                   if (normalTypeInCodeString !== normalTypeInConfigString) {
                     result.push({
-                      message: `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${checker.typeToString(type, expr)}`,
+                      message: `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${fullString}`,
                       position: { start: reqVal.getStart(), end: reqVal.end },
                     });
                   }
@@ -311,5 +317,33 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
         }
       }
     }
+  }
+
+  private typeToString(type: Type, checker: TypeChecker): { fullString: string; normalString: string } {
+    const result: { fullString: string; normalString: string } = {
+      fullString: '',
+      normalString: '',
+    };
+
+    let fullString = '{';
+    const members = type.symbol.members;
+    if (members && members.size > 0) {
+      members.forEach((value, key) => {
+        const propSig = value.valueDeclaration as PropertySignature;
+        if (propSig.type) {
+          const propType = checker.getTypeFromTypeNode(propSig.type);
+          fullString += `"${key.toString()}":"${checker.typeToString(propType)},"`;
+        }
+      });
+    }
+    const temp = fullString.split('');
+    temp[fullString.lastIndexOf(',')] = '';
+    fullString = temp.join('');
+    fullString += "}"
+
+    result.fullString = fullString;
+    result.normalString = fullString.replace(/['",]/g, '');
+
+    return result;
   }
 }

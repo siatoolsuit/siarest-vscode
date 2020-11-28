@@ -28,7 +28,6 @@ const analyzer: Analyzer = new Analyzer();
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
 
-// TODO: on init scheint nicht mehr beim startup gecalled zu werden, warum auch immer
 connection.onInitialize(async (params: InitializeParams) => {
   jsonLanguageService = getLanguageService({
     clientCapabilities: params.capabilities,
