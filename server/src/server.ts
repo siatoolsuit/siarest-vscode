@@ -61,8 +61,12 @@ documents.onDidOpen((event) => {
   checkForValidation(event.document);
 });
 
-documents.onDidSave((event) => {
+/*documents.onDidSave((event) => {
   checkForValidation(event.document);
+});*/
+
+documents.onDidChangeContent((event) => {
+  checkForValidation(event.document)
 });
 
 documents.onDidClose((event) => {
@@ -158,7 +162,7 @@ function validateTypescript(textDoc: TextDocument): void {
   const diagnostics: Diagnostic[] = [];
 
   const version = textDoc.version;
-  analyzer.analyzeEndpoints(textDoc.uri).forEach((error: SemanticError) => {
+  analyzer.analyzeEndpoints(textDoc.uri, textDoc.getText()).forEach((error: SemanticError) => {
     diagnostics.push({
       message: error.message,
       range: {

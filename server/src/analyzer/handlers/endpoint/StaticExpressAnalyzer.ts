@@ -5,6 +5,8 @@ import {
   CallExpression,
   createNodeArray,
   createProgram,
+  createTextChangeRange,
+  createTextSpan,
   Expression,
   ExpressionStatement,
   flattenDiagnosticMessageText,
@@ -34,7 +36,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
   private httpMethods: string[] = ['get', 'post', 'put', 'delete'];
   private sendMethods: string[] = ['send', 'json'];
 
-  public analyze(uri: string): SemanticError[] {
+  public analyze(uri: string, text: string): SemanticError[] {
     // Check uri format
     if (uri.startsWith('file:///')) {
       uri = uri.replace('file:///', '');
@@ -46,10 +48,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     // Create a new program for type checking
     const program = createProgram([uri], {});
     const checker = program.getTypeChecker();
-    const tsFile = program.getSourceFile(uri);
+    let tsFile = program.getSourceFile(uri);
     if (!tsFile) {
       return [];
     }
+
+    // TODO: Hure! Das invalidiert das Program wodurch der TypeChecker nicht mehr funktioniert. Ganz toll...
+    // TODO: Eventuell ein Pull Request bei der Compiler API machen ?? Erstmal weiter mit onChange stattdessen, oder eigenen TypeChecker schreiben => Auch nicht so angenehm
+    tsFile = tsFile.update(text, createTextChangeRange(createTextSpan(0, tsFile.getFullWidth()), text.length));
 
     // Extract all higher functions like express import, app declarations and endpoint declarations
     const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile.statements);

@@ -25,9 +25,9 @@ export class Analyzer {
     this.currentServiceName = name;
   }
 
-  public analyzeEndpoints(uri: string): SemanticError[] {
+  public analyzeEndpoints(uri: string, text: string): SemanticError[] {
     if (this.staticEndpointAnalyzerHandler) {
-      return this.staticEndpointAnalyzerHandler.analyze(uri);
+      return this.staticEndpointAnalyzerHandler.analyze(uri, text);
     } else {
       return [];
     }
