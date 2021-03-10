@@ -12,11 +12,17 @@ export class Analyzer {
     this.validConfig = JSON.parse(text);
     // Load the config to all analyzer handler
     if (this.staticEndpointAnalyzerHandler) {
+      let found = false;  
       for (const config of this.validConfig) {
         if (config.name === this.staticEndpointAnalyzerHandler.serviceName) {
           this.staticEndpointAnalyzerHandler.config = config;
+          found = true;
           break;
         }
+      }
+      // There is no configuration with the given service name
+      if (!found) {
+        this.staticEndpointAnalyzerHandler.config = undefined;
       }
     }
   }

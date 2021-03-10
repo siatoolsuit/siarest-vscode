@@ -61,12 +61,16 @@ documents.onDidOpen((event) => {
   checkForValidation(event.document);
 });
 
-/*documents.onDidSave((event) => {
-  checkForValidation(event.document);
-});*/
+documents.onDidSave((event) => {
+  if (event.document.uri.endsWith('.ts')) {
+    checkForValidation(event.document);
+  }
+});
 
 documents.onDidChangeContent((event) => {
-  checkForValidation(event.document)
+  if (event.document.uri.endsWith('.json')) {
+    checkForValidation(event.document)
+  }
 });
 
 documents.onDidClose((event) => {
@@ -137,12 +141,7 @@ function checkForValidation(textDoc: TextDocument): void {
 async function validateConfig(textDoc: TextDocument): Promise<void> {
   const jsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
 
-  const syntaxErrors = await jsonLanguageService.doValidation(
-    textDoc,
-    jsonDoc,
-    { schemaValidation: 'error', trailingCommas: 'error' },
-    siaSchema as JSONSchema,
-  );
+  const syntaxErrors = await jsonLanguageService.doValidation(textDoc, jsonDoc, { schemaValidation: 'error', trailingCommas: 'error' }, siaSchema as JSONSchema);
   const semanticErrors = configValidator.validateConfigSemantic(textDoc, jsonDoc);
 
   if (syntaxErrors.length === 0 && semanticErrors.length === 0) {

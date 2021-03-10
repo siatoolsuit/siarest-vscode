@@ -9,7 +9,6 @@ import {
   createTextSpan,
   Expression,
   ExpressionStatement,
-  flattenDiagnosticMessageText,
   Identifier,
   ImportDeclaration,
   NodeArray,
@@ -22,6 +21,7 @@ import {
   TypeChecker,
   VariableStatement,
 } from 'typescript';
+
 import { Endpoint } from '../../config';
 import { SemanticError, StaticAnalyzer } from '../../types';
 
@@ -55,7 +55,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
 
     // TODO: Hure! Das invalidiert das Program wodurch der TypeChecker nicht mehr funktioniert. Ganz toll...
     // TODO: Eventuell ein Pull Request bei der Compiler API machen ?? Erstmal weiter mit onChange stattdessen, oder eigenen TypeChecker schreiben => Auch nicht so angenehm
-    tsFile = tsFile.update(text, createTextChangeRange(createTextSpan(0, tsFile.getFullWidth()), text.length));
+    // tsFile = tsFile.update(text, createTextChangeRange(createTextSpan(0, tsFile.getFullWidth()), text.length));
 
     // Extract all higher functions like express import, app declarations and endpoint declarations
     const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile.statements);
@@ -338,14 +338,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
         const propSig = value.valueDeclaration as PropertySignature;
         if (propSig.type) {
           const propType = checker.getTypeFromTypeNode(propSig.type);
-          fullString += `"${key.toString()}":"${checker.typeToString(propType)},"`;
+          fullString += `"${key.toString()}":"${checker.typeToString(propType)}",`;
         }
       });
     }
     const temp = fullString.split('');
     temp[fullString.lastIndexOf(',')] = '';
     fullString = temp.join('');
-    fullString += "}"
+    fullString += '}';
 
     result.fullString = fullString;
     result.normalString = fullString.replace(/['",]/g, '');

@@ -50,7 +50,7 @@ export class ConfigValidator {
                   baseUris.push(baseURIValue);
                 }
               } else if (property.keyNode.value === 'endpoints' && property.valueNode && property.valueNode.children) {
-                // Check each endpoint whether a endpoint with method of POST or PUT has a request defined, and viceverse
+                // Check each endpoint whether a endpoint with method of POST or PUT has a request defined, and vice verse
                 for (const endpoint of property.valueNode.children) {
                   if (endpoint.type === 'object') {
                     let method, request;

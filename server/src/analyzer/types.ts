@@ -1,4 +1,3 @@
-import { TypeChecker } from 'typescript';
 import { ServiceConfig } from './config';
 
 export interface SemanticError {
@@ -11,7 +10,7 @@ export abstract class StaticAnalyzer {
 
   public abstract analyze(uri: string, text: string): SemanticError[];
 
-  set config(newConfig: ServiceConfig) {
+  set config(newConfig: ServiceConfig | undefined) {
     this.currentConfig = newConfig;
   }
 
