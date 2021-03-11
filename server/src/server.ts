@@ -79,7 +79,7 @@ documents.onDidClose((event) => {
 });
 
 connection.onCompletion((textDocumentPosition: CompletionParams, token: CancellationToken) => {
-  // Create completion for the configuration file or a typescript file
+  // Create completion for a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith('.ts')) {
     // TODO: Check if we have a valid config
@@ -89,7 +89,7 @@ connection.onCompletion((textDocumentPosition: CompletionParams, token: Cancella
 });
 
 connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken) => {
-  // Create hover description for the configuration file
+  // Create hover description for a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith('.ts')) {
     return null; // TODO: Maybe give a documentation of the endpoint
