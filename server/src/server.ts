@@ -17,6 +17,8 @@ import { ConfigValidator } from './analyzer/config';
 
 import * as siaSchema from './analyzer/config/config.schema.json';
 
+import { FileHandler } from "./analyzer/handlers/file/index";
+
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
@@ -24,6 +26,7 @@ let jsonLanguageService: LanguageService;
 
 const configValidator: ConfigValidator = new ConfigValidator();
 const analyzer: Analyzer = new Analyzer();
+const fileHandler: FileHandler = new FileHandler();
 
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
@@ -57,8 +60,17 @@ connection.onInitialize(async (params: InitializeParams) => {
   return result;
 });
 
+// TODO konstanten auspacken
+// TODO change rest to async stuff
+
 documents.onDidOpen((event) => {
-  checkForValidation(event.document);
+  if (event.document.languageId === 'typescript') {
+    fileHandler.getOrCreateTempFile(event.document).then((file) => {
+      checkForValidation(event.document);
+    });
+  } else {
+    checkForValidation(event.document);
+  }
 });
 
 documents.onDidSave((event) => {
@@ -68,13 +80,14 @@ documents.onDidSave((event) => {
 });
 
 documents.onDidChangeContent((event) => {
-  if (event.document.uri.endsWith('.json')) {
-    checkForValidation(event.document)
-  }
+  fileHandler.getOrCreateTempFile(event.document).then((file) => {
+    checkForValidation(event.document);
+  });
 });
 
 documents.onDidClose((event) => {
   cleanPendingValidations(event.document);
+  fileHandler.cleanTempFiles(event.document.uri);
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
