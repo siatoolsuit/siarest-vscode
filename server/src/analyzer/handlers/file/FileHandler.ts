@@ -5,120 +5,111 @@ import { writeFile } from "fs/promises";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { resolve } from "vscode-languageserver/lib/files";
 
-interface File {
+export interface File {
     fileName: string;
     fileUri: string;
     tempFileName: string;
     tempFileUri: string;
 }
 
-const SLASH = '/'
+const SLASH = '\\'
 
-export class FileHandler {
+/**
+ * Map with Key fileUri
+ */
+const tempFiles: Map<string, File> = new Map();
 
-    // TODO nicht so schön?
+/**
+ * // TODO change rejects and error logs
+ * @param uri 
+ * @returns 
+ */
+export async function cleanTempFiles(uri: DocumentUri): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        if (tempFiles.has(uri) == false) {
+            reject("//TODO");
+            return;
+        }
 
-    /**
-     * Map with Key fileUri
-     */
-    static tempFiles: Map<string, File> = new Map();
+        let fileUri = tempFiles.get(uri)?.tempFileUri;
+        if (!fileUri) {
+            reject("//TODO");
+            return;
+        }
 
-    constructor() {
-
-    }
-
-    /**
-     * // TODO change rejects and error logs
-     * @param uri 
-     * @returns 
-     */
-    public async cleanTempFiles(uri: DocumentUri): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            if (!FileHandler.tempFiles.has(uri)) {
-                reject("//TODO");
+        unlink(fileUri, (err) => {
+            if (err) {
+                console.warn(err);
+                reject(err);
                 return;
             }
-    
-            let fileUri = FileHandler.tempFiles.get(uri)?.tempFileUri;
-            if (!fileUri) {
-                reject("//TODO");
+        });
+    })
+}
+
+
+/**
+ * // TODO change rejects and error logs
+ * @param textDoc 
+ * @returns 
+ */
+export async function getOrCreateTempFile(textDoc: TextDocument): Promise<File> {
+    return new Promise<File>((resolve, reject) => {
+        if (!textDoc) {
+            reject('Textdoc is empty')
+        }
+
+        let res = getFileNameAndUri(textDoc.uri);
+
+        if (tempFiles.has(textDoc.uri)) {
+            let file = tempFiles.get(textDoc.uri);
+
+            if (!file?.tempFileUri) {
+                reject('ERROR');
                 return;
             }
-    
-            unlink(fileUri, (err) => {
-                if (err) {
-                    console.warn(err);
-                    reject(err);
-                    return;
-                }
-            });
-        })
-    }
 
-
-    /**
-     * // TODO change rejects and error logs
-     * @param textDoc 
-     * @returns 
-     */
-    public async getOrCreateTempFile(textDoc: TextDocument): Promise<File> {
-        return new Promise<File>((resolve, reject) => {
-            if (!textDoc) {
-                reject('Textdoc is empty')
-            }
-
-            let res = this.getFileNameAndUri(textDoc.uri);
-
-            if (FileHandler.tempFiles.has(textDoc.uri)) {
-                let file = FileHandler.tempFiles.get(textDoc.uri);
-
-                if (!file?.tempFileUri) {
+            var promise = writeFile(file.tempFileUri, textDoc.getText());
+            promise.then(() => {
+                if (!file) {
                     reject('ERROR');
                     return;
                 }
 
-                var promise = writeFile(file.tempFileUri, textDoc.getText());
-                promise.then(() => {
-                    if (!file) {
-                        reject('ERROR');
-                        return;
-                    }
-
-                    FileHandler.tempFiles.set(file.fileUri, file);
-                    resolve(file);
-                }).catch(() => {
-                    reject("UNKNOWN REASON");
-                });
-            } else {
-                var file: File = {
-                    fileName: res.tempFileName,
-                    fileUri: textDoc.uri,
-                    tempFileName: res.tempFileName,
-                    tempFileUri: res.tempFileUri,
-                }
-
-                var promise = writeFile(file.tempFileUri, textDoc.getText());
-                promise.then(() => {
-                    FileHandler.tempFiles.set(file.fileUri, file);
-                    resolve(file);
-                }).catch(() => {
-                    reject("UNKNOWN REASON");
-                });
+                tempFiles.set(file.fileUri, file);
+                resolve(file);
+            }).catch(() => {
+                reject("UNKNOWN REASON");
+            });
+        } else {
+            var file: File = {
+                fileName: res.tempFileName,
+                fileUri: textDoc.uri,
+                tempFileName: res.tempFileName,
+                tempFileUri: res.tempFileUri,
             }
-        });
-    }
 
-    private getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUri: string } {
-        const res: {
-            tempFileName: string;
-            tempFileUri: string;
-        } = {
-            tempFileName: '',
-            tempFileUri: '',
+            var promise = writeFile(file.tempFileUri, textDoc.getText());
+            promise.then(() => {
+                tempFiles.set(file.fileUri, file);
+                resolve(file);
+            }).catch(() => {
+                reject("UNKNOWN REASON");
+            });
         }
+    });
+}
 
-        res.tempFileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
-        res.tempFileUri = `${tmpdir()}${SLASH}${res.tempFileName}`;
-        return res;
+function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUri: string } {
+    const res: {
+        tempFileName: string;
+        tempFileUri: string;
+    } = {
+        tempFileName: '',
+        tempFileUri: '',
     }
+
+    res.tempFileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
+    res.tempFileUri = `${tmpdir()}${SLASH}${res.tempFileName}`;
+    return res;
 }

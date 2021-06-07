@@ -17,7 +17,7 @@ import { ConfigValidator } from './analyzer/config';
 
 import * as siaSchema from './analyzer/config/config.schema.json';
 
-import { FileHandler } from "./analyzer/handlers/file/index";
+import { cleanTempFiles, File, getOrCreateTempFile } from "./analyzer/handlers/file/index";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -26,7 +26,6 @@ let jsonLanguageService: LanguageService;
 
 const configValidator: ConfigValidator = new ConfigValidator();
 const analyzer: Analyzer = new Analyzer();
-const fileHandler: FileHandler = new FileHandler();
 
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
@@ -56,42 +55,31 @@ connection.onInitialize(async (params: InitializeParams) => {
       loadPackageJson(params.initializationOptions.packageJson);
     }
   }
-
+  console.debug("SIARC JSON LOADED: " + result);
   return result;
 });
 
 // TODO konstanten auspacken
 // TODO change rest to async stuff
 
-documents.onDidOpen((event) => {
-  if (event.document.languageId === 'typescript') {
-    fileHandler.getOrCreateTempFile(event.document).then((file) => {
-      checkForValidation(event.document);
-    });
-  } else {
-    checkForValidation(event.document);
-  }
+documents.onDidOpen(async (event) => {
+  checkForValidation(event.document);
 });
 
-documents.onDidSave((event) => {
-  if (event.document.uri.endsWith('.ts')) {
-    checkForValidation(event.document);
-  }
+documents.onDidSave(async (event) => {
 });
 
-documents.onDidChangeContent((event) => {
-  fileHandler.getOrCreateTempFile(event.document).then((file) => {
-    checkForValidation(event.document);
-  });
+documents.onDidChangeContent(async (event) => {
+  checkForValidation(event.document);
 });
 
-documents.onDidClose((event) => {
-  cleanPendingValidations(event.document);
-  fileHandler.cleanTempFiles(event.document.uri);
+documents.onDidClose(async (event) => {
+  cleanPendingValidations(event.document.uri);
+  cleanTempFiles(event.document.uri);
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-connection.onCompletion((textDocumentPosition: CompletionParams, token: CancellationToken) => {
+connection.onCompletion(async (textDocumentPosition: CompletionParams, token: CancellationToken) => {
   // Create completion for a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith('.ts')) {
@@ -101,7 +89,7 @@ connection.onCompletion((textDocumentPosition: CompletionParams, token: Cancella
   return null;
 });
 
-connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken) => {
+connection.onHover(async (textDocumentPosition: HoverParams, token: CancellationToken) => {
   // Create hover description for a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith('.ts')) {
@@ -109,77 +97,91 @@ connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken)
   }
 });
 
-function cleanPendingValidations(textDoc: TextDocument): void {
-  const request = pendingValidations[textDoc.uri];
+function cleanPendingValidations(uri: string): void {
+  const request = pendingValidations[uri];
   if (request) {
     clearTimeout(request);
-    delete pendingValidations[textDoc.uri];
+    delete pendingValidations[uri];
   }
 }
 
-function triggerConfValidation(textDoc: TextDocument): void {
-  cleanPendingValidations(textDoc);
-  pendingValidations[textDoc.uri] = setTimeout(async () => {
-    delete pendingValidations[textDoc.uri];
-    await validateConfig(textDoc);
+function triggerConfValidation(document: TextDocument): void {
+  cleanPendingValidations(document.uri);
+  pendingValidations[document.uri] = setTimeout(async () => {
+    delete pendingValidations[document.uri];
+    await validateConfig(document);
   }, validationDelay);
 }
 
-function triggerTypescriptValidation(textDoc: TextDocument): void {
-  cleanPendingValidations(textDoc);
-  pendingValidations[textDoc.uri] = setTimeout(() => {
-    delete pendingValidations[textDoc.uri];
-    validateTypescript(textDoc);
+function triggerTypescriptValidation(document: TextDocument, file: File): void {
+  cleanPendingValidations(file.fileUri);
+  pendingValidations[file.fileUri] = setTimeout(() => {
+    delete pendingValidations[file.fileUri];
+    validateTypescript(document, file);
   }, validationDelay);
 }
 
-function checkForValidation(textDoc: TextDocument): void {
-  if (textDoc.languageId === 'json') {
-    if (textDoc.uri.endsWith('.siarc.json')) {
-      triggerConfValidation(textDoc);
-    } else if (textDoc.uri.endsWith('package.json')) {
-      loadPackageJson(textDoc.getText());
-      // Revalidate all typescript files
-      documents.all().forEach((doc: TextDocument) => {
-        if (doc.languageId === 'typescript') {
-          triggerTypescriptValidation(doc);
-        }
+function checkForValidation(document: TextDocument): void {
+  switch (document.languageId) {
+    case 'typescript': {
+      getOrCreateTempFile(document).then((file) => {
+        triggerTypescriptValidation(document, file);
       });
+      break;
     }
-  } else if (textDoc.languageId === 'typescript') {
-    triggerTypescriptValidation(textDoc);
+    case 'json': {
+      validateJson(document);
+    }
+    default: {
+    }
   }
 }
 
-async function validateConfig(textDoc: TextDocument): Promise<void> {
-  const jsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
+function validateJson(document: TextDocument) {
+  if (document.uri.endsWith('.siarc.json')) {
+    triggerConfValidation(document);
+  } else if (document.uri.endsWith('package.json')) {
+    loadPackageJson(document.getText());
+    // Revalidate all typescript files
+    documents.all().forEach((doc: TextDocument) => {
+      if (doc.languageId === 'typescript') {
+        // TODO change to work with FILE
+        //triggerTypescriptValidation(doc);
+      }
+    });
+  }
+}
 
-  const syntaxErrors = await jsonLanguageService.doValidation(textDoc, jsonDoc, { schemaValidation: 'error', trailingCommas: 'error' }, siaSchema as JSONSchema);
-  const semanticErrors = configValidator.validateConfigSemantic(textDoc, jsonDoc);
+async function validateConfig(document: TextDocument): Promise<void> {
+  const jsonDoc = jsonLanguageService.parseJSONDocument(document);
+
+  const syntaxErrors = await jsonLanguageService.doValidation(document, jsonDoc, { schemaValidation: 'error', trailingCommas: 'error' }, siaSchema as JSONSchema);
+  const semanticErrors = configValidator.validateConfigSemantic(document, jsonDoc);
 
   if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
-    analyzer.config = textDoc.getText();
-    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: [] });
+    analyzer.config = document.getText();
+    connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
     documents.all().forEach(async (doc: TextDocument) => {
       if (doc.languageId === 'typescript') {
-        triggerTypescriptValidation(doc);
+        // TODO change to work with FILE
+        //triggerTypescriptValidation(doc);
       }
     });
   } else {
-    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: semanticErrors });
+    connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
   }
 }
 
-function validateTypescript(textDoc: TextDocument): void {
+function validateTypescript(document: TextDocument, file: File): void {
   const diagnostics: Diagnostic[] = [];
 
-  const version = textDoc.version;
-  analyzer.analyzeEndpoints(textDoc.uri, textDoc.getText()).forEach((error: SemanticError) => {
+  const version = document.version;
+  analyzer.analyzeEndpoints(file).forEach((error: SemanticError) => {
     diagnostics.push({
       message: error.message,
       range: {
-        start: textDoc.positionAt(error.position.start),
-        end: textDoc.positionAt(error.position.end),
+        start: document.positionAt(error.position.start),
+        end: document.positionAt(error.position.end),
       },
       severity: DiagnosticSeverity.Error,
     });
@@ -187,16 +189,16 @@ function validateTypescript(textDoc: TextDocument): void {
 
   setImmediate(() => {
     // To be clear to send the correct diagnostics to the current document
-    const currDoc = documents.get(textDoc.uri);
+    const currDoc = documents.get(document.uri);
     if (currDoc && currDoc.version === version) {
-      connection.sendDiagnostics({ uri: textDoc.uri, diagnostics });
+      connection.sendDiagnostics({ uri: document.uri, diagnostics });
     }
   });
 }
 
-function loadPackageJson(text: string) {
-  if (text) {
-    const pack = JSON.parse(text);
+function loadPackageJson(json: string) {
+  if (json) {
+    const pack = JSON.parse(json);
     if (pack.name) {
       analyzer.currentService = pack.name;
     }

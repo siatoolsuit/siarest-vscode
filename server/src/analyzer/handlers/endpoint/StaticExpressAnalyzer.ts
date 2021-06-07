@@ -36,14 +36,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
   private httpMethods: string[] = ['get', 'post', 'put', 'delete'];
   private sendMethods: string[] = ['send', 'json'];
 
-  public analyze(uri: string, text: string): SemanticError[] {
+  public analyze(uri: string): SemanticError[] {
     // Check uri format
-    if (uri.startsWith('file:///')) {
-      uri = uri.replace('file:///', '');
-    }
-    if (uri.includes('%3A')) {
-      uri = uri.replace('%3A', ':');
-    }
+    // if (uri.startsWith('file:///')) {
+    //   uri = uri.replace('file:///', '');
+    // }
+    // if (uri.includes('%3A')) {
+    //   uri = uri.replace('%3A', ':');
+    // }
 
     // Create a new program for type checking
     const program = createProgram([uri], {});

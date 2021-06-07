@@ -1,5 +1,6 @@
 import { ServiceConfig } from './config';
 import { StaticExpressAnalyzer } from './handlers';
+import { File } from './handlers/file';
 import { SemanticError, StaticAnalyzer } from './types';
 
 export class Analyzer {
@@ -31,9 +32,9 @@ export class Analyzer {
     this.currentServiceName = name;
   }
 
-  public analyzeEndpoints(uri: string, text: string): SemanticError[] {
-    if (this.staticEndpointAnalyzerHandler) {
-      return this.staticEndpointAnalyzerHandler.analyze(uri, text);
+  public analyzeEndpoints(file : File): SemanticError[] {
+    if (this.staticEndpointAnalyzerHandler && file.tempFileUri) {
+      return this.staticEndpointAnalyzerHandler.analyze(file.tempFileUri);
     } else {
       return [];
     }
