@@ -17,7 +17,8 @@ import { ConfigValidator } from './analyzer/config';
 
 import * as siaSchema from './analyzer/config/config.schema.json';
 
-import { cleanTempFiles, File, getOrCreateTempFile } from "./analyzer/handlers/file/index";
+import { cleanTempFiles, IFile, getOrCreateTempFile } from "./analyzer/handlers/file/index";
+import { JSONS, PACKAGE_JSON, SIARC, TYPESCRIPT } from './analyzer/utils';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -55,7 +56,6 @@ connection.onInitialize(async (params: InitializeParams) => {
       loadPackageJson(params.initializationOptions.packageJson);
     }
   }
-  console.debug("SIARC JSON LOADED: " + result);
   return result;
 });
 
@@ -82,7 +82,7 @@ documents.onDidClose(async (event) => {
 connection.onCompletion(async (textDocumentPosition: CompletionParams, token: CancellationToken) => {
   // Create completion for a typescript file
   const path = textDocumentPosition.textDocument.uri;
-  if (path.endsWith('.ts')) {
+  if (path.endsWith(TYPESCRIPT.SUFFIX)) {
     // TODO: Check if we have a valid config
     return [];
   }
@@ -92,7 +92,7 @@ connection.onCompletion(async (textDocumentPosition: CompletionParams, token: Ca
 connection.onHover(async (textDocumentPosition: HoverParams, token: CancellationToken) => {
   // Create hover description for a typescript file
   const path = textDocumentPosition.textDocument.uri;
-  if (path.endsWith('.ts')) {
+  if (path.endsWith(TYPESCRIPT.SUFFIX)) {
     return null; // TODO: Maybe give a documentation of the endpoint
   }
 });
@@ -113,7 +113,7 @@ function triggerConfValidation(document: TextDocument): void {
   }, validationDelay);
 }
 
-function triggerTypescriptValidation(document: TextDocument, file: File): void {
+function triggerTypescriptValidation(document: TextDocument, file: IFile): void {
   cleanPendingValidations(file.fileUri);
   pendingValidations[file.fileUri] = setTimeout(() => {
     delete pendingValidations[file.fileUri];
@@ -121,33 +121,33 @@ function triggerTypescriptValidation(document: TextDocument, file: File): void {
   }, validationDelay);
 }
 
-function checkForValidation(document: TextDocument): void {
+async function checkForValidation(document: TextDocument): Promise<void> {
   switch (document.languageId) {
-    case 'typescript': {
+    case TYPESCRIPT.LANGUAGE_ID: {
       getOrCreateTempFile(document).then((file) => {
         triggerTypescriptValidation(document, file);
+      }).catch((reason) => {
+        return;
       });
       break;
     }
-    case 'json': {
+    case JSONS.LANGUAGE_ID: {
       validateJson(document);
     }
     default: {
+      return;
     }
   }
 }
 
 function validateJson(document: TextDocument) {
-  if (document.uri.endsWith('.siarc.json')) {
+  if (document.uri.endsWith(SIARC)) {
     triggerConfValidation(document);
-  } else if (document.uri.endsWith('package.json')) {
+  } else if (document.uri.endsWith(PACKAGE_JSON)) {
     loadPackageJson(document.getText());
     // Revalidate all typescript files
     documents.all().forEach((doc: TextDocument) => {
-      if (doc.languageId === 'typescript') {
-        // TODO change to work with FILE
-        //triggerTypescriptValidation(doc);
-      }
+      checkForValidation(doc);
     });
   }
 }
@@ -162,17 +162,14 @@ async function validateConfig(document: TextDocument): Promise<void> {
     analyzer.config = document.getText();
     connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
     documents.all().forEach(async (doc: TextDocument) => {
-      if (doc.languageId === 'typescript') {
-        // TODO change to work with FILE
-        //triggerTypescriptValidation(doc);
-      }
+        checkForValidation(doc);
     });
   } else {
     connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
   }
 }
 
-function validateTypescript(document: TextDocument, file: File): void {
+function validateTypescript(document: TextDocument, file: IFile): void {
   const diagnostics: Diagnostic[] = [];
 
   const version = document.version;

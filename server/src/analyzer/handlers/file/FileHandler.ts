@@ -5,35 +5,35 @@ import { writeFile } from "fs/promises";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { resolve } from "vscode-languageserver/lib/files";
 
-export interface File {
+export interface IFile {
     fileName: string;
     fileUri: string;
     tempFileName: string;
     tempFileUri: string;
 }
 
-const SLASH = '\\'
+const SLASH = '/'
 
 /**
  * Map with Key fileUri
  */
-const tempFiles: Map<string, File> = new Map();
+const tempFiles: Map<string, IFile> = new Map();
 
 /**
- * // TODO change rejects and error logs
- * @param uri 
- * @returns 
+ * Unlinks (deletes) the file at uri.
+ * @param uri Path to the file
+ * @returns Promise<void>
  */
 export async function cleanTempFiles(uri: DocumentUri): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         if (tempFiles.has(uri) == false) {
-            reject("//TODO");
+            reject(`Couldn't find ${uri}`);
             return;
         }
 
         let fileUri = tempFiles.get(uri)?.tempFileUri;
         if (!fileUri) {
-            reject("//TODO");
+            reject(`Couldn't find ${uri}`);
             return;
         }
 
@@ -42,6 +42,8 @@ export async function cleanTempFiles(uri: DocumentUri): Promise<void> {
                 console.warn(err);
                 reject(err);
                 return;
+            } else {
+                resolve();
             }
         });
     })
@@ -49,12 +51,12 @@ export async function cleanTempFiles(uri: DocumentUri): Promise<void> {
 
 
 /**
- * // TODO change rejects and error logs
- * @param textDoc 
- * @returns 
+ * Creates or gets the created temporary file.
+ * @param textDoc The document which should be created as a temporary file 
+ * @returns Promise with result as IFile
  */
-export async function getOrCreateTempFile(textDoc: TextDocument): Promise<File> {
-    return new Promise<File>((resolve, reject) => {
+export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile> {
+    return new Promise<IFile>((resolve, reject) => {
         if (!textDoc) {
             reject('Textdoc is empty')
         }
@@ -65,24 +67,24 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<File> 
             let file = tempFiles.get(textDoc.uri);
 
             if (!file?.tempFileUri) {
-                reject('ERROR');
+                reject('Temp File Uri is Empty.');
                 return;
             }
 
             var promise = writeFile(file.tempFileUri, textDoc.getText());
             promise.then(() => {
                 if (!file) {
-                    reject('ERROR');
+                    reject('Should never happen.');
                     return;
                 }
 
                 tempFiles.set(file.fileUri, file);
                 resolve(file);
             }).catch(() => {
-                reject("UNKNOWN REASON");
+                reject("Couldn't update temp file");
             });
         } else {
-            var file: File = {
+            var file: IFile = {
                 fileName: res.tempFileName,
                 fileUri: textDoc.uri,
                 tempFileName: res.tempFileName,
@@ -94,7 +96,7 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<File> 
                 tempFiles.set(file.fileUri, file);
                 resolve(file);
             }).catch(() => {
-                reject("UNKNOWN REASON");
+                reject("Couldn't create temp file");
             });
         }
     });
@@ -110,6 +112,6 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
     }
 
     res.tempFileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
-    res.tempFileUri = `${tmpdir()}${SLASH}${res.tempFileName}`;
+    res.tempFileUri = `${tmpdir()}\\${res.tempFileName}`;
     return res;
 }
