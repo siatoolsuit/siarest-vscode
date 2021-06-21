@@ -26,3 +26,8 @@
 | auslagern von konstanten | In progress |
 
 
+## FileHandler.ts
+| Task           |  Current Status | Finished | 
+|----------------|----------------|-----------|
+| Für alle Files nutzen? |  |
+| Path parsing  |     |  

@@ -67,6 +67,7 @@ documents.onDidOpen(async (event) => {
 });
 
 documents.onDidSave(async (event) => {
+  checkForValidation(event.document);
 });
 
 documents.onDidChangeContent(async (event) => {
