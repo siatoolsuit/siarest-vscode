@@ -132,6 +132,8 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
               });
             }
 
+            // TODO seb fragen
+
             // Check the body, only if this function is a post or put
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
@@ -331,8 +333,10 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       normalString: '',
     };
 
+    //TODO try and catch?
+
     let fullString = '{';
-    const members = type.symbol.members;
+    const members = type.symbol?.members;
     if (members && members.size > 0) {
       members.forEach((value, key) => {
         const propSig = value.valueDeclaration as PropertySignature;
