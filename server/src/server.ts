@@ -75,11 +75,13 @@ documents.onDidChangeContent(async (event) => {
 
 documents.onDidClose(async (event) => {
   cleanPendingValidations(event.document.uri);
-  cleanTempFiles(event.document.uri).then((fileUri) => {
-    console.debug(`Removed file at ${fileUri}`);
-  }).catch((error) => {
-    console.debug(error)
-  });
+  if (event.document.languageId === TYPESCRIPT.LANGUAGE_ID) {
+    cleanTempFiles(event.document.uri).then((fileUri) => {
+      console.debug(`Removed file at ${fileUri}`);
+    }).catch((error) => {
+      console.debug(error)
+    });
+  }
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
@@ -137,6 +139,7 @@ async function checkForValidation(document: TextDocument): Promise<void> {
     }
     case JSONS.LANGUAGE_ID: {
       validateJson(document);
+      break;
     }
     default: {
       return;
@@ -166,7 +169,9 @@ async function validateConfig(document: TextDocument): Promise<void> {
     analyzer.config = document.getText();
     connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
     documents.all().forEach(async (doc: TextDocument) => {
+      if (doc.languageId === TYPESCRIPT.LANGUAGE_ID) {
         checkForValidation(doc);
+      }
     });
   } else {
     connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
