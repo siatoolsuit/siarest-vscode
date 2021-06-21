@@ -75,7 +75,11 @@ documents.onDidChangeContent(async (event) => {
 
 documents.onDidClose(async (event) => {
   cleanPendingValidations(event.document.uri);
-  cleanTempFiles(event.document.uri);
+  cleanTempFiles(event.document.uri).then((fileUri) => {
+    console.debug(`Removed file at ${fileUri}`);
+  }).catch((error) => {
+    console.debug(error)
+  });
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 

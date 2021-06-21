@@ -8,7 +8,7 @@
 | Async File Handling | finished  | x
 |Use Temp Files for static express analyser| finsihed|x
 | Meldungen ersichtlicher gestallten ||
-|Async Promise Then.Catch | |
+|Async Promise Then.Catch | finished | x
 |Validate Json Suffix Problem| |
 #
 

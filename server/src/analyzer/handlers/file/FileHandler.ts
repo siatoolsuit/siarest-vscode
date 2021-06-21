@@ -24,8 +24,8 @@ const tempFiles: Map<string, IFile> = new Map();
  * @param uri Path to the file
  * @returns Promise<void>
  */
-export async function cleanTempFiles(uri: DocumentUri): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+export async function cleanTempFiles(uri: DocumentUri): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
         if (tempFiles.has(uri) == false) {
             reject(`Couldn't find ${uri}`);
             return;
@@ -43,7 +43,7 @@ export async function cleanTempFiles(uri: DocumentUri): Promise<void> {
                 reject(err);
                 return;
             } else {
-                resolve();
+                resolve(fileUri!);
             }
         });
     })
@@ -78,6 +78,7 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
                     return;
                 }
 
+                console.debug(`Updated content of file: ${file.tempFileUri}`)
                 tempFiles.set(file.fileUri, file);
                 resolve(file);
             }).catch(() => {
@@ -93,6 +94,7 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
 
             var promise = writeFile(file.tempFileUri, textDoc.getText());
             promise.then(() => {
+                console.debug(`Created file: ${file.tempFileUri}`)
                 tempFiles.set(file.fileUri, file);
                 resolve(file);
             }).catch(() => {
