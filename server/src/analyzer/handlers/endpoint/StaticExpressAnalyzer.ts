@@ -82,6 +82,8 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
               });
             }
 
+            // TODO should be possibe to do e.g res.status(200).send(...)
+
             const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
             // Validate the return value of the inner function
             if (resVal) {
@@ -191,6 +193,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       endpointExpressions: [],
     };
 
+    // TODO replace with a list of e.g for express.Router etc
     let expressVarName;
     for (const statement of statements) {
       switch (statement.kind) {

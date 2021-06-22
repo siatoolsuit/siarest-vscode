@@ -24,8 +24,10 @@
 | typeToString | |
 | eliminate boiler plate | |
 | auslagern von konstanten | In progress |
+| Support router ?| | 
+| Support more complex operations (e.g res.status.send...)||
 
-
+#
 ## FileHandler.ts
 | Task           |  Current Status | Finished | 
 |----------------|----------------|-----------|
