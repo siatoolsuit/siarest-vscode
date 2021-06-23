@@ -10,6 +10,7 @@
 | Meldungen ersichtlicher gestallten ||
 | Async Promise Then.Catch | finished | x
 | Validate Json Suffix Problem| finished | x
+| Own File for validation | In progress| 
 #
 
 ## StaticExpressAnalyzer.ts
