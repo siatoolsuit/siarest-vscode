@@ -1,9 +1,8 @@
 import { DocumentUri } from "vscode-languageserver";
 import { tmpdir } from "os";
-import { open, write, close, unlink } from "fs";
+import { unlink } from "fs";
 import { writeFile } from "fs/promises";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { resolve } from "vscode-languageserver/lib/files";
 
 export interface IFile {
     fileName: string;

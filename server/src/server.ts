@@ -9,7 +9,7 @@ import {
   HoverParams,
   CompletionParams,
   Diagnostic,
-} from 'vscode-languageserver';
+} from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Analyzer, SemanticError } from './analyzer';
@@ -20,7 +20,7 @@ import * as siaSchema from './analyzer/config/config.schema.json';
 import { cleanTempFiles, IFile, getOrCreateTempFile } from "./analyzer/handlers/file/index";
 import { JSONS, PACKAGE_JSON, SIARC, TYPESCRIPT } from './analyzer/utils';
 
-const connection = createConnection(ProposedFeatures.all);
+const connection = createConnection(ProposedFeatures.all)
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let jsonLanguageService: LanguageService;
