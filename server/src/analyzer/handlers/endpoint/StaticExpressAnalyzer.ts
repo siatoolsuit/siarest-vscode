@@ -249,6 +249,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return result;
   }
 
+  //TODO not
   private extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: BindingName | undefined } {
     const result: {
       resVal: Expression | undefined;
@@ -271,6 +272,9 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
         statList = (funcBody as Block).statements;
         break;
     }
+
+
+    // TODO erkenntn kein res.status ...
     for (const stat of statList) {
       switch (stat.kind) {
         case SyntaxKind.ExpressionStatement:
@@ -279,8 +283,10 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             const callExpr = exprStat.expression as CallExpression;
             if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
               // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
+
+        
               const propAccExpr = callExpr.expression as PropertyAccessExpression;
-              if (propAccExpr.expression.getText() === resVarNAme && this.sendMethods.includes(propAccExpr.name.text)) {
+            if (propAccExpr.expression.getText() === resVarNAme && this.sendMethods.includes(propAccExpr.name.text)) {
                 result.resVal = callExpr.arguments[0];
               }
             }

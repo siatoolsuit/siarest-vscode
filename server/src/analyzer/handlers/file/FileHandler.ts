@@ -3,8 +3,7 @@ import { tmpdir } from "os";
 import { open, write, close, unlink } from "fs";
 import { writeFile } from "fs/promises";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { resolve } from "vscode-languageserver/lib/files";
-
+import { win32 } from "path";
 export interface IFile {
     fileName: string;
     fileUri: string;
@@ -113,7 +112,10 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
         tempFileUri: '',
     }
 
+    let pathSeperator = '/'
+    if (process.platform === 'win32') pathSeperator = '\\';
+
     res.tempFileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
-    res.tempFileUri = `${tmpdir()}\\${res.tempFileName}`;
+    res.tempFileUri = `${tmpdir()}${pathSeperator}${res.tempFileName}`;
     return res;
 }
