@@ -36,14 +36,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
   private httpMethods: string[] = ['get', 'post', 'put', 'delete'];
   private sendMethods: string[] = ['send', 'json'];
 
-  public analyze(uri: string, text: string): SemanticError[] {
+  public analyze(uri: string): SemanticError[] {
     // Check uri format
-    if (uri.startsWith('file:///')) {
-      uri = uri.replace('file:///', '');
-    }
-    if (uri.includes('%3A')) {
-      uri = uri.replace('%3A', ':');
-    }
+    // if (uri.startsWith('file:///')) {
+    //   uri = uri.replace('file:///', '');
+    // }
+    // if (uri.includes('%3A')) {
+    //   uri = uri.replace('%3A', ':');
+    // }
 
     // Create a new program for type checking
     const program = createProgram([uri], {});
@@ -81,6 +81,8 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
                 },
               });
             }
+
+            // TODO should be possibe to do e.g res.status(200).send(...)
 
             const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
             // Validate the return value of the inner function
@@ -131,6 +133,8 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
                 position: { start: expr.getStart(), end: expr.end },
               });
             }
+
+            // TODO seb fragen
 
             // Check the body, only if this function is a post or put
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
@@ -189,6 +193,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       endpointExpressions: [],
     };
 
+    // TODO replace with a list of e.g for express.Router etc
     let expressVarName;
     for (const statement of statements) {
       switch (statement.kind) {
@@ -331,8 +336,10 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       normalString: '',
     };
 
+    //TODO try and catch?
+
     let fullString = '{';
-    const members = type.symbol.members;
+    const members = type.symbol?.members;
     if (members && members.size > 0) {
       members.forEach((value, key) => {
         const propSig = value.valueDeclaration as PropertySignature;

@@ -8,7 +8,9 @@ export interface SemanticError {
 export abstract class StaticAnalyzer {
   constructor(protected currentServiceName: string, protected currentConfig?: ServiceConfig) {}
 
-  public abstract analyze(uri: string, text: string): SemanticError[];
+  // public abstract analyze(uri: string, text: string): SemanticError[];
+  
+  public abstract analyze(uri: string): SemanticError[];
 
   set config(newConfig: ServiceConfig | undefined) {
     this.currentConfig = newConfig;
