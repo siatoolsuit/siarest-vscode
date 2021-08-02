@@ -24,6 +24,7 @@ import {
 
 import { Endpoint } from '../../config';
 import { SemanticError, StaticAnalyzer } from '../../types';
+import { createSemanticError } from '../../utils/helper';
 
 interface EndpointExpression {
   readonly expr: CallExpression;
@@ -37,14 +38,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
   private sendMethods: string[] = ['send', 'json'];
 
   public analyze(uri: string): SemanticError[] {
-    // Check uri format
-    // if (uri.startsWith('file:///')) {
-    //   uri = uri.replace('file:///', '');
-    // }
-    // if (uri.includes('%3A')) {
-    //   uri = uri.replace('%3A', ':');
-    // }
-
     // Create a new program for type checking
     const program = createProgram([uri], {});
     const checker = program.getTypeChecker();
@@ -52,10 +45,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     if (!tsFile) {
       return [];
     }
-
-    // TODO: Hure! Das invalidiert das Program wodurch der TypeChecker nicht mehr funktioniert. Ganz toll...
-    // TODO: Eventuell ein Pull Request bei der Compiler API machen ?? Erstmal weiter mit onChange stattdessen, oder eigenen TypeChecker schreiben => Auch nicht so angenehm
-    // tsFile = tsFile.update(text, createTextChangeRange(createTextSpan(0, tsFile.getFullWidth()), text.length));
 
     // Extract all higher functions like express import, app declarations and endpoint declarations
     const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile.statements);
@@ -73,13 +62,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
           // Validates the defined endpoint with the service configuration
           if (endpoint) {
             if (endpoint.method !== endpointExprs.method) {
-              result.push({
-                message: `Wrong HTTP method use ${endpoint.method} instead.`,
-                position: {
-                  start: expr.expression.getStart(),
-                  end: expr.expression.end,
-                },
-              });
+              result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.expression.getStart(), expr.expression.end));
             }
 
             // TODO should be possibe to do e.g res.status(200).send(...)
@@ -88,50 +71,50 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             // Validate the return value of the inner function
             if (resVal) {
               const resConf = endpoint.response;
-              if (typeof resConf === 'string') {
-                if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
-                  result.push({
-                    message: 'Return value needs to be a string.',
-                    position: { start: resVal.getStart(), end: resVal.end },
-                  });
-                } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
-                  result.push({
-                    message: 'Return value needs to be a number.',
-                    position: { start: resVal.getStart(), end: resVal.end },
-                  });
-                } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
-                  result.push({
-                    message: 'Return value needs to be true or false.',
-                    position: { start: resVal.getStart(), end: resVal.end },
-                  });
-                }
-              } else if (typeof resConf === 'object') {
-                // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
-                const resType = endpoint.response;
-                if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
-                  const type = checker.getTypeAtLocation(resVal);
-                  // Normalize type strings and compare them
-                  const { fullString, normalString } = this.typeToString(type, checker);
-                  const normalTypeInCodeString = normalString;
-                  const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
-                  if (normalTypeInCodeString !== normalTypeInConfigString) {
-                    result.push({
-                      message: `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`,
-                      position: { start: resVal.getStart(), end: resVal.end },
-                    });
+
+              switch (typeof resConf) {
+                case 'string':
+                  if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
+                    result.push(createSemanticError('Return value needs to be a string.', resVal.getStart(), resVal.end));
+                  } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
+                    result.push(createSemanticError('Return value needs to be a number.', resVal.getStart(), resVal.end));
+                  } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
+                    result.push(createSemanticError('Return value needs to be true or false.', resVal.getStart(), resVal.end));
                   }
-                } else {
-                  result.push({
-                    message: `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`,
-                    position: { start: resVal.getStart(), end: resVal.end },
-                  });
-                }
+                  break;
+                case 'object':
+                  // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
+                  const resType = endpoint.response;
+                  if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
+                    const type = checker.getTypeAtLocation(resVal);
+                    // Normalize type strings and compare them
+                    const { fullString, normalString } = this.typeToString(type, checker);
+                    const normalTypeInCodeString = normalString;
+                    const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
+                    if (normalTypeInCodeString !== normalTypeInConfigString) {
+                      result.push(
+                        createSemanticError(
+                          `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`,
+                          resVal.getStart(),
+                          resVal.end,
+                        ),
+                      );
+                    }
+                  } else {
+                    result.push(
+                      createSemanticError(
+                        `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`,
+                        resVal.getStart(),
+                        resVal.end,
+                      ),
+                    );
+                  }
+                  break;
+                default:
+                  break;
               }
             } else {
-              result.push({
-                message: 'Missing return value for endpoint.',
-                position: { start: expr.getStart(), end: expr.end },
-              });
+              result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
             }
 
             // TODO seb fragen
@@ -148,40 +131,32 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
                   const normalTypeInCodeString = normalString;
                   const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
                   if (normalTypeInCodeString !== normalTypeInConfigString) {
-                    result.push({
-                      message: `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${fullString}`,
-                      position: { start: reqVal.getStart(), end: reqVal.end },
-                    });
+                    result.push(
+                      createSemanticError(
+                        `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${fullString}`,
+                        reqVal.getStart(),
+                        reqVal.end,
+                      ),
+                    );
                   }
                 }
               } else {
-                result.push({
-                  message: `Endpoint with method "${endpoint.method}" has a missing body handling.`,
-                  position: { start: expr.getStart(), end: expr.end },
-                });
+                result.push(createSemanticError(`Endpoint with method "${endpoint.method}" has a missing body handling.`, expr.getStart(), expr.end));
               }
             }
           } else {
-            result.push({
-              message: 'Endpoint is not defined for this service.',
-              position: { start: expr.getStart(), end: expr.end },
-            });
+            result.push(createSemanticError('Endpoint is not defined for this service.', expr.getStart(), expr.end));
           }
         }
       }
     } else {
-      result.push({
-        message: `Missing configuration for service ${this.currentServiceName} in .siarc.json.`,
-        position: { start: 0, end: 0 },
-      });
+      result.push(createSemanticError(`Missing configuration for service ${this.currentServiceName} in .siarc.json.`, 0, 0));
     }
 
     return result;
   }
 
-  private extractExpressExpressions(
-    statements: NodeArray<Statement>,
-  ): {
+  private extractExpressExpressions(statements: NodeArray<Statement>): {
     expressImport: ImportDeclaration | undefined;
     endpointExpressions: EndpointExpression[];
   } {
@@ -273,7 +248,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
         break;
     }
 
-
     // TODO erkenntn kein res.status ...
     for (const stat of statList) {
       switch (stat.kind) {
@@ -284,9 +258,8 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
               // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
 
-        
               const propAccExpr = callExpr.expression as PropertyAccessExpression;
-            if (propAccExpr.expression.getText() === resVarNAme && this.sendMethods.includes(propAccExpr.name.text)) {
+              if (propAccExpr.expression.getText() === resVarNAme && this.sendMethods.includes(propAccExpr.name.text)) {
                 result.resVal = callExpr.arguments[0];
               }
             }
