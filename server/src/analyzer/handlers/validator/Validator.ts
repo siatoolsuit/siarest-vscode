@@ -25,10 +25,8 @@ export class Validator {
     this.configValidator = new ConfigValidator();
   }
 
-  public async validate(document: TextDocument): Promise<void> {
+  public async validate(document: TextDocument) {
     // TODO darf ich validieren?
-
-
     await this.checkForValidation(document);
   }
 

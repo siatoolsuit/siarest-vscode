@@ -3,7 +3,7 @@ import {
   BindingName,
   Block,
   CallExpression,
-  createNodeArray,
+  factory,
   createProgram,
   createTextChangeRange,
   createTextSpan,
@@ -141,7 +141,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
               const reqType = endpoint.request;
               if (reqVal) {
                 const symbol = checker.getSymbolAtLocation(reqVal);
-                if (symbol) {
+                if (symbol && symbol.valueDeclaration) {
                   const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration);
                   // Normalize type strings and compare them
                   const { fullString, normalString } = this.typeToString(type, checker);
@@ -266,7 +266,7 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     const reqVarName = params[0].getText();
     const resVarNAme = params[1].getText();
     const funcBody = inlineFunction.body;
-    let statList: NodeArray<Statement> = createNodeArray();
+    let statList: NodeArray<Statement> = factory.createNodeArray();
     switch (funcBody.kind) {
       case SyntaxKind.Block:
         statList = (funcBody as Block).statements;
