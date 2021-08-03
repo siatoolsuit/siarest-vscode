@@ -1,5 +1,5 @@
 import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands } from 'vscode';
-import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient';
+import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient/node';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -64,7 +64,11 @@ export async function activate(context: ExtensionContext): Promise<void> {
     },
   };
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ language: 'typescript', scheme: 'file' }, { language: 'json', pattern: '**/.siarc.json' }, { language: 'json', pattern: '**/package.json' }],
+    documentSelector: [
+      { language: 'typescript', scheme: 'file' },
+      { language: 'json', pattern: '**/.siarc.json' },
+      { language: 'json', pattern: '**/package.json' },
+    ],
     // Send the initialized package.json and .siarc.json, only if they exists
     initializationOptions: {
       siarcTextDoc: { uri, languageId: 'json', version: 1, content: siarc } || '',

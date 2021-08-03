@@ -34,3 +34,10 @@
 |----------------|----------------|-----------|
 | Für alle Files nutzen? |  |
 | Path parsing  |     |  
+
+
+## siarc.json validation ##
+| Task           |  Current Status | Finished | 
+|----------------|----------------|-----------|
+| Fix path problems |  |
+| check for wrong service names??  |     |  
