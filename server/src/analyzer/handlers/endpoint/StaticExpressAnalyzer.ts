@@ -20,10 +20,12 @@ import {
   Type,
   TypeChecker,
   VariableStatement,
+  NamedImports,
 } from 'typescript';
 
 import { Endpoint } from '../../config';
 import { SemanticError, StaticAnalyzer } from '../../types';
+import { expressImportByName } from '../../utils';
 import { createSemanticError } from '../../utils/helper';
 
 interface EndpointExpression {
@@ -48,6 +50,8 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
 
     // Extract all higher functions like express import, app declarations and endpoint declarations
     const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile.statements);
+
+    console.debug(expressImport, endpointExpressions);
 
     if (!expressImport) {
       return [];
@@ -168,53 +172,31 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       endpointExpressions: [],
     };
 
+    // parse from top to down
+
     // TODO replace with a list of e.g for express.Router etc
     let expressVarName;
     for (const statement of statements) {
       switch (statement.kind) {
         case SyntaxKind.ImportDeclaration:
-          const importDecl = statement as ImportDeclaration;
-          if (importDecl.importClause && importDecl.importClause.name) {
-            if (importDecl.importClause.name.escapedText === 'express') {
-              result.expressImport = importDecl;
-            }
+          const importStatement = this.extractExpressImport(statement);
+          if (importStatement) {
+            result.expressImport = importStatement;
           }
           break;
 
         case SyntaxKind.VariableStatement:
-          const varDecls = statement as VariableStatement;
-          for (const varDecl of varDecls.declarationList.declarations) {
-            if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
-              const initExp = varDecl.initializer as CallExpression;
-              if (initExp.expression.kind === SyntaxKind.Identifier) {
-                const initIden = initExp.expression as Identifier;
-                if (initIden.escapedText === 'express') {
-                  expressVarName = varDecl.name.getText();
-                }
-              }
-            }
+          const expressVar = this.extractExpressVariable(statement);
+          if (expressVar) {
+            expressVarName = expressVar;
           }
           break;
 
         case SyntaxKind.ExpressionStatement:
-          if (!expressVarName) {
-            continue;
-          }
-          const expr = statement as ExpressionStatement;
-          if (expr.expression.kind === SyntaxKind.CallExpression) {
-            const callExpr = expr.expression as CallExpression;
-            if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
-              // Check if the current expression is a express route declaration like app.get(...)
-              const propAccExpr = callExpr.expression as PropertyAccessExpression;
-              if (propAccExpr.expression.getText() === expressVarName && this.httpMethods.includes(propAccExpr.name.text)) {
-                const { path, inlineFunction } = this.extractPathAndMethodImplementationFromArguments(callExpr.arguments);
-                result.endpointExpressions.push({
-                  expr: callExpr,
-                  method: propAccExpr.name.text.toUpperCase(),
-                  path,
-                  inlineFunction,
-                });
-              }
+          if (expressVarName) {
+            const expression = this.extractExpressStatement(statement, expressVarName);
+            if (expression) {
+              result.endpointExpressions.push(expression);
             }
           }
           break;
@@ -222,6 +204,65 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     }
 
     return result;
+  }
+
+  extractExpressStatement(statement: Statement, expressVarName: String): EndpointExpression | undefined {
+    const expr = statement as ExpressionStatement;
+    if (expr.expression.kind === SyntaxKind.CallExpression) {
+      const callExpr = expr.expression as CallExpression;
+      if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+        // Check if the current expression is a express route declaration like app.get(...)
+        const propAccExpr = callExpr.expression as PropertyAccessExpression;
+        if (propAccExpr.expression.getText() === expressVarName && this.httpMethods.includes(propAccExpr.name.text)) {
+          const { path, inlineFunction } = this.extractPathAndMethodImplementationFromArguments(callExpr.arguments);
+          return {
+            expr: callExpr,
+            method: propAccExpr.name.text.toUpperCase(),
+            path,
+            inlineFunction,
+          };
+        }
+      }
+    }
+  }
+
+  private extractExpressVariable(statement: Statement): String | undefined {
+    const varDecls = statement as VariableStatement;
+    for (const varDecl of varDecls.declarationList.declarations) {
+      if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
+        const initExp = varDecl.initializer as CallExpression;
+        if (initExp.expression.kind === SyntaxKind.Identifier) {
+          const initIden = initExp.expression as Identifier;
+          if (initIden.escapedText) {
+            const express = expressImportByName.get(initIden.escapedText);
+            if (initIden.escapedText === express) {
+              return varDecl.name.getText();
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private extractExpressImport(statement: Statement): ImportDeclaration | undefined {
+    const importDecl = statement as ImportDeclaration;
+    const importClause = importDecl.importClause;
+    if (importClause) {
+      if (importClause.name) {
+        if (importClause.name.escapedText === expressImportByName.get('express')) {
+          return importDecl;
+        }
+      } else if (importClause.namedBindings) {
+        const imports = importClause.namedBindings as NamedImports;
+
+        for (const element of imports.elements) {
+          if (element.name.escapedText === 'Router') {
+            return importDecl;
+          }
+        }
+
+      }
+    }
   }
 
   //TODO not
