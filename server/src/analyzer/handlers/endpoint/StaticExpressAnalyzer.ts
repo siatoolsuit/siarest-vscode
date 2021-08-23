@@ -51,8 +51,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     // Extract all higher functions like express import, app declarations and endpoint declarations
     const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile.statements);
 
-    console.debug(expressImport, endpointExpressions);
-
     if (!expressImport) {
       return [];
     }
@@ -70,7 +68,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             }
 
             // TODO should be possibe to do e.g res.status(200).send(...)
-
             const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
             // Validate the return value of the inner function
             if (resVal) {
@@ -260,7 +257,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             return importDecl;
           }
         }
-
       }
     }
   }
@@ -300,8 +296,12 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
               // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
 
               const propAccExpr = callExpr.expression as PropertyAccessExpression;
-              if (propAccExpr.expression.getText() === resVarNAme && this.sendMethods.includes(propAccExpr.name.text)) {
-                result.resVal = callExpr.arguments[0];
+
+              if (this.sendMethods.includes(propAccExpr.name.text)) {
+                const lastPropAcc: PropertyAccessExpression | undefined = this.parseLastExpression(propAccExpr);
+                if (lastPropAcc && lastPropAcc.getText() === resVarNAme) {
+                  result.resVal = callExpr.arguments[0];
+                }
               }
             }
           }
@@ -378,5 +378,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     result.normalString = fullString.replace(/['",]/g, '');
 
     return result;
+  }
+
+  private parseLastExpression(propAccExpr: PropertyAccessExpression): PropertyAccessExpression | undefined {
+    if (propAccExpr.expression) {
+      propAccExpr = propAccExpr.expression as PropertyAccessExpression;
+      return this.parseLastExpression(propAccExpr);
+    }
+
+    return propAccExpr;
   }
 }
