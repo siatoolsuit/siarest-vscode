@@ -74,41 +74,12 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
 
               switch (typeof resConf) {
                 case 'string':
-                  if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
-                    result.push(createSemanticError('Return value needs to be a string.', resVal.getStart(), resVal.end));
-                  } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
-                    result.push(createSemanticError('Return value needs to be a number.', resVal.getStart(), resVal.end));
-                  } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
-                    result.push(createSemanticError('Return value needs to be true or false.', resVal.getStart(), resVal.end));
-                  }
+                  let semanticError = this.createSimpleTypeError(resConf, resVal);
+                  if (semanticError) result.push(semanticError);
                   break;
                 case 'object':
-                  // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
-                  const resType = endpoint.response;
-                  if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
-                    const type = checker.getTypeAtLocation(resVal);
-                    // Normalize type strings and compare them
-                    const { fullString, normalString } = this.typeToString(type, checker);
-                    const normalTypeInCodeString = normalString;
-                    const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
-                    if (normalTypeInCodeString !== normalTypeInConfigString) {
-                      result.push(
-                        createSemanticError(
-                          `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`,
-                          resVal.getStart(),
-                          resVal.end,
-                        ),
-                      );
-                    }
-                  } else {
-                    result.push(
-                      createSemanticError(
-                        `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`,
-                        resVal.getStart(),
-                        resVal.end,
-                      ),
-                    );
-                  }
+                  semanticError = this.createComplexTypeError(endpoint, resVal, checker, result);
+                  if (semanticError) result.push(semanticError);
                   break;
                 default:
                   break;
@@ -385,5 +356,39 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     }
 
     return propAccExpr;
+  }
+
+  private createSimpleTypeError(resConf: string, resVal: Expression): SemanticError | undefined {
+    if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
+      return createSemanticError('Return value needs to be a string.', resVal.getStart(), resVal.end);
+    } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
+      createSemanticError('Return value needs to be a number.', resVal.getStart(), resVal.end);
+    } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
+      createSemanticError('Return value needs to be true or false.', resVal.getStart(), resVal.end);
+    }
+
+    return undefined;
+  }
+
+  private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker, result: SemanticError[]): SemanticError | undefined {
+    // TODO
+    // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
+    const resType = endpoint.response;
+    if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
+      const type = checker.getTypeAtLocation(resVal);
+      // Normalize type strings and compare them
+      const { fullString, normalString } = this.typeToString(type, checker);
+      const normalTypeInCodeString = normalString;
+      const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
+      if (normalTypeInCodeString !== normalTypeInConfigString) {
+        result.push(createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`, resVal.getStart(), resVal.end));
+      }
+    } else {
+      result.push(
+        createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end),
+      );
+    }
+
+    return undefined;
   }
 }
