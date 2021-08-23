@@ -67,7 +67,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
               result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.expression.getStart(), expr.expression.end));
             }
 
-            // TODO should be possibe to do e.g res.status(200).send(...)
             const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
             // Validate the return value of the inner function
             if (resVal) {
@@ -294,9 +293,8 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             const callExpr = exprStat.expression as CallExpression;
             if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
               // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
-
+              // the last call of chained PropertyAccessExpression
               const propAccExpr = callExpr.expression as PropertyAccessExpression;
-
               if (this.sendMethods.includes(propAccExpr.name.text)) {
                 const lastPropAcc: PropertyAccessExpression | undefined = this.parseLastExpression(propAccExpr);
                 if (lastPropAcc && lastPropAcc.getText() === resVarNAme) {
