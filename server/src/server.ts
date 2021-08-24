@@ -7,6 +7,7 @@ import {
   CancellationToken,
   HoverParams,
   CompletionParams,
+  CompletionItem,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -14,11 +15,13 @@ import { cleanTempFiles } from './analyzer/handlers/file/index';
 import { TYPESCRIPT } from './analyzer/utils';
 
 import { Validator } from './analyzer/handlers/validator';
+import { AutoComplete } from './analyzer/handlers/endpoint/autocompletion/autoComplete';
 
 export const connection = createConnection(ProposedFeatures.all);
 export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let validator: Validator;
+let autoComplete: AutoComplete;
 
 connection.onInitialize(async (params: InitializeParams) => {
   const result: InitializeResult = {
@@ -46,20 +49,20 @@ connection.onInitialize(async (params: InitializeParams) => {
   return result;
 });
 
-documents.onDidOpen(async (event) => {
+documents.onDidOpen((event) => {
   validator.validate(event.document);
 });
 
-documents.onDidSave(async (event) => {
+documents.onDidSave((event) => {
   validator.validate(event.document);
 });
 
-documents.onDidChangeContent(async (event) => {
+documents.onDidChangeContent((event) => {
   validator.validate(event.document);
 });
 
 //TODOs ab hier
-documents.onDidClose(async (event) => {
+documents.onDidClose((event) => {
   validator.cleanPendingValidations(event.document.uri);
   if (event.document.languageId === TYPESCRIPT.LANGUAGE_ID) {
     cleanTempFiles(event.document.uri)
@@ -73,17 +76,16 @@ documents.onDidClose(async (event) => {
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-connection.onCompletion(async (textDocumentPosition: CompletionParams, token: CancellationToken) => {
-  // Create completion for a typescript file
-  const path = textDocumentPosition.textDocument.uri;
-  if (path.endsWith(TYPESCRIPT.SUFFIX)) {
-    // TODO: Check if we have a valid config
-    return [];
-  }
-  return null;
+connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
+  const completionItems: CompletionItem[] = autoComplete.provideCompletionItems(params, token);
+  return completionItems;
 });
 
-connection.onHover(async (textDocumentPosition: HoverParams, token: CancellationToken) => {
+connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+  return item;
+});
+
+connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken) => {
   // Create hover description for a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith(TYPESCRIPT.SUFFIX)) {
