@@ -9,6 +9,10 @@ export class Analyzer {
   private currentServiceName!: string;
   private staticEndpointAnalyzerHandler!: StaticAnalyzer;
 
+  /**
+   * Setter config
+   * @param text as string (siarc.json)
+   */
   set config(text: string) {
     this.validConfig = JSON.parse(text);
     // Load the config to all analyzer handler
@@ -32,6 +36,11 @@ export class Analyzer {
     this.currentServiceName = name;
   }
 
+  /**
+   *
+   * @param file Typescript file
+   * @returns List of SemanticErrors
+   */
   public analyzeEndpoints(file: IFile): SemanticError[] {
     if (this.staticEndpointAnalyzerHandler && file.tempFileUri) {
       return this.staticEndpointAnalyzerHandler.analyze(file.tempFileUri);
@@ -40,6 +49,10 @@ export class Analyzer {
     }
   }
 
+  /**
+   * detectFrameworkOrLibrary
+   * @param packJ packageJson
+   */
   public detectFrameworkOrLibrary(packJ: any): void {
     // Extract the list of all compile time dependencies and look for supported frameworks and libraries
     const deps = packJ.dependencies;

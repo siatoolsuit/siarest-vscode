@@ -4,6 +4,7 @@ import { open, write, close, unlink } from 'fs';
 import { writeFile } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { win32 } from 'path';
+
 export interface IFile {
   fileName: string;
   fileUri: string;
@@ -106,6 +107,11 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
   });
 }
 
+/**
+ * Creates a fileName and uri to the file on temp path of system
+ * @param uri File uri on system
+ * @returns Tuple of { tempFileName, tempFileUri }
+ */
 function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUri: string } {
   const res: {
     tempFileName: string;

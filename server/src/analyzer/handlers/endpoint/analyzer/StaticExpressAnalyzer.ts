@@ -39,6 +39,11 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
   private httpMethods: string[] = ['get', 'post', 'put', 'delete'];
   private sendMethods: string[] = ['send', 'json'];
 
+  /**
+   *
+   * @param uri to the pending file for validation
+   * @returns
+   */
   public analyze(uri: string): SemanticError[] {
     // Create a new program for type checking
     const program = createProgram([uri], {});
@@ -127,6 +132,11 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return result;
   }
 
+  /**
+   *
+   * @param statements List of typescript Statements
+   * @returns tuple of { Importdeclaration, ListOfEndPoints } of the current file
+   */
   private extractExpressExpressions(statements: NodeArray<Statement>): {
     expressImport: ImportDeclaration | undefined;
     endpointExpressions: EndpointExpression[];
@@ -173,7 +183,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return result;
   }
 
+  /**
+   *
+   * @param statement (Simple node/typescript) state
+   * @param expressVarName Name of the express/Router variable
+   * @returns
+   */
   extractExpressStatement(statement: Statement, expressVarName: String): EndpointExpression | undefined {
+    // TODO rename parameter
     const expr = statement as ExpressionStatement;
     if (expr.expression.kind === SyntaxKind.CallExpression) {
       const callExpr = expr.expression as CallExpression;
@@ -211,6 +228,11 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     }
   }
 
+  /**
+   * // TODO
+   * @param statement
+   * @returns
+   */
   private extractExpressImport(statement: Statement): ImportDeclaration | undefined {
     const importDecl = statement as ImportDeclaration;
     const importClause = importDecl.importClause;
@@ -297,6 +319,11 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return result;
   }
 
+  /**
+   *
+   * @param args Arguments for
+   * @returns // TODO
+   */
   private extractPathAndMethodImplementationFromArguments(args: NodeArray<Expression>): { path: string; inlineFunction: ArrowFunction } {
     const result: any = {};
     for (const node of args) {
@@ -309,6 +336,11 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return result;
   }
 
+  /**
+   * Checks if the API path is defined
+   * @param path API path
+   * @returns
+   */
   private findEndpointForPath(path: string): Endpoint | undefined {
     if (this.currentConfig) {
       for (const endpoint of this.currentConfig.endpoints) {
@@ -319,6 +351,12 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     }
   }
 
+  /**
+   * // TODO
+   * @param type
+   * @param checker
+   * @returns
+   */
   private typeToString(type: Type, checker: TypeChecker): { fullString: string; normalString: string } {
     const result: { fullString: string; normalString: string } = {
       fullString: '',
@@ -349,6 +387,11 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return result;
   }
 
+  /**
+   * Parse first chained expressions recursive
+   * @param propAccExpr Last Expression e.g res.status(404).body().send()
+   * @returns res
+   */
   private parseLastExpression(propAccExpr: PropertyAccessExpression): PropertyAccessExpression | undefined {
     if (propAccExpr.expression) {
       propAccExpr = propAccExpr.expression as PropertyAccessExpression;
@@ -358,6 +401,12 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return propAccExpr;
   }
 
+  /**
+   * // Creates a semantic error for simple types (string, number, boolean)
+   * @param resConf
+   * @param resVal
+   * @returns
+   */
   private createSimpleTypeError(resConf: string, resVal: Expression): SemanticError | undefined {
     if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
       return createSemanticError('Return value needs to be a string.', resVal.getStart(), resVal.end);
@@ -370,6 +419,14 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     return undefined;
   }
 
+  /**
+   * // TODO needs further implementation
+   * @param endpoint
+   * @param resVal
+   * @param checker
+   * @param result
+   * @returns SemanticError or undefined
+   */
   private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker, result: SemanticError[]): SemanticError | undefined {
     // TODO
     // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
