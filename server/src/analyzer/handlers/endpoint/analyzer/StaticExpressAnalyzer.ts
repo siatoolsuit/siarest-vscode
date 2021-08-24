@@ -23,10 +23,10 @@ import {
   NamedImports,
 } from 'typescript';
 
-import { Endpoint } from '../../config';
-import { SemanticError, StaticAnalyzer } from '../../types';
-import { expressImportByName } from '../../utils';
-import { createSemanticError } from '../../utils/helper';
+import { Endpoint } from '../../../config';
+import { SemanticError, StaticAnalyzer } from '../../../types';
+import { expressImportByName } from '../../../utils';
+import { createSemanticError } from '../../../utils/helper';
 
 interface EndpointExpression {
   readonly expr: CallExpression;
