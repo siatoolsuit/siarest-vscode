@@ -20,11 +20,13 @@ import {
   Type,
   TypeChecker,
   VariableStatement,
+  NamedImports,
 } from 'typescript';
 
-import { Endpoint } from '../../config';
-import { SemanticError, StaticAnalyzer } from '../../types';
-import { createSemanticError } from '../../utils/helper';
+import { Endpoint } from '../../../config';
+import { SemanticError, StaticAnalyzer } from '../../../types';
+import { expressImportByName } from '../../../utils';
+import { createSemanticError } from '../../../utils/helper';
 
 interface EndpointExpression {
   readonly expr: CallExpression;
@@ -65,8 +67,6 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
               result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.expression.getStart(), expr.expression.end));
             }
 
-            // TODO should be possibe to do e.g res.status(200).send(...)
-
             const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
             // Validate the return value of the inner function
             if (resVal) {
@@ -74,41 +74,12 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
 
               switch (typeof resConf) {
                 case 'string':
-                  if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
-                    result.push(createSemanticError('Return value needs to be a string.', resVal.getStart(), resVal.end));
-                  } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
-                    result.push(createSemanticError('Return value needs to be a number.', resVal.getStart(), resVal.end));
-                  } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
-                    result.push(createSemanticError('Return value needs to be true or false.', resVal.getStart(), resVal.end));
-                  }
+                  let semanticError = this.createSimpleTypeError(resConf, resVal);
+                  if (semanticError) result.push(semanticError);
                   break;
                 case 'object':
-                  // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
-                  const resType = endpoint.response;
-                  if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
-                    const type = checker.getTypeAtLocation(resVal);
-                    // Normalize type strings and compare them
-                    const { fullString, normalString } = this.typeToString(type, checker);
-                    const normalTypeInCodeString = normalString;
-                    const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
-                    if (normalTypeInCodeString !== normalTypeInConfigString) {
-                      result.push(
-                        createSemanticError(
-                          `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`,
-                          resVal.getStart(),
-                          resVal.end,
-                        ),
-                      );
-                    }
-                  } else {
-                    result.push(
-                      createSemanticError(
-                        `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`,
-                        resVal.getStart(),
-                        resVal.end,
-                      ),
-                    );
-                  }
+                  semanticError = this.createComplexTypeError(endpoint, resVal, checker, result);
+                  if (semanticError) result.push(semanticError);
                   break;
                 default:
                   break;
@@ -168,53 +139,31 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
       endpointExpressions: [],
     };
 
+    // parse from top to down
+
     // TODO replace with a list of e.g for express.Router etc
     let expressVarName;
     for (const statement of statements) {
       switch (statement.kind) {
         case SyntaxKind.ImportDeclaration:
-          const importDecl = statement as ImportDeclaration;
-          if (importDecl.importClause && importDecl.importClause.name) {
-            if (importDecl.importClause.name.escapedText === 'express') {
-              result.expressImport = importDecl;
-            }
+          const importStatement = this.extractExpressImport(statement);
+          if (importStatement) {
+            result.expressImport = importStatement;
           }
           break;
 
         case SyntaxKind.VariableStatement:
-          const varDecls = statement as VariableStatement;
-          for (const varDecl of varDecls.declarationList.declarations) {
-            if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
-              const initExp = varDecl.initializer as CallExpression;
-              if (initExp.expression.kind === SyntaxKind.Identifier) {
-                const initIden = initExp.expression as Identifier;
-                if (initIden.escapedText === 'express') {
-                  expressVarName = varDecl.name.getText();
-                }
-              }
-            }
+          const expressVar = this.extractExpressVariable(statement);
+          if (expressVar) {
+            expressVarName = expressVar;
           }
           break;
 
         case SyntaxKind.ExpressionStatement:
-          if (!expressVarName) {
-            continue;
-          }
-          const expr = statement as ExpressionStatement;
-          if (expr.expression.kind === SyntaxKind.CallExpression) {
-            const callExpr = expr.expression as CallExpression;
-            if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
-              // Check if the current expression is a express route declaration like app.get(...)
-              const propAccExpr = callExpr.expression as PropertyAccessExpression;
-              if (propAccExpr.expression.getText() === expressVarName && this.httpMethods.includes(propAccExpr.name.text)) {
-                const { path, inlineFunction } = this.extractPathAndMethodImplementationFromArguments(callExpr.arguments);
-                result.endpointExpressions.push({
-                  expr: callExpr,
-                  method: propAccExpr.name.text.toUpperCase(),
-                  path,
-                  inlineFunction,
-                });
-              }
+          if (expressVarName) {
+            const expression = this.extractExpressStatement(statement, expressVarName);
+            if (expression) {
+              result.endpointExpressions.push(expression);
             }
           }
           break;
@@ -222,6 +171,64 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     }
 
     return result;
+  }
+
+  extractExpressStatement(statement: Statement, expressVarName: String): EndpointExpression | undefined {
+    const expr = statement as ExpressionStatement;
+    if (expr.expression.kind === SyntaxKind.CallExpression) {
+      const callExpr = expr.expression as CallExpression;
+      if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+        // Check if the current expression is a express route declaration like app.get(...)
+        const propAccExpr = callExpr.expression as PropertyAccessExpression;
+        if (propAccExpr.expression.getText() === expressVarName && this.httpMethods.includes(propAccExpr.name.text)) {
+          const { path, inlineFunction } = this.extractPathAndMethodImplementationFromArguments(callExpr.arguments);
+          return {
+            expr: callExpr,
+            method: propAccExpr.name.text.toUpperCase(),
+            path,
+            inlineFunction,
+          };
+        }
+      }
+    }
+  }
+
+  private extractExpressVariable(statement: Statement): String | undefined {
+    const varDecls = statement as VariableStatement;
+    for (const varDecl of varDecls.declarationList.declarations) {
+      if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
+        const initExp = varDecl.initializer as CallExpression;
+        if (initExp.expression.kind === SyntaxKind.Identifier) {
+          const initIden = initExp.expression as Identifier;
+          if (initIden.escapedText) {
+            const express = expressImportByName.get(initIden.escapedText);
+            if (initIden.escapedText === express) {
+              return varDecl.name.getText();
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private extractExpressImport(statement: Statement): ImportDeclaration | undefined {
+    const importDecl = statement as ImportDeclaration;
+    const importClause = importDecl.importClause;
+    if (importClause) {
+      if (importClause.name) {
+        if (importClause.name.escapedText === expressImportByName.get('express')) {
+          return importDecl;
+        }
+      } else if (importClause.namedBindings) {
+        const imports = importClause.namedBindings as NamedImports;
+
+        for (const element of imports.elements) {
+          if (element.name.escapedText === 'Router') {
+            return importDecl;
+          }
+        }
+      }
+    }
   }
 
   //TODO not
@@ -257,10 +264,13 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
             const callExpr = exprStat.expression as CallExpression;
             if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
               // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
-
+              // the last call of chained PropertyAccessExpression
               const propAccExpr = callExpr.expression as PropertyAccessExpression;
-              if (propAccExpr.expression.getText() === resVarNAme && this.sendMethods.includes(propAccExpr.name.text)) {
-                result.resVal = callExpr.arguments[0];
+              if (this.sendMethods.includes(propAccExpr.name.text)) {
+                const lastPropAcc: PropertyAccessExpression | undefined = this.parseLastExpression(propAccExpr);
+                if (lastPropAcc && lastPropAcc.getText() === resVarNAme) {
+                  result.resVal = callExpr.arguments[0];
+                }
               }
             }
           }
@@ -337,5 +347,48 @@ export class StaticExpressAnalyzer extends StaticAnalyzer {
     result.normalString = fullString.replace(/['",]/g, '');
 
     return result;
+  }
+
+  private parseLastExpression(propAccExpr: PropertyAccessExpression): PropertyAccessExpression | undefined {
+    if (propAccExpr.expression) {
+      propAccExpr = propAccExpr.expression as PropertyAccessExpression;
+      return this.parseLastExpression(propAccExpr);
+    }
+
+    return propAccExpr;
+  }
+
+  private createSimpleTypeError(resConf: string, resVal: Expression): SemanticError | undefined {
+    if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
+      return createSemanticError('Return value needs to be a string.', resVal.getStart(), resVal.end);
+    } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
+      createSemanticError('Return value needs to be a number.', resVal.getStart(), resVal.end);
+    } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
+      createSemanticError('Return value needs to be true or false.', resVal.getStart(), resVal.end);
+    }
+
+    return undefined;
+  }
+
+  private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker, result: SemanticError[]): SemanticError | undefined {
+    // TODO
+    // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
+    const resType = endpoint.response;
+    if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
+      const type = checker.getTypeAtLocation(resVal);
+      // Normalize type strings and compare them
+      const { fullString, normalString } = this.typeToString(type, checker);
+      const normalTypeInCodeString = normalString;
+      const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
+      if (normalTypeInCodeString !== normalTypeInConfigString) {
+        result.push(createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`, resVal.getStart(), resVal.end));
+      }
+    } else {
+      result.push(
+        createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end),
+      );
+    }
+
+    return undefined;
   }
 }

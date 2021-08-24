@@ -1,1 +1,1 @@
-export * from './FileHandler'
+export * from './FileHandler';

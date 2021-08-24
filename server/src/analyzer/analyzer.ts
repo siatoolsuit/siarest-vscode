@@ -13,7 +13,7 @@ export class Analyzer {
     this.validConfig = JSON.parse(text);
     // Load the config to all analyzer handler
     if (this.staticEndpointAnalyzerHandler) {
-      let found = false;  
+      let found = false;
       for (const config of this.validConfig) {
         if (config.name === this.staticEndpointAnalyzerHandler.serviceName) {
           this.staticEndpointAnalyzerHandler.config = config;
@@ -32,7 +32,7 @@ export class Analyzer {
     this.currentServiceName = name;
   }
 
-  public analyzeEndpoints(file : IFile): SemanticError[] {
+  public analyzeEndpoints(file: IFile): SemanticError[] {
     if (this.staticEndpointAnalyzerHandler && file.tempFileUri) {
       return this.staticEndpointAnalyzerHandler.analyze(file.tempFileUri);
     } else {

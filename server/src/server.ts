@@ -58,7 +58,6 @@ documents.onDidChangeContent(async (event) => {
   validator.validate(event.document);
 });
 
-
 //TODOs ab hier
 documents.onDidClose(async (event) => {
   validator.cleanPendingValidations(event.document.uri);
