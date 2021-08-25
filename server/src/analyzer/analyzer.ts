@@ -1,13 +1,13 @@
 import { ServiceConfig } from './config';
 import { StaticExpressAnalyzer } from './handlers';
 import { IFile } from './handlers/file';
-import { SemanticError, StaticAnalyzer } from './types';
+import { SemanticError } from './types';
 
 export class Analyzer {
   private validConfig: ServiceConfig[] = [];
 
   private currentServiceName!: string;
-  private staticEndpointAnalyzerHandler!: StaticAnalyzer;
+  private staticEndpointAnalyzerHandler!: StaticExpressAnalyzer;
 
   /**
    * Setter config

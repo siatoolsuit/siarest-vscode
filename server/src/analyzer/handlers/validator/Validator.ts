@@ -14,8 +14,8 @@ const validationDelay = 300;
 
 export class Validator {
   jsonLanguageService: LanguageService;
-  analyzer: Analyzer;
   configValidator: ConfigValidator;
+  analyzer: Analyzer;
 
   constructor(params: InitializeParams) {
     this.jsonLanguageService = getLanguageService({
@@ -27,7 +27,7 @@ export class Validator {
 
   public async validate(document: TextDocument) {
     // TODO darf ich validieren?
-    await this.checkForValidation(document);
+    this.checkForValidation(document);
   }
 
   protected async checkForValidation(document: TextDocument): Promise<void> {
@@ -60,7 +60,7 @@ export class Validator {
     }
   }
 
-  public triggerConfValidation(document: TextDocument): void {
+  private triggerConfValidation(document: TextDocument): void {
     this.cleanPendingValidations(document.uri);
     pendingValidations[document.uri] = setTimeout(async () => {
       delete pendingValidations[document.uri];
@@ -68,7 +68,7 @@ export class Validator {
     }, validationDelay);
   }
 
-  triggerTypescriptValidation(document: TextDocument, file: IFile): void {
+  private triggerTypescriptValidation(document: TextDocument, file: IFile): void {
     this.cleanPendingValidations(file.fileUri);
     pendingValidations[file.fileUri] = setTimeout(() => {
       delete pendingValidations[file.fileUri];
@@ -76,7 +76,7 @@ export class Validator {
     }, validationDelay);
   }
 
-  public validateJson(document: TextDocument) {
+  private validateJson(document: TextDocument) {
     if (document.uri.endsWith(SIARC)) {
       this.triggerConfValidation(document);
     } else if (document.uri.endsWith(PACKAGE_JSON)) {
