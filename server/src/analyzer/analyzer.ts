@@ -7,7 +7,7 @@ export class Analyzer {
   private validConfig: ServiceConfig[] = [];
 
   private currentServiceName!: string;
-  private staticEndpointAnalyzerHandler!: StaticExpressAnalyzer;
+  public staticEndpointAnalyzerHandler!: StaticExpressAnalyzer;
 
   /**
    * Setter config

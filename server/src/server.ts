@@ -15,13 +15,12 @@ import { cleanTempFiles } from './analyzer/handlers/file/index';
 import { TYPESCRIPT } from './analyzer/utils';
 
 import { Validator } from './analyzer/handlers/validator';
-import { AutoComplete } from './analyzer/handlers/endpoint/autocompletion/autoComplete';
+import { AutoCompletionProvider } from './analyzer/handlers/endpoint/autocompletion/autoCompletionProvider';
 
 export const connection = createConnection(ProposedFeatures.all);
 export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let validator: Validator;
-let autoComplete: AutoComplete;
 
 connection.onInitialize(async (params: InitializeParams) => {
   const result: InitializeResult = {
@@ -35,17 +34,6 @@ connection.onInitialize(async (params: InitializeParams) => {
 
   validator = new Validator(params);
 
-  // Load package.json and .siarc.json, if they exists
-  if (params.initializationOptions) {
-    if (params.initializationOptions.siarcTextDoc) {
-      const siarc = params.initializationOptions.siarcTextDoc;
-      const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-      await validator.validateConfig(textDoc);
-    }
-    if (params.initializationOptions.packageJson) {
-      validator.loadPackageJson(params.initializationOptions.packageJson);
-    }
-  }
   return result;
 });
 
@@ -77,7 +65,7 @@ documents.onDidClose((event) => {
 });
 
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
-  const completionItems: CompletionItem[] = autoComplete.provideCompletionItems(params, token);
+  const completionItems: CompletionItem[] = validator.autoComplete(params, token);
   return completionItems;
 });
 

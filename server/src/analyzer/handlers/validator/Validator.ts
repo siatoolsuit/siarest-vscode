@@ -1,5 +1,5 @@
 import { JSONSchema, DiagnosticSeverity, LanguageService, getLanguageService } from 'vscode-json-languageservice';
-import { InitializeParams, Diagnostic } from 'vscode-languageserver';
+import { InitializeParams, Diagnostic, CompletionItem, CancellationToken, CompletionParams } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Analyzer, SemanticError } from '../..';
 import { connection, documents } from '../../../server';
@@ -8,6 +8,7 @@ import { TYPESCRIPT, JSONS, SIARC, PACKAGE_JSON } from '../../utils';
 import { getOrCreateTempFile, IFile } from '../file/FileHandler';
 
 import * as siaSchema from '../../config/config.schema.json';
+import { AutoCompletionProvider } from '../endpoint/autocompletion/autoCompletionProvider';
 
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
@@ -16,6 +17,7 @@ export class Validator {
   jsonLanguageService: LanguageService;
   configValidator: ConfigValidator;
   analyzer: Analyzer;
+  autoCompletionProvider: AutoCompletionProvider;
 
   constructor(params: InitializeParams) {
     this.jsonLanguageService = getLanguageService({
@@ -23,11 +25,37 @@ export class Validator {
     });
     this.analyzer = new Analyzer();
     this.configValidator = new ConfigValidator();
+
+    // Load package.json and .siarc.json, if they exists
+    if (params.initializationOptions) {
+      if (params.initializationOptions.siarcTextDoc) {
+        const siarc = params.initializationOptions.siarcTextDoc;
+        const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
+        this.validateConfig(textDoc);
+      }
+      if (params.initializationOptions.packageJson) {
+        this.loadPackageJson(params.initializationOptions.packageJson);
+      }
+    }
+
+    this.autoCompletionProvider = new AutoCompletionProvider(
+      this.analyzer.staticEndpointAnalyzerHandler.serviceName,
+      this.analyzer.staticEndpointAnalyzerHandler.config,
+    );
   }
 
   public async validate(document: TextDocument) {
-    // TODO darf ich validieren?
-    this.checkForValidation(document);
+    if (this.allowValidation()) {
+      this.checkForValidation(document);
+    }
+  }
+
+  // TODO async
+  public autoComplete(params: CompletionParams, token: CancellationToken): CompletionItem[] {
+    if (this.allowValidation()) {
+      return this.autoCompletionProvider.provideCompletionItems(params, token);
+    }
+    return [];
   }
 
   protected async checkForValidation(document: TextDocument): Promise<void> {
@@ -144,5 +172,13 @@ export class Validator {
       }
       this.analyzer.detectFrameworkOrLibrary(pack);
     }
+  }
+
+  private allowValidation(): boolean {
+    console.debug(this.jsonLanguageService, this.analyzer);
+    if (this.jsonLanguageService && this.analyzer && this.analyzer.staticEndpointAnalyzerHandler) {
+      return true;
+    }
+    return false;
   }
 }

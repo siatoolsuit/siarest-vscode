@@ -191,7 +191,7 @@ export class StaticExpressAnalyzer {
    * @param expressVarName Name of the express/Router variable
    * @returns an EndpointExpression
    */
-  extractExpressStatement(statement: Statement, expressVarName: String): EndpointExpression | undefined {
+  private extractExpressStatement(statement: Statement, expressVarName: String): EndpointExpression | undefined {
     // TODO rename parameter
     const expr = statement as ExpressionStatement;
     if (expr.expression.kind === SyntaxKind.CallExpression) {
