@@ -226,6 +226,9 @@ export class StaticExpressAnalyzer {
       reqVal: undefined,
     };
 
+    if (!inlineFunction) {
+      return result;
+    }
     const params = inlineFunction.parameters;
     if (params.length !== 2) {
       return result;
