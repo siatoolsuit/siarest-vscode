@@ -1,6 +1,7 @@
-import { CancellationToken, CompletionItem, CompletionParams, TextEdit } from 'vscode-languageserver/node';
-import { Endpoint, ServiceConfig } from '../../../config';
-import { SemanticError } from '../../../types';
+import { Endpoint, ServiceConfig } from 'src/analyzer/config';
+import { CancellationToken, CompletionItem, CompletionParams, MarkupContent, Position, TextEdit } from 'vscode-languageserver/node';
+
+interface Compl extends CompletionItem {}
 
 export class AutoCompletionProvider {
   completionItems: CompletionItem[];
@@ -20,10 +21,16 @@ export class AutoCompletionProvider {
    * provideCompletionItems
    */
   public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
-    console.debug(params);
-
     this.completionItems.forEach((completionItem) => {
-      completionItem.textEdit = TextEdit.insert(params.position, 'ABC');
+      let endpoint = this.currentConfig?.endpoints.find((endpoint) => {
+        if (endpoint.path === completionItem.filterText) {
+          return endpoint;
+        }
+      });
+
+      if (endpoint) {
+        completionItem.textEdit = TextEdit.insert(params.position, endpoint.path);
+      }
     });
 
     return this.completionItems;
@@ -34,7 +41,6 @@ export class AutoCompletionProvider {
 
     this.currentConfig?.endpoints.forEach((endpoint) => {
       const completionItem = this.createEndpointCompletionItem(endpoint);
-
       completionItems.push(completionItem);
     });
 
@@ -47,7 +53,11 @@ export class AutoCompletionProvider {
     let completionItem = CompletionItem.create(label);
 
     completionItem.detail = 'string';
-    completionItem.documentation = `Path ${endpoint.path} for Service ${this.config?.name} with BaseURI ${this.config?.baseUri}`;
+    completionItem.documentation = {
+      kind: 'markdown',
+      value: ['## Service', `${this.currentConfig?.name}`, `${endpoint.path}`, '```typescript', `${this.currentConfig?.baseUri}`, '```'].join('\n'),
+    };
+    completionItem.filterText = endpoint.path;
 
     return completionItem;
   }
