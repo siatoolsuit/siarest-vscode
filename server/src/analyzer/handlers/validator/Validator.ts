@@ -138,6 +138,11 @@ export class Validator {
     } else {
       connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
     }
+
+    this.autoCompletionProvider = new AutoCompletionProvider(
+      this.analyzer.staticEndpointAnalyzerHandler.serviceName,
+      this.analyzer.staticEndpointAnalyzerHandler.config,
+    );
   }
 
   public validateTypescript(document: TextDocument, file: IFile): void {
@@ -175,7 +180,6 @@ export class Validator {
   }
 
   private allowValidation(): boolean {
-    console.debug(this.jsonLanguageService, this.analyzer);
     if (this.jsonLanguageService && this.analyzer && this.analyzer.staticEndpointAnalyzerHandler) {
       return true;
     }

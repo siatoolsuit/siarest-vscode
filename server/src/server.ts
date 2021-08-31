@@ -15,7 +15,6 @@ import { cleanTempFiles } from './analyzer/handlers/file/index';
 import { TYPESCRIPT } from './analyzer/utils';
 
 import { Validator } from './analyzer/handlers/validator';
-import { AutoCompletionProvider } from './analyzer/handlers/endpoint/autocompletion/autoCompletionProvider';
 
 export const connection = createConnection(ProposedFeatures.all);
 export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -26,7 +25,8 @@ connection.onInitialize(async (params: InitializeParams) => {
   const result: InitializeResult = {
     capabilities: {
       completionProvider: {
-        resolveProvider: false,
+        resolveProvider: true,
+        workDoneProgress: true,
       },
       hoverProvider: true,
     },
