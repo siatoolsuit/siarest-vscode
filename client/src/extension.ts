@@ -76,6 +76,8 @@ export async function activate(context: ExtensionContext): Promise<void> {
     },
   };
 
+  // TODO make work without siarc.json etc
+
   client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);
   client.start();
 }

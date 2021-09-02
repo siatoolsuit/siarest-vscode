@@ -9,7 +9,7 @@
 | Meldungen ersichtlicher gestallten         |                |
 | Async Promise Then.Catch                   | finished       | x        |
 | Validate Json Suffix Problem               | finished       | x        |
-| Own File for validation                    | In progress    |
+| Own File for validation                    | In progress    | x        |
 
 #
 
@@ -17,16 +17,16 @@
 
 | Task                                                     | Current Status | Finished |
 | -------------------------------------------------------- | -------------- | -------- |
-| Übersichtlicher gestalten                                |                |
-| Fehlermeldungen auslagern                                |                |
-| ExtractExpressExpression komplexere ausdrücke verstehen  |                |
-| FindEndpointForPath komplexere ausdrücke verstehen       |                |
+| Übersichtlicher gestalten                                | finished       | x        |
+| Fehlermeldungen auslagern                                | finished       | x        |
+| ExtractExpressExpression komplexere ausdrücke verstehen  | in progress    |
+| FindEndpointForPath komplexere ausdrücke verstehen       | finished?      | (?)      |
 | ExractReqResFromFunction (Komplexe Objektypen?)          |                |
-| Große For-Loop abbrechbar?                               |                |
+| Große For-Loop abbrechbar?                               | finished       | x        |
 | typeToString                                             |                |
 | eliminate boiler plate                                   |                |
-| auslagern von konstanten                                 | In progress    |
-| Support router ?                                         |                |
+| auslagern von konstanten                                 | finished       | x        |
+| Support router ?                                         | finished       | x        |
 | Support more complex operations (e.g res.status.send...) | finished       | x        |
 
 #
