@@ -18,3 +18,6 @@ export const expressImportByName: Map<String, String> = new Map([
   ['express', 'express'],
   ['Router', 'Router'],
 ]);
+
+export const httpMethods: string[] = ['get', 'post', 'put', 'delete'];
+export const sendMethods: string[] = ['send', 'json'];

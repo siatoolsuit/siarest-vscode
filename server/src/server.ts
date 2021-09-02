@@ -7,6 +7,7 @@ import {
   CancellationToken,
   HoverParams,
   CompletionParams,
+  CompletionItem,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -24,7 +25,8 @@ connection.onInitialize(async (params: InitializeParams) => {
   const result: InitializeResult = {
     capabilities: {
       completionProvider: {
-        resolveProvider: false,
+        resolveProvider: true,
+        workDoneProgress: true,
       },
       hoverProvider: true,
     },
@@ -32,34 +34,23 @@ connection.onInitialize(async (params: InitializeParams) => {
 
   validator = new Validator(params);
 
-  // Load package.json and .siarc.json, if they exists
-  if (params.initializationOptions) {
-    if (params.initializationOptions.siarcTextDoc) {
-      const siarc = params.initializationOptions.siarcTextDoc;
-      const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-      await validator.validateConfig(textDoc);
-    }
-    if (params.initializationOptions.packageJson) {
-      validator.loadPackageJson(params.initializationOptions.packageJson);
-    }
-  }
   return result;
 });
 
-documents.onDidOpen(async (event) => {
+documents.onDidOpen((event) => {
   validator.validate(event.document);
 });
 
-documents.onDidSave(async (event) => {
+documents.onDidSave((event) => {
   validator.validate(event.document);
 });
 
-documents.onDidChangeContent(async (event) => {
+documents.onDidChangeContent((event) => {
   validator.validate(event.document);
 });
 
 //TODOs ab hier
-documents.onDidClose(async (event) => {
+documents.onDidClose((event) => {
   validator.cleanPendingValidations(event.document.uri);
   if (event.document.languageId === TYPESCRIPT.LANGUAGE_ID) {
     cleanTempFiles(event.document.uri)
@@ -73,17 +64,16 @@ documents.onDidClose(async (event) => {
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-connection.onCompletion(async (textDocumentPosition: CompletionParams, token: CancellationToken) => {
-  // Create completion for a typescript file
-  const path = textDocumentPosition.textDocument.uri;
-  if (path.endsWith(TYPESCRIPT.SUFFIX)) {
-    // TODO: Check if we have a valid config
-    return [];
-  }
-  return null;
+connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
+  const completionItems: CompletionItem[] = validator.autoComplete(params, token);
+  return completionItems;
 });
 
-connection.onHover(async (textDocumentPosition: HoverParams, token: CancellationToken) => {
+connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+  return item;
+});
+
+connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken) => {
   // Create hover description for a typescript file
   const path = textDocumentPosition.textDocument.uri;
   if (path.endsWith(TYPESCRIPT.SUFFIX)) {
