@@ -1,14 +1,15 @@
 import { JSONSchema, DiagnosticSeverity, LanguageService, getLanguageService } from 'vscode-json-languageservice';
-import { InitializeParams, Diagnostic, CompletionItem, CancellationToken, CompletionParams } from 'vscode-languageserver';
+import { InitializeParams, Diagnostic, CompletionItem, CancellationToken, CompletionParams, Hover, HoverParams } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Analyzer, SemanticError } from '../..';
 import { connection, documents } from '../../../server';
 import { ConfigValidator } from '../../config';
 import { TYPESCRIPT, JSONS, SIARC, PACKAGE_JSON } from '../../utils';
-import { getOrCreateTempFile, IFile } from '../file/FileHandler';
+import { getFile, getOrCreateTempFile, IFile } from '../file/FileHandler';
 
 import * as siaSchema from '../../config/config.schema.json';
-import { AutoCompletionProvider } from '../endpoint/autocompletion/autoCompletionProvider';
+import { AutoCompletionService as AutoCompletionService } from '../endpoint/autocompletion/autoCompletionService';
+import { HoverInfoService as HoverInfoService } from '../endpoint/hoverInfo/hoverInfoService';
 
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
@@ -17,7 +18,8 @@ export class Validator {
   jsonLanguageService: LanguageService;
   configValidator: ConfigValidator;
   analyzer: Analyzer;
-  autoCompletionProvider: AutoCompletionProvider;
+  autoCompletionService: AutoCompletionService;
+  hoverInfoService: HoverInfoService;
 
   constructor(params: InitializeParams) {
     this.jsonLanguageService = getLanguageService({
@@ -38,7 +40,14 @@ export class Validator {
       }
     }
 
-    this.autoCompletionProvider = new AutoCompletionProvider(
+    console.log(this.analyzer.staticEndpointAnalyzerHandler.serviceName, this.analyzer.staticEndpointAnalyzerHandler.config);
+
+    this.autoCompletionService = new AutoCompletionService(
+      this.analyzer.staticEndpointAnalyzerHandler.serviceName,
+      this.analyzer.staticEndpointAnalyzerHandler.config,
+    );
+
+    this.hoverInfoService = new HoverInfoService(
       this.analyzer.staticEndpointAnalyzerHandler.serviceName,
       this.analyzer.staticEndpointAnalyzerHandler.config,
     );
@@ -51,11 +60,22 @@ export class Validator {
   }
 
   // TODO async
-  public autoComplete(params: CompletionParams, token: CancellationToken): CompletionItem[] {
+  public getCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
     if (this.allowValidation()) {
-      return this.autoCompletionProvider.provideCompletionItems(params, token);
+      return this.autoCompletionService.provideCompletionItems(params, token);
     }
     return [];
+  }
+
+  public getHover(hoverParams: HoverParams, token: CancellationToken): Hover | undefined {
+    if (this.allowValidation()) {
+      if (hoverParams.textDocument.uri.endsWith(TYPESCRIPT.SUFFIX)) {
+        const file = getFile(hoverParams.textDocument.uri);
+        return this.hoverInfoService.getInfo(hoverParams);
+      }
+    }
+
+    return undefined;
   }
 
   protected async checkForValidation(document: TextDocument): Promise<void> {
@@ -66,6 +86,7 @@ export class Validator {
             this.triggerTypescriptValidation(document, file);
           })
           .catch((reason) => {
+            // TODO catch!
             return;
           });
         break;
@@ -139,7 +160,12 @@ export class Validator {
       connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
     }
 
-    this.autoCompletionProvider = new AutoCompletionProvider(
+    this.autoCompletionService = new AutoCompletionService(
+      this.analyzer.staticEndpointAnalyzerHandler.serviceName,
+      this.analyzer.staticEndpointAnalyzerHandler.config,
+    );
+
+    this.hoverInfoService = new HoverInfoService(
       this.analyzer.staticEndpointAnalyzerHandler.serviceName,
       this.analyzer.staticEndpointAnalyzerHandler.config,
     );

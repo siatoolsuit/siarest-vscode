@@ -3,7 +3,7 @@ import { CancellationToken, CompletionItem, CompletionParams, MarkupContent, Pos
 
 interface Compl extends CompletionItem {}
 
-export class AutoCompletionProvider {
+export class AutoCompletionService {
   completionItems: CompletionItem[];
 
   constructor(protected currentServiceName: string, protected currentConfig?: ServiceConfig) {
@@ -36,7 +36,8 @@ export class AutoCompletionProvider {
     return this.completionItems;
   }
 
-  generateCompletionItems(): CompletionItem[] {
+  // TODO use this onConnection.onCompletionResolve()
+  private generateCompletionItems(): CompletionItem[] {
     const completionItems: CompletionItem[] = [];
 
     this.currentConfig?.endpoints.forEach((endpoint) => {

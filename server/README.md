@@ -9,7 +9,7 @@
 | Meldungen ersichtlicher gestallten         |                |
 | Async Promise Then.Catch                   | finished       | x        |
 | Validate Json Suffix Problem               | finished       | x        |
-| Own File for validation                    | In progress    | x        |
+| Own File for validation                    | finish         | x        |
 
 #
 
@@ -44,3 +44,17 @@
 | ------------------------------- | -------------- | -------- |
 | Fix path problems               |                |
 | check for wrong service names?? |                |
+
+## autoCompletionService.ts
+
+| Task                    | Current Status | Finished |
+| ----------------------- | -------------- | -------- |
+| Prettier autocompletion |                |
+
+## hoverInfoService.ts
+
+| Task                               | Current Status | Finished |
+| ---------------------------------- | -------------- | -------- |
+| Get the word under cursor position | in progress    |
+|                                    |                |
+| Prettify content                   |                |

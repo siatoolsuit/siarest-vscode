@@ -19,6 +19,16 @@ const SLASH = '/';
  */
 const tempFiles: Map<string, IFile> = new Map();
 
+export function getFile(uri: string | undefined): IFile | undefined {
+  if (uri) {
+    if (tempFiles.has(uri)) {
+      return tempFiles.get(uri);
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * Unlinks (deletes) the file at uri.
  * @param uri Path to the file
