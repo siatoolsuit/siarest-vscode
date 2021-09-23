@@ -8,6 +8,7 @@ import {
   HoverParams,
   CompletionParams,
   CompletionItem,
+  Hover,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -65,7 +66,7 @@ documents.onDidClose((event) => {
 });
 
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
-  const completionItems: CompletionItem[] = validator.autoComplete(params, token);
+  const completionItems: CompletionItem[] = validator.getCompletionItems(params, token);
   return completionItems;
 });
 
@@ -73,12 +74,10 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
   return item;
 });
 
-connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken) => {
+connection.onHover((event): Hover | undefined => {
   // Create hover description for a typescript file
-  const path = textDocumentPosition.textDocument.uri;
-  if (path.endsWith(TYPESCRIPT.SUFFIX)) {
-    return null; // TODO: Maybe give a documentation of the endpoint
-  }
+  const path = event.textDocument.uri;
+  return validator.getHover(event);
 });
 
 documents.listen(connection);
