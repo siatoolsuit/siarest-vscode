@@ -1,3 +1,4 @@
+import { EndpointExpression } from '.';
 import { ServiceConfig } from './config';
 import { StaticExpressAnalyzer } from './handlers';
 import { IFile } from './handlers/file';
@@ -8,6 +9,13 @@ export class Analyzer {
 
   private currentServiceName!: string;
   public staticEndpointAnalyzerHandler!: StaticExpressAnalyzer;
+
+  private avaibaleEndpoints: Map<string, EndpointExpression[]> = new Map();
+
+  public getEndPointsForFileName(fileName: string): EndpointExpression[] | undefined {
+    fileName = fileName.substring(fileName.lastIndexOf('/') + 1, fileName.length);
+    return this.avaibaleEndpoints.get(fileName);
+  }
 
   /**
    * Setter config
@@ -43,7 +51,24 @@ export class Analyzer {
    */
   public analyzeEndpoints(file: IFile): SemanticError[] {
     if (this.staticEndpointAnalyzerHandler && file.tempFileUri) {
-      return this.staticEndpointAnalyzerHandler.analyze(file.tempFileUri);
+      const results = this.staticEndpointAnalyzerHandler.analyze(file.tempFileUri);
+
+      if (results.endPointsAvaiable) {
+        if (this.avaibaleEndpoints.has(file.tempFileName)) {
+          const endpoints = this.avaibaleEndpoints.get(file.tempFileName);
+          if (endpoints) {
+            results.endPointsAvaiable.forEach((endPoint) => endpoints.push(endPoint));
+          }
+        } else {
+          this.avaibaleEndpoints.set(file.tempFileName, results.endPointsAvaiable);
+        }
+      }
+
+      if (results.semanticErrors) {
+        return results.semanticErrors;
+      } else {
+        return [];
+      }
     } else {
       return [];
     }

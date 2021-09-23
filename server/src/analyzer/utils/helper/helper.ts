@@ -1,12 +1,15 @@
+import { ExpressPathAndFunction } from 'src/analyzer';
 import {
   ArrowFunction,
   CallExpression,
   Expression,
+  getLineAndCharacterOfPosition,
   Identifier,
   ImportDeclaration,
   NamedImports,
   NodeArray,
   PropertyAccessExpression,
+  SourceFile,
   Statement,
   StringLiteral,
   SyntaxKind,
@@ -103,11 +106,25 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
  * @param args Arguments for
  * @returns // TODO
  */
-export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<Expression>): { path: string; inlineFunction: ArrowFunction } => {
-  const result: any = {};
+export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<Expression>, sourceFile: SourceFile): ExpressPathAndFunction => {
+  const result: ExpressPathAndFunction = {
+    inlineFunction: '',
+    path: '',
+    start: {
+      character: 0,
+      line: 0,
+    },
+    end: {
+      character: 0,
+      line: 0,
+    },
+  };
+
   for (const node of args) {
     if (node.kind === SyntaxKind.StringLiteral && args.indexOf(node) === 0) {
       result.path = (node as StringLiteral).text;
+      result.start = sourceFile.getLineAndCharacterOfPosition(node.getFullStart());
+      result.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
     } else if (node.kind === SyntaxKind.ArrowFunction) {
       result.inlineFunction = node;
     }
@@ -136,4 +153,8 @@ export const parseLastExpression = (propAccExpr: PropertyAccessExpression): Prop
  */
 export const findEndpointForPath = (path: string, endpoints: Endpoint[]): Endpoint | undefined => {
   return endpoints.find((endpoints) => endpoints.path === path);
+};
+
+export const isBetween = (lower: number, upper: number, between: Number): Boolean => {
+  return between >= lower && between <= upper ? true : false;
 };

@@ -74,10 +74,10 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
   return item;
 });
 
-connection.onHover((textDocument: HoverParams, token: CancellationToken): Hover | undefined => {
+connection.onHover((event): Hover | undefined => {
   // Create hover description for a typescript file
-  const path = textDocument.textDocument.uri;
-  return validator.getHover(textDocument, token);
+  const path = event.textDocument.uri;
+  return validator.getHover(event);
 });
 
 documents.listen(connection);

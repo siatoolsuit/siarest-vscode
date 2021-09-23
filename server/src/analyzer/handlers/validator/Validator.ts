@@ -67,11 +67,11 @@ export class Validator {
     return [];
   }
 
-  public getHover(hoverParams: HoverParams, token: CancellationToken): Hover | undefined {
+  public getHover(hoverParams: HoverParams): Hover | undefined {
     if (this.allowValidation()) {
       if (hoverParams.textDocument.uri.endsWith(TYPESCRIPT.SUFFIX)) {
         const file = getFile(hoverParams.textDocument.uri);
-        return this.hoverInfoService.getInfo(hoverParams);
+        return this.hoverInfoService.getInfo(hoverParams, this.analyzer.getEndPointsForFileName(hoverParams.textDocument.uri));
       }
     }
 

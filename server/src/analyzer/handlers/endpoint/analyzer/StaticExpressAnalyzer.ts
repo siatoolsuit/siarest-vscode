@@ -16,10 +16,11 @@ import {
   Type,
   TypeChecker,
   VariableStatement,
+  SourceFile,
 } from 'typescript';
 
 import { Endpoint, ServiceConfig } from '../../../config';
-import { SemanticError } from '../../../types';
+import { EndpointExpression, IResult, SemanticError } from '../../../types';
 import { httpMethods, sendMethods } from '../../../utils';
 import {
   createSemanticError,
@@ -31,13 +32,6 @@ import {
   simpleTypeError,
 } from '../../../utils/helper';
 
-interface EndpointExpression {
-  readonly expr: CallExpression;
-  readonly method: string;
-  readonly path: string;
-  readonly inlineFunction: ArrowFunction;
-}
-
 export class StaticExpressAnalyzer {
   constructor(public serviceName: string, public config: ServiceConfig | undefined) {}
 
@@ -46,21 +40,23 @@ export class StaticExpressAnalyzer {
    * @param uri to the pending file for validation
    * @returns
    */
-  public analyze(uri: string): SemanticError[] {
+  public analyze(uri: string): IResult {
     // Create a new program for type checking
     const program = createProgram([uri], {});
     const checker = program.getTypeChecker();
     let tsFile = program.getSourceFile(uri);
     if (!tsFile) {
-      return [];
+      return {};
     }
 
     // Extract all higher functions like express import, app declarations and endpoint declarations
-    const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile.statements);
+    const { expressImport, endpointExpressions } = this.extractExpressExpressions(tsFile);
 
     if (!expressImport) {
-      return [];
+      return {};
     }
+
+    const results: IResult = {};
 
     const result: SemanticError[] = [];
     if (this.config) {
@@ -131,7 +127,9 @@ export class StaticExpressAnalyzer {
       result.push(createSemanticError(`Missing configuration for service ${this.serviceName} in .siarc.json.`, 0, 0));
     }
 
-    return result;
+    results.semanticErrors = result;
+    results.endPointsAvaiable = endpointExpressions;
+    return results;
   }
 
   /**
@@ -139,7 +137,7 @@ export class StaticExpressAnalyzer {
    * @param statements List of typescript Statements
    * @returns tuple of { Importdeclaration, ListOfEndPoints } of the current file
    */
-  private extractExpressExpressions(statements: NodeArray<Statement>): {
+  private extractExpressExpressions(sourceFile: SourceFile): {
     expressImport: ImportDeclaration | undefined;
     endpointExpressions: EndpointExpression[];
   } {
@@ -153,6 +151,7 @@ export class StaticExpressAnalyzer {
 
     // parse from top to down
 
+    const statements = sourceFile.statements;
     // TODO replace with a list of e.g for express.Router etc
     let expressVarName;
     for (const statement of statements) {
@@ -173,9 +172,9 @@ export class StaticExpressAnalyzer {
 
         case SyntaxKind.ExpressionStatement:
           if (expressVarName) {
-            const expression = this.extractExpressStatement(statement, expressVarName);
-            if (expression) {
-              result.endpointExpressions.push(expression);
+            const endPointExpressions = this.extractExpressStatement(statement, expressVarName, sourceFile);
+            if (endPointExpressions) {
+              result.endpointExpressions.push(endPointExpressions);
             }
           }
           break;
@@ -191,7 +190,7 @@ export class StaticExpressAnalyzer {
    * @param expressVarName Name of the express/Router variable
    * @returns an EndpointExpression
    */
-  private extractExpressStatement(statement: Statement, expressVarName: String): EndpointExpression | undefined {
+  private extractExpressStatement(statement: Statement, expressVarName: String, sourceFile: SourceFile): EndpointExpression | undefined {
     // TODO rename parameter
     const expr = statement as ExpressionStatement;
     if (expr.expression.kind === SyntaxKind.CallExpression) {
@@ -200,12 +199,14 @@ export class StaticExpressAnalyzer {
         // Check if the current expression is a express route declaration like app.get(...)
         const propAccExpr = callExpr.expression as PropertyAccessExpression;
         if (propAccExpr.expression.getText() === expressVarName && httpMethods.includes(propAccExpr.name.text)) {
-          const { path, inlineFunction } = extractPathAndMethodImplementationFromArguments(callExpr.arguments);
+          const { path, inlineFunction, start, end } = extractPathAndMethodImplementationFromArguments(callExpr.arguments, sourceFile);
           return {
             expr: callExpr,
             method: propAccExpr.name.text.toUpperCase(),
             path,
             inlineFunction,
+            start: start,
+            end: end,
           };
         }
       }
