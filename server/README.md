@@ -49,12 +49,11 @@
 
 | Task                    | Current Status | Finished |
 | ----------------------- | -------------- | -------- |
-| Prettier autocompletion |                |
+| Prettier autocompletion | wip            |
 
 ## hoverInfoService.ts
 
 | Task                               | Current Status | Finished |
 | ---------------------------------- | -------------- | -------- |
-| Get the word under cursor position | in progress    |
-|                                    |                |
-| Prettify content                   |                |
+| Get the word under cursor position | finished       | x        |
+| Prettify content                   | wip            |
