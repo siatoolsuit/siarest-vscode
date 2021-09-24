@@ -13,7 +13,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Analyzer, SemanticError } from '../..';
 import { connection, documents } from '../../../server';
 import { ConfigValidator } from '../../config';
-import { TYPESCRIPT, JSONS, SIARC, PACKAGE_JSON } from '../../utils';
+import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
 import { getFile, getOrCreateTempFile, IFile } from '../file/FileHandler';
 
 import * as siaSchema from '../../config/config.schema.json';
@@ -85,7 +85,7 @@ export class Validator {
 
   public getHover(hoverParams: HoverParams): Hover | undefined {
     if (this.allowValidation()) {
-      if (hoverParams.textDocument.uri.endsWith(TYPESCRIPT.SUFFIX)) {
+      if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
         const file = getFile(hoverParams.textDocument.uri);
         return this.hoverInfoService.getInfo(hoverParams, this.analyzer.getEndPointsForFileName(hoverParams.textDocument.uri));
       }
@@ -96,7 +96,7 @@ export class Validator {
 
   protected async checkForValidation(document: TextDocument): Promise<void> {
     switch (document.languageId) {
-      case TYPESCRIPT.LANGUAGE_ID: {
+      case TYPE_TYPESCRIPT.LANGUAGE_ID: {
         getOrCreateTempFile(document)
           .then((file) => {
             this.triggerTypescriptValidation(document, file);
@@ -107,7 +107,7 @@ export class Validator {
           });
         break;
       }
-      case JSONS.LANGUAGE_ID: {
+      case TYPE_JSON.LANGUAGE_ID: {
         this.validateJson(document);
         break;
       }
@@ -168,7 +168,7 @@ export class Validator {
       this.analyzer.config = document.getText();
       connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       documents.all().forEach(async (doc: TextDocument) => {
-        if (doc.languageId === TYPESCRIPT.LANGUAGE_ID) {
+        if (doc.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
           this.checkForValidation(doc);
         }
       });
