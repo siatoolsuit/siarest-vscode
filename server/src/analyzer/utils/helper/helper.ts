@@ -112,9 +112,9 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
 };
 
 /**
- *
+ * Extracts the express api endpoint with several information
  * @param args Arguments for
- * @returns // TODO
+ * @returns Returns an object with information about content, inline function, start and end of the called api endpoint
  */
 export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<Expression>, sourceFile: SourceFile): ExpressPathAndFunction => {
   const result: ExpressPathAndFunction = {
