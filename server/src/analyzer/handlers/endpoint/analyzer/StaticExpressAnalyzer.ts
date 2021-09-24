@@ -91,8 +91,6 @@ export class StaticExpressAnalyzer {
               result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
             }
 
-            // TODO seb fragen
-
             // Check the body, only if this function is a post or put
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
@@ -191,7 +189,6 @@ export class StaticExpressAnalyzer {
    * @returns an EndpointExpression
    */
   private extractExpressStatement(statement: Statement, expressVarName: String, sourceFile: SourceFile): EndpointExpression | undefined {
-    // TODO rename parameter
     const expr = statement as ExpressionStatement;
     if (expr.expression.kind === SyntaxKind.CallExpression) {
       const callExpr = expr.expression as CallExpression;
@@ -244,7 +241,6 @@ export class StaticExpressAnalyzer {
         break;
     }
 
-    // TODO erkenntn kein res.status ...
     for (const stat of statList) {
       switch (stat.kind) {
         case SyntaxKind.ExpressionStatement:

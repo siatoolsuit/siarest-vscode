@@ -13,7 +13,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { cleanTempFiles } from './analyzer/handlers/file/index';
-import { TYPESCRIPT } from './analyzer/utils';
+import { TYPE_TYPESCRIPT } from './analyzer/utils';
 
 import { Validator } from './analyzer/handlers/validator';
 
@@ -50,10 +50,9 @@ documents.onDidChangeContent((event) => {
   validator.validate(event.document);
 });
 
-//TODOs ab hier
 documents.onDidClose((event) => {
   validator.cleanPendingValidations(event.document.uri);
-  if (event.document.languageId === TYPESCRIPT.LANGUAGE_ID) {
+  if (event.document.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
     cleanTempFiles(event.document.uri)
       .then((fileUri) => {
         console.debug(`Removed file at ${fileUri}`);
@@ -68,10 +67,6 @@ documents.onDidClose((event) => {
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
   const completionItems: CompletionItem[] = validator.getCompletionItems(params, token);
   return completionItems;
-});
-
-connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-  return item;
 });
 
 connection.onHover((event): Hover | undefined => {

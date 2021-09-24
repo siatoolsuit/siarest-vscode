@@ -1,5 +1,5 @@
-import { Endpoint, ServiceConfig } from 'src/analyzer/config';
 import { CancellationToken, CompletionItem, CompletionParams, MarkupContent, Position, TextEdit } from 'vscode-languageserver/node';
+import { ServiceConfig, Endpoint } from '../../../config';
 
 interface Compl extends CompletionItem {}
 
@@ -36,8 +36,7 @@ export class AutoCompletionService {
     return this.completionItems;
   }
 
-  // TODO use this onConnection.onCompletionResolve()
-  private generateCompletionItems(): CompletionItem[] {
+  public generateCompletionItems(): CompletionItem[] {
     const completionItems: CompletionItem[] = [];
 
     this.currentConfig?.endpoints.forEach((endpoint) => {
