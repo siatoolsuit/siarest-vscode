@@ -1,4 +1,3 @@
-import { ExpressPathAndFunction } from 'src/analyzer';
 import {
   ArrowFunction,
   CallExpression,
@@ -15,9 +14,20 @@ import {
   SyntaxKind,
   VariableStatement,
 } from 'typescript';
+import { _Connection } from 'vscode-languageserver';
 import { expressImportByName } from '..';
 import { Endpoint } from '../../config';
-import { SemanticError } from '../../types';
+import { ExpressPathAndFunction, SemanticError } from '../../types';
+
+/**
+ * Send a notification to vscode
+ * @param connection
+ * @param message
+ */
+export const sendNotification = (connection: _Connection, message: any) => {
+  // TODO Won't fix atm does not do anything atm
+  connection.sendNotification(message);
+};
 
 /**
  *

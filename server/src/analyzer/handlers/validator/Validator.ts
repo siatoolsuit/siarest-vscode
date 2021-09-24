@@ -1,5 +1,14 @@
 import { JSONSchema, DiagnosticSeverity, LanguageService, getLanguageService } from 'vscode-json-languageservice';
-import { InitializeParams, Diagnostic, CompletionItem, CancellationToken, CompletionParams, Hover, HoverParams } from 'vscode-languageserver';
+import {
+  InitializeParams,
+  Diagnostic,
+  CompletionItem,
+  CancellationToken,
+  CompletionParams,
+  Hover,
+  HoverParams,
+  ProtocolNotificationType0,
+} from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Analyzer, SemanticError } from '../..';
 import { connection, documents } from '../../../server';
@@ -10,6 +19,9 @@ import { getFile, getOrCreateTempFile, IFile } from '../file/FileHandler';
 import * as siaSchema from '../../config/config.schema.json';
 import { AutoCompletionService as AutoCompletionService } from '../endpoint/autocompletion/autoCompletionService';
 import { HoverInfoService as HoverInfoService } from '../endpoint/hoverInfo/hoverInfoService';
+import { Files } from 'vscode-languageserver/node';
+import { existsSync } from 'fs';
+import { sendNotification } from '../../utils/helper';
 
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
@@ -32,8 +44,12 @@ export class Validator {
     if (params.initializationOptions) {
       if (params.initializationOptions.siarcTextDoc) {
         const siarc = params.initializationOptions.siarcTextDoc;
-        const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-        this.validateConfig(textDoc);
+        if (existsSync(siarc.uri)) {
+          const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
+          this.validateConfig(textDoc);
+        } else {
+          sendNotification(connection, 'Could not find ' + siarc.uri);
+        }
       }
       if (params.initializationOptions.packageJson) {
         this.loadPackageJson(params.initializationOptions.packageJson);
@@ -86,7 +102,7 @@ export class Validator {
             this.triggerTypescriptValidation(document, file);
           })
           .catch((reason) => {
-            // TODO catch!
+            sendNotification(connection, reason);
             return;
           });
         break;
@@ -205,6 +221,7 @@ export class Validator {
     }
   }
 
+  //TODO rwork anders machen? blabla
   private allowValidation(): boolean {
     if (this.jsonLanguageService && this.analyzer && this.analyzer.staticEndpointAnalyzerHandler) {
       return true;

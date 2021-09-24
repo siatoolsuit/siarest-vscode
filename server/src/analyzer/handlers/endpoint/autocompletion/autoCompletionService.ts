@@ -1,5 +1,5 @@
-import { Endpoint, ServiceConfig } from 'src/analyzer/config';
 import { CancellationToken, CompletionItem, CompletionParams, MarkupContent, Position, TextEdit } from 'vscode-languageserver/node';
+import { ServiceConfig, Endpoint } from '../../../config';
 
 interface Compl extends CompletionItem {}
 

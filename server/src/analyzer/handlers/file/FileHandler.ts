@@ -29,6 +29,8 @@ export function getFile(uri: string | undefined): IFile | undefined {
   return undefined;
 }
 
+// TODO use TextDocument.create?
+
 /**
  * Unlinks (deletes) the file at uri.
  * @param uri Path to the file
