@@ -48,11 +48,23 @@ export async function activate(context: ExtensionContext): Promise<void> {
   });
   context.subscriptions.push(disposable);
 
-  // Try to load the a package.json and a .siarc.json
+  // Try to load the package.json
   let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json');
-  const packageJson = fs.readFileSync(uri).toString();
+  let packageJson: string;
+  try {
+    packageJson = fs.readFileSync(uri).toString();
+  } catch (error) {
+    packageJson = '';
+  }
+
+  // Try to load the siarc.json
   uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
-  const siarc = fs.readFileSync(uri).toString();
+  let siarc: string;
+  try {
+    siarc = fs.readFileSync(uri).toString();
+  } catch (error) {
+    siarc = '';
+  }
 
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
   const serverOptions: ServerOptions = {
@@ -75,8 +87,6 @@ export async function activate(context: ExtensionContext): Promise<void> {
       packageJson: packageJson || '',
     },
   };
-
-  // TODO make work without siarc.json etc
 
   client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);
   client.start();

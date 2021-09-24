@@ -5,11 +5,12 @@
 | Task                                       | Current Status | Finished |
 | ------------------------------------------ | -------------- | -------- |
 | Async File Handling                        | finished       | x        |
-| Use Temp Files for static express analyser | finsihed       | x        |
-| Meldungen ersichtlicher gestallten         |                |
+| Use Temp Files for static express analyser | finished       | x        |
+| Meldungen ersichtlicher gestallten         |                |          |
 | Async Promise Then.Catch                   | finished       | x        |
 | Validate Json Suffix Problem               | finished       | x        |
-| Own File for validation                    | finish         | x        |
+| Own File for validation                    | finished       | x        |
+| Start extension without siarc.json         | finished       | x        |
 
 #
 
@@ -42,7 +43,7 @@
 
 | Task                            | Current Status | Finished |
 | ------------------------------- | -------------- | -------- |
-| Fix path problems               |                |
+| Fix path problems               | finished       | x        |
 | check for wrong service names?? |                |
 
 ## autoCompletionService.ts
