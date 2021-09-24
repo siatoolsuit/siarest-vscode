@@ -69,10 +69,6 @@ connection.onCompletion((params: CompletionParams, token: CancellationToken): Co
   return completionItems;
 });
 
-connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-  return item;
-});
-
 connection.onHover((event): Hover | undefined => {
   // Create hover description for a typescript file
   const path = event.textDocument.uri;

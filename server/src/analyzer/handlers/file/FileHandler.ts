@@ -29,8 +29,6 @@ export function getFile(uri: string | undefined): IFile | undefined {
   return undefined;
 }
 
-// TODO use TextDocument.create?
-
 /**
  * Unlinks (deletes) the file at uri.
  * @param uri Path to the file
@@ -82,8 +80,7 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
         return;
       }
 
-      var promise = writeFile(file.tempFileUri, textDoc.getText());
-      promise
+      writeFile(file.tempFileUri, textDoc.getText())
         .then(() => {
           if (!file) {
             reject('Should never happen.');
@@ -105,8 +102,7 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
         tempFileUri: res.tempFileUri,
       };
 
-      var promise = writeFile(file.tempFileUri, textDoc.getText());
-      promise
+      writeFile(file.tempFileUri, textDoc.getText())
         .then(() => {
           console.debug(`Created file: ${file.tempFileUri}`);
           tempFiles.set(file.fileUri, file);

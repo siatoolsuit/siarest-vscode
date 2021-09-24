@@ -36,8 +36,7 @@ export class AutoCompletionService {
     return this.completionItems;
   }
 
-  // TODO use this onConnection.onCompletionResolve()
-  private generateCompletionItems(): CompletionItem[] {
+  public generateCompletionItems(): CompletionItem[] {
     const completionItems: CompletionItem[] = [];
 
     this.currentConfig?.endpoints.forEach((endpoint) => {

@@ -75,7 +75,12 @@ export class Validator {
     }
   }
 
-  // TODO async
+  public generateCompletionItems() {
+    if (this.allowValidation()) {
+      this.autoCompletionService.generateCompletionItems();
+    }
+  }
+
   public getCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
     if (this.allowValidation()) {
       return this.autoCompletionService.provideCompletionItems(params, token);
@@ -221,7 +226,6 @@ export class Validator {
     }
   }
 
-  //TODO rwork anders machen? blabla
   private allowValidation(): boolean {
     if (this.jsonLanguageService && this.analyzer && this.analyzer.staticEndpointAnalyzerHandler) {
       return true;

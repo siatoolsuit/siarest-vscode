@@ -10,7 +10,7 @@ export class HoverInfoService {
     if (!endPointsForFile) return;
     if (endPointsForFile.length < 1) return;
 
-    const endPoint = endPointsForFile.find((endPointExpression) => {
+    const matchedEnpoint = endPointsForFile.find((endPointExpression) => {
       if (
         endPointExpression.start.line === textDocumentPosition.position.line &&
         isBetween(endPointExpression.start.character, endPointExpression.end.character, textDocumentPosition.position.character)
@@ -19,12 +19,10 @@ export class HoverInfoService {
       }
     });
 
-    //TODO refactor rename etc
-
-    if (endPoint) {
-      const additionalInfo = this.currentConfig?.endpoints.find((eP) => {
-        if (eP.path === endPoint.path) {
-          return eP;
+    if (matchedEnpoint) {
+      const additionalInfo = this.currentConfig?.endpoints.find((endPoint) => {
+        if (endPoint.path === matchedEnpoint.path) {
+          return endPoint;
         }
       });
 
@@ -39,7 +37,7 @@ export class HoverInfoService {
           '```typescript',
           'Example()',
           '```',
-          this.currentConfig?.baseUri + endPoint.path,
+          this.currentConfig?.baseUri + matchedEnpoint.path,
         ].join('\n'),
       };
 
