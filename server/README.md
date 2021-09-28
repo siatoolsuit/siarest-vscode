@@ -29,6 +29,7 @@
 | auslagern von konstanten                                 | finished       | x        |
 | Support router ?                                         | finished       | x        |
 | Support more complex operations (e.g res.status.send...) | finished       | x        |
+| QuickFix support for missing Configs?                    |
 
 #
 
