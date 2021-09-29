@@ -21,7 +21,7 @@ export class HoverInfoService {
 
     if (matchedEnpoint) {
       const additionalInfo = this.currentConfig?.endpoints.find((endPoint) => {
-        if (endPoint.path === matchedEnpoint.path) {
+        if (endPoint.path === matchedEnpoint.path && endPoint.method === matchedEnpoint.method) {
           return endPoint;
         }
       });
