@@ -56,8 +56,6 @@ export class Validator {
       }
     }
 
-    console.log(this.analyzer.staticEndpointAnalyzerHandler.serviceName, this.analyzer.staticEndpointAnalyzerHandler.config);
-
     this.autoCompletionService = new AutoCompletionService(
       this.analyzer.staticEndpointAnalyzerHandler.serviceName,
       this.analyzer.staticEndpointAnalyzerHandler.config,

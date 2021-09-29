@@ -74,14 +74,14 @@ export class StaticExpressAnalyzer {
             // Validate the return value of the inner function
             if (resVal) {
               const resConf = endpoint.response;
-
+              let semanticError: any;
               switch (typeof resConf) {
                 case 'string':
-                  let semanticError = simpleTypeError(resConf, resVal);
+                  semanticError = simpleTypeError(resConf, resVal);
                   if (semanticError) result.push(semanticError);
                   break;
                 case 'object':
-                  semanticError = this.createComplexTypeError(endpoint, resVal, checker, result);
+                  semanticError = this.createComplexTypeError(endpoint, resVal, checker);
                   if (semanticError) result.push(semanticError);
                   break;
                 default:
@@ -287,13 +287,13 @@ export class StaticExpressAnalyzer {
    * @param endpoint
    * @param resVal
    * @param checker
-   * @param result
    * @returns SemanticError or undefined
    */
-  private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker, result: SemanticError[]): SemanticError | undefined {
+  private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): SemanticError | undefined {
     // TODO
     // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
     const resType = endpoint.response;
+    // Identifier = object vom typ blabla                            ObjectLiteralexpression = {abc: 'test', bca: 1}
     if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
       const type = checker.getTypeAtLocation(resVal);
       // Normalize type strings and compare them
@@ -301,12 +301,10 @@ export class StaticExpressAnalyzer {
       const normalTypeInCodeString = normalString;
       const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
       if (normalTypeInCodeString !== normalTypeInConfigString) {
-        result.push(createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`, resVal.getStart(), resVal.end));
+        return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`, resVal.getStart(), resVal.end);
       }
     } else {
-      result.push(
-        createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end),
-      );
+      return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
     }
 
     return undefined;
@@ -330,13 +328,14 @@ export class StaticExpressAnalyzer {
     const members = type.symbol?.members;
     if (members && members.size > 0) {
       members.forEach((value, key) => {
-        const propSig = value.valueDeclaration as PropertySignature;
-        if (propSig.type) {
-          const propType = checker.getTypeFromTypeNode(propSig.type);
-          fullString += `"${key.toString()}":"${checker.typeToString(propType)}",`;
+        if (value.valueDeclaration) {
+          const type = checker.getTypeAtLocation(value.valueDeclaration);
+          const typedString = checker.typeToString(type);
+          fullString += `"${key.toString()}":"${typedString}",`;
         }
       });
     }
+
     const temp = fullString.split('');
     temp[fullString.lastIndexOf(',')] = '';
     fullString = temp.join('');
