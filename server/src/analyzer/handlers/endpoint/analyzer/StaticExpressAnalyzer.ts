@@ -17,6 +17,9 @@ import {
   TypeChecker,
   VariableStatement,
   SourceFile,
+  VariableDeclaration,
+  TypeReference,
+  Identifier,
 } from 'typescript';
 
 import { Endpoint, ServiceConfig } from '../../../config';
@@ -296,6 +299,24 @@ export class StaticExpressAnalyzer {
     // Identifier = object vom typ blabla                            ObjectLiteralexpression = {abc: 'test', bca: 1}
     if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
       const type = checker.getTypeAtLocation(resVal);
+      console.log(checker.getPropertiesOfType(type));
+      const symbol = checker.getSymbolAtLocation(resVal);
+
+      if (symbol) {
+        const firstDecl = symbol.declarations?.[0] as VariableDeclaration;
+        if (firstDecl) {
+          let type2 = firstDecl.type;
+        }
+      }
+
+      symbol?.declarations?.forEach((decl) => {
+        const decl2 = decl as VariableDeclaration;
+
+        // checker.getTypeFromTypeNode(decl);
+
+        // console.log(decl2.type.typeName);
+      });
+
       // Normalize type strings and compare them
       const { fullString, normalString } = this.typeToString(type, checker);
       const normalTypeInCodeString = normalString;
@@ -334,6 +355,9 @@ export class StaticExpressAnalyzer {
           fullString += `"${key.toString()}":"${typedString}",`;
         }
       });
+    } else if (type.symbol) {
+      const symbol = type.symbol;
+      console.debug(symbol);
     }
 
     const temp = fullString.split('');
