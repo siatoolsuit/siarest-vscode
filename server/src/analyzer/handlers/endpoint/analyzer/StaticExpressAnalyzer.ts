@@ -18,8 +18,8 @@ import {
   VariableStatement,
   SourceFile,
   VariableDeclaration,
-  TypeReference,
   Identifier,
+  TypeNode,
 } from 'typescript';
 
 import { Endpoint, ServiceConfig } from '../../../config';
@@ -297,25 +297,34 @@ export class StaticExpressAnalyzer {
     // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
     const resType = endpoint.response;
     // Identifier = object vom typ blabla                            ObjectLiteralexpression = {abc: 'test', bca: 1}
-    if (resVal.kind === SyntaxKind.Identifier || resVal.kind === SyntaxKind.ObjectLiteralExpression) {
-      const type = checker.getTypeAtLocation(resVal);
-      console.log(checker.getPropertiesOfType(type));
+    if (resVal.kind === SyntaxKind.Identifier) {
       const symbol = checker.getSymbolAtLocation(resVal);
-
       if (symbol) {
-        const firstDecl = symbol.declarations?.[0] as VariableDeclaration;
-        if (firstDecl) {
-          let type2 = firstDecl.type;
+        const declartions = symbol.getDeclarations();
+        if (declartions) {
+          const firstDecl = declartions[0];
+          if (firstDecl.kind === SyntaxKind.VariableDeclaration) {
+            const typeNode = (firstDecl as VariableDeclaration).type;
+            // Normalize type strings and compare them
+            if (typeNode) {
+              const { fullString, normalString } = this.typeNodeToString(typeNode, resVal, checker);
+              const normalTypeInCodeString = normalString;
+              const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
+              if (normalTypeInCodeString !== normalTypeInConfigString) {
+                return createSemanticError(
+                  `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`,
+                  resVal.getStart(),
+                  resVal.end,
+                );
+              }
+            }
+          }
         }
       }
 
-      symbol?.declarations?.forEach((decl) => {
-        const decl2 = decl as VariableDeclaration;
-
-        // checker.getTypeFromTypeNode(decl);
-
-        // console.log(decl2.type.typeName);
-      });
+      // symbol.flags repräsentiert was für type es ist interface, klasse ...
+    } else if (resVal.kind === SyntaxKind.ObjectLiteralExpression) {
+      const type = checker.getTypeAtLocation(resVal);
 
       // Normalize type strings and compare them
       const { fullString, normalString } = this.typeToString(type, checker);
@@ -331,6 +340,34 @@ export class StaticExpressAnalyzer {
     return undefined;
   }
 
+  private typeNodeToString(typeNode: TypeNode, resVal: Expression, checker: TypeChecker): { fullString: string; normalString: string } {
+    const result: { fullString: string; normalString: string } = {
+      fullString: '',
+      normalString: '',
+    };
+
+    let fullString = '{';
+
+    let typedString: string = '';
+    typeNode?.forEachChild((child) => {
+      if (child.kind === SyntaxKind.Identifier) {
+        typedString = (child as Identifier).getText();
+      }
+    });
+
+    fullString += `"${resVal.getText()}":"${typedString}",`;
+
+    const temp = fullString.split('');
+    temp[fullString.lastIndexOf(',')] = '';
+    fullString = temp.join('');
+    fullString += '}';
+
+    result.fullString = fullString;
+    result.normalString = fullString.replace(/['",]/g, '');
+
+    return result;
+  }
+
   /**
    * // TODO
    * @param type
@@ -343,21 +380,30 @@ export class StaticExpressAnalyzer {
       normalString: '',
     };
 
-    //TODO try and catch?
+    //TODO Lösung für error === any lösen
 
     let fullString = '{';
+
     const members = type.symbol?.members;
     if (members && members.size > 0) {
       members.forEach((value, key) => {
         if (value.valueDeclaration) {
           const type = checker.getTypeAtLocation(value.valueDeclaration);
-          const typedString = checker.typeToString(type);
-          fullString += `"${key.toString()}":"${typedString}",`;
+          let typedString = checker.typeToString(type);
+          if (typedString !== 'any') {
+            fullString += `"${key.toString()}":"${typedString}",`;
+          } else {
+            const variableDeclaration = value.getDeclarations()?.[0] as VariableDeclaration;
+
+            // TOD von variableDeclaration die eigentliche Declaration holen dann geilo
+
+            let undefinedString = variableDeclaration.initializer?.getText();
+            if (undefinedString) {
+              fullString += `"${key.toString()}":"${undefinedString}",`;
+            }
+          }
         }
       });
-    } else if (type.symbol) {
-      const symbol = type.symbol;
-      console.debug(symbol);
     }
 
     const temp = fullString.split('');
