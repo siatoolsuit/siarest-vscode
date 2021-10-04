@@ -21,6 +21,7 @@ import {
   VariableDeclaration,
   Identifier,
   TypeNode,
+  Symbol,
 } from 'typescript';
 
 import { Endpoint, ServiceConfig } from '../../../config';
@@ -103,7 +104,7 @@ export class StaticExpressAnalyzer {
                 if (symbol && symbol.valueDeclaration) {
                   const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration);
                   // Normalize type strings and compare them
-                  const { fullString, normalString } = this.typeToString(type, checker);
+                  const { fullString, normalString } = this.parseObject(type, checker);
                   const normalTypeInCodeString = normalString;
                   const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
                   if (normalTypeInCodeString !== normalTypeInConfigString) {
@@ -311,15 +312,15 @@ export class StaticExpressAnalyzer {
             const typeNode = (firstDecl as VariableDeclaration).type;
             // Normalize type strings and compare them
             if (typeNode) {
-              result = this.typeNodeToString(typeNode, resVal, checker);
             }
           }
         }
       }
+      result = this.getTypeAtNodeLocation(resVal, checker);
     } else if (resVal.kind === SyntaxKind.ObjectLiteralExpression) {
       const type = checker.getTypeAtLocation(resVal);
       // Normalize type strings and compare them
-      result = this.typeToString(type, checker);
+      result = this.parseObject(type, checker);
     } else {
       return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
     }
@@ -337,7 +338,6 @@ export class StaticExpressAnalyzer {
           const y = actualObject[secondType];
 
           if (x === y && firstType === secondType) {
-            console.log(x + ' = ' + y);
             foundTypeInConfig = true;
           }
         }
@@ -367,21 +367,16 @@ export class StaticExpressAnalyzer {
     return undefined;
   }
 
-  private typeNodeToString(typeNode: TypeNode, resVal: Expression, checker: TypeChecker): { fullString: string; normalString: string } {
+  private getTypeAtNodeLocation(resVal: Expression, checker: TypeChecker): { fullString: string; normalString: string } {
     const result: { fullString: string; normalString: string } = {
       fullString: '',
       normalString: '',
     };
 
+    const symbol = checker.getSymbolAtLocation(resVal);
+    const typedString = this.getTypeAsStringOfSymbol(symbol);
+
     let fullString = '{';
-
-    let typedString: string = '';
-    typeNode?.forEachChild((child) => {
-      if (child.kind === SyntaxKind.Identifier) {
-        typedString = (child as Identifier).getText();
-      }
-    });
-
     fullString += `"${resVal.getText()}":"${typedString}",`;
 
     const temp = fullString.split('');
@@ -401,14 +396,13 @@ export class StaticExpressAnalyzer {
    * @param checker
    * @returns
    */
-  private typeToString(type: Type, checker: TypeChecker): { fullString: string; normalString: string } {
+  private parseObject(type: Type, checker: TypeChecker): { fullString: string; normalString: string } {
     const result: { fullString: string; normalString: string } = {
       fullString: '',
       normalString: '',
     };
 
     //TODO Lösung für error === any lösen
-
     let fullString = '{';
 
     const members = type.symbol?.members;
@@ -416,7 +410,7 @@ export class StaticExpressAnalyzer {
       members.forEach((value, key) => {
         if (value.valueDeclaration) {
           const type = checker.getTypeAtLocation(value.valueDeclaration);
-          let typedString = checker.typeToString(type);
+          const typedString = checker.typeToString(type);
           if (typedString !== 'any') {
             fullString += `"${key.toString()}":"${typedString}",`;
           } else {
@@ -424,32 +418,10 @@ export class StaticExpressAnalyzer {
             if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
               const initializer = variableDeclaration.initializer as Identifier;
               const symbolOfInit = checker.getSymbolAtLocation(initializer);
-              if (symbolOfInit) {
-                const declarations = symbolOfInit.getDeclarations();
-                if (declarations) {
-                  const firstDecl = declarations[0];
-                  if (firstDecl.kind === SyntaxKind.VariableDeclaration) {
-                    const typeNode = (firstDecl as VariableDeclaration).type;
-                    if (typeNode) {
-                      let typedString: string = '';
-                      typeNode.forEachChild((child) => {
-                        if (child.kind === SyntaxKind.Identifier) {
-                          typedString = (child as Identifier).getText();
-                        }
-                      });
-
-                      fullString += `"${key.toString()}":"${typedString}",`;
-                    }
-                  }
-                }
+              const undefString = this.getTypeAsStringOfSymbol(symbolOfInit);
+              if (undefString) {
+                fullString += `"${key.toString()}":"${undefString}",`;
               }
-
-              // TODO von variableDeclaration die eigentliche Declaration holen dann geilo
-
-              // let undefinedString = variableDeclaration.initializer?.getText();
-              // if (undefinedString) {
-              //   fullString += `"${key.toString()}":"${undefinedString}",`;
-              // }
             }
           }
         }
@@ -465,5 +437,31 @@ export class StaticExpressAnalyzer {
     result.normalString = fullString.replace(/['",]/g, '');
 
     return result;
+  }
+
+  /**
+   * Parse the type of a symbol
+   * @param symbol Symbol of an object
+   * @returns Either undefined or the type of the object
+   */
+  private getTypeAsStringOfSymbol(symbol?: Symbol): string | undefined {
+    let typedString: string | undefined;
+    if (symbol) {
+      const declarations = symbol.getDeclarations();
+      if (declarations) {
+        const firstDecl = declarations[0];
+        if (firstDecl.kind === SyntaxKind.VariableDeclaration) {
+          const typeNode = (firstDecl as VariableDeclaration).type;
+          if (typeNode) {
+            typeNode.forEachChild((child) => {
+              if (child.kind === SyntaxKind.Identifier) {
+                typedString = (child as Identifier).getText();
+              }
+            });
+          }
+        }
+      }
+    }
+    return typedString;
   }
 }
