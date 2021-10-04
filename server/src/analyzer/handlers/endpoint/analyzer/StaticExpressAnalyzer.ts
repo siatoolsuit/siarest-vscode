@@ -93,7 +93,7 @@ export class StaticExpressAnalyzer {
               result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
             }
 
-            // TODO
+            // TODO ASK den SEB
             // Check the body, only if this function is a post or put
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
@@ -302,20 +302,6 @@ export class StaticExpressAnalyzer {
     };
 
     if (resVal.kind === SyntaxKind.Identifier) {
-      const symbol = checker.getSymbolAtLocation(resVal);
-      if (symbol) {
-        const declartions = symbol.getDeclarations();
-        // TODO not empty?
-        if (declartions) {
-          const firstDecl = declartions[0];
-          if (firstDecl.kind === SyntaxKind.VariableDeclaration) {
-            const typeNode = (firstDecl as VariableDeclaration).type;
-            // Normalize type strings and compare them
-            if (typeNode) {
-            }
-          }
-        }
-      }
       result = this.getTypeAtNodeLocation(resVal, checker);
     } else if (resVal.kind === SyntaxKind.ObjectLiteralExpression) {
       const type = checker.getTypeAtLocation(resVal);
