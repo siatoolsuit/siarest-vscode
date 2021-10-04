@@ -1,3 +1,4 @@
+import { start } from 'repl';
 import {
   ArrowFunction,
   BindingName,
@@ -293,10 +294,12 @@ export class StaticExpressAnalyzer {
    * @returns SemanticError or undefined
    */
   private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): SemanticError | undefined {
-    // TODO
-    // Check the complex return type, maybe this is inline or a extra type or a class or interface etc.
     const resType = endpoint.response;
-    // Identifier = object vom typ blabla                            ObjectLiteralexpression = {abc: 'test', bca: 1}
+    let result: { fullString: any; normalString: any } = {
+      fullString: undefined,
+      normalString: undefined,
+    };
+
     if (resVal.kind === SyntaxKind.Identifier) {
       const symbol = checker.getSymbolAtLocation(resVal);
       if (symbol) {
@@ -308,34 +311,57 @@ export class StaticExpressAnalyzer {
             const typeNode = (firstDecl as VariableDeclaration).type;
             // Normalize type strings and compare them
             if (typeNode) {
-              const { fullString, normalString } = this.typeNodeToString(typeNode, resVal, checker);
-              const normalTypeInCodeString = normalString;
-              const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
-              if (normalTypeInCodeString !== normalTypeInConfigString) {
-                return createSemanticError(
-                  `Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`,
-                  resVal.getStart(),
-                  resVal.end,
-                );
-              }
+              result = this.typeNodeToString(typeNode, resVal, checker);
             }
           }
         }
       }
-
-      // symbol.flags repräsentiert was für type es ist interface, klasse ...
     } else if (resVal.kind === SyntaxKind.ObjectLiteralExpression) {
       const type = checker.getTypeAtLocation(resVal);
-
       // Normalize type strings and compare them
-      const { fullString, normalString } = this.typeToString(type, checker);
-      const normalTypeInCodeString = normalString;
-      const normalTypeInConfigString = JSON.stringify(resType).replace(/['",]/g, '');
-      if (normalTypeInCodeString !== normalTypeInConfigString) {
-        return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${fullString}`, resVal.getStart(), resVal.end);
-      }
+      result = this.typeToString(type, checker);
     } else {
       return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
+    }
+
+    if (result.fullString) {
+      const actualObject = JSON.parse(result.fullString);
+      const siarcObject = JSON.parse(JSON.stringify(resType));
+
+      const missingTypes: Map<string, string> = new Map();
+
+      for (let firstType in siarcObject) {
+        let foundTypeInConfig: boolean = false;
+        for (let secondType in actualObject) {
+          const x = siarcObject[firstType];
+          const y = actualObject[secondType];
+
+          if (x === y && firstType === secondType) {
+            console.log(x + ' = ' + y);
+            foundTypeInConfig = true;
+          }
+        }
+
+        if (!foundTypeInConfig) {
+          missingTypes.set(firstType.toString(), siarcObject[firstType]);
+        }
+      }
+
+      if (missingTypes.size == 0) {
+        return undefined;
+      }
+
+      let errorString = '';
+      missingTypes.forEach((value, key) => {
+        errorString += `Missing property: ${key}: ${value} \n`;
+        console.log(value, key);
+      });
+
+      // TODO find properties that aren't in siarc.json
+
+      if (errorString !== '') {
+        return createSemanticError(errorString, resVal.getStart(), resVal.end);
+      }
     }
 
     return undefined;
