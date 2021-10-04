@@ -1,4 +1,3 @@
-import { start } from 'repl';
 import {
   ArrowFunction,
   BindingName,
@@ -11,7 +10,6 @@ import {
   ImportDeclaration,
   NodeArray,
   PropertyAccessExpression,
-  PropertySignature,
   Statement,
   SyntaxKind,
   Type,
@@ -20,7 +18,6 @@ import {
   SourceFile,
   VariableDeclaration,
   Identifier,
-  TypeNode,
   Symbol,
 } from 'typescript';
 
@@ -354,7 +351,6 @@ export class StaticExpressAnalyzer {
       let errorString = '';
       missingTypes.forEach((value, key) => {
         errorString += `Missing property: ${key}: ${value} \n`;
-        console.log(value, key);
       });
 
       // TODO find properties that aren't in siarc.json
