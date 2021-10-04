@@ -59,8 +59,8 @@ export class StaticExpressAnalyzer {
     }
 
     const results: IResult = {};
-
     const result: SemanticError[] = [];
+
     if (this.config) {
       if (endpointExpressions.length > 0) {
         for (const endpointExprs of endpointExpressions) {
@@ -93,6 +93,7 @@ export class StaticExpressAnalyzer {
               result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
             }
 
+            // TODO
             // Check the body, only if this function is a post or put
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
@@ -210,6 +211,8 @@ export class StaticExpressAnalyzer {
         }
       }
     }
+
+    return undefined;
   }
 
   /**
@@ -326,34 +329,21 @@ export class StaticExpressAnalyzer {
       const actualObject = JSON.parse(result.fullString);
       const siarcObject = JSON.parse(JSON.stringify(resType));
 
-      const missingTypes: Map<string, string> = new Map();
+      const missingTypesInTS: Map<string, string> = this.findMissingTypes(siarcObject, actualObject);
+      const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
 
-      for (let firstType in siarcObject) {
-        let foundTypeInConfig: boolean = false;
-        for (let secondType in actualObject) {
-          const x = siarcObject[firstType];
-          const y = actualObject[secondType];
-
-          if (x === y && firstType === secondType) {
-            foundTypeInConfig = true;
-          }
-        }
-
-        if (!foundTypeInConfig) {
-          missingTypes.set(firstType.toString(), siarcObject[firstType]);
-        }
-      }
-
-      if (missingTypes.size == 0) {
+      if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
         return undefined;
       }
 
       let errorString = '';
-      missingTypes.forEach((value, key) => {
+      missingTypesInTS.forEach((value, key) => {
         errorString += `Missing property: ${key}: ${value} \n`;
       });
 
-      // TODO find properties that aren't in siarc.json
+      missingDeclarationInSiarc.forEach((value, key) => {
+        errorString += `Missing decl in siarc: ${key}: ${value} \n`;
+      });
 
       if (errorString !== '') {
         return createSemanticError(errorString, resVal.getStart(), resVal.end);
@@ -361,6 +351,32 @@ export class StaticExpressAnalyzer {
     }
 
     return undefined;
+  }
+
+  /**
+   * Compares two JSON objects and returns missing objects/types
+   * @param actualObjects objects
+   * @param objectsToCompare objects to compare to
+   * @returns List of missing objects/types
+   */
+  private findMissingTypes(actualObjects: any, objectsToCompare: any): Map<string, string> {
+    const nameToTypeMap: Map<string, string> = new Map();
+    for (let firstType in actualObjects) {
+      let foundTypeInConfig: boolean = false;
+      for (let secondType in objectsToCompare) {
+        const x = actualObjects[firstType];
+        const y = objectsToCompare[secondType];
+
+        if (x === y && firstType === secondType) {
+          foundTypeInConfig = true;
+        }
+      }
+
+      if (!foundTypeInConfig) {
+        nameToTypeMap.set(firstType.toString(), actualObjects[firstType]);
+      }
+    }
+    return nameToTypeMap;
   }
 
   private getTypeAtNodeLocation(resVal: Expression, checker: TypeChecker): { fullString: string; normalString: string } {
