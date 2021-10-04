@@ -301,6 +301,7 @@ export class StaticExpressAnalyzer {
       const symbol = checker.getSymbolAtLocation(resVal);
       if (symbol) {
         const declartions = symbol.getDeclarations();
+        // TODO not empty?
         if (declartions) {
           const firstDecl = declartions[0];
           if (firstDecl.kind === SyntaxKind.VariableDeclaration) {
@@ -394,12 +395,35 @@ export class StaticExpressAnalyzer {
             fullString += `"${key.toString()}":"${typedString}",`;
           } else {
             const variableDeclaration = value.getDeclarations()?.[0] as VariableDeclaration;
+            if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
+              const initializer = variableDeclaration.initializer as Identifier;
+              const symbolOfInit = checker.getSymbolAtLocation(initializer);
+              if (symbolOfInit) {
+                const declarations = symbolOfInit.getDeclarations();
+                if (declarations) {
+                  const firstDecl = declarations[0];
+                  if (firstDecl.kind === SyntaxKind.VariableDeclaration) {
+                    const typeNode = (firstDecl as VariableDeclaration).type;
+                    if (typeNode) {
+                      let typedString: string = '';
+                      typeNode.forEachChild((child) => {
+                        if (child.kind === SyntaxKind.Identifier) {
+                          typedString = (child as Identifier).getText();
+                        }
+                      });
 
-            // TOD von variableDeclaration die eigentliche Declaration holen dann geilo
+                      fullString += `"${key.toString()}":"${typedString}",`;
+                    }
+                  }
+                }
+              }
 
-            let undefinedString = variableDeclaration.initializer?.getText();
-            if (undefinedString) {
-              fullString += `"${key.toString()}":"${undefinedString}",`;
+              // TODO von variableDeclaration die eigentliche Declaration holen dann geilo
+
+              // let undefinedString = variableDeclaration.initializer?.getText();
+              // if (undefinedString) {
+              //   fullString += `"${key.toString()}":"${undefinedString}",`;
+              // }
             }
           }
         }
