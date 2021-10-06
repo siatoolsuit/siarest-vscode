@@ -1,12 +1,20 @@
 # TODO LIST
 
+## Bug Fixes
+
+| Task                           | Current Status | Finished |
+| ------------------------------ | -------------- | -------- |
+| Autocompletion kaputt          |                |          |
+| Hover kaputt                   |                |          |
+| Super Komplete rekursiv parsen |                |          |
+
 ## Allgemein
 
 | Task                                       | Current Status | Finished |
 | ------------------------------------------ | -------------- | -------- |
 | Async File Handling                        | finished       | x        |
 | Use Temp Files for static express analyser | finished       | x        |
-| Meldungen ersichtlicher gestallten         |                |          |
+| Meldungen ersichtlicher gestallten         | TODO           |          |
 | Async Promise Then.Catch                   | finished       | x        |
 | Validate Json Suffix Problem               | finished       | x        |
 | Own File for validation                    | finished       | x        |
@@ -20,16 +28,16 @@
 | -------------------------------------------------------- | -------------- | -------- |
 | Übersichtlicher gestalten                                | finished       | x        |
 | Fehlermeldungen auslagern                                | finished       | x        |
-| ExtractExpressExpression komplexere ausdrücke verstehen  | in progress    |
-| FindEndpointForPath komplexere ausdrücke verstehen       | finished?      | (?)      |
-| ExractReqResFromFunction (Komplexe Objektypen?)          |                |
+| ExtractExpressExpression komplexere ausdrücke verstehen  | in progress    |          |
+| FindEndpointForPath komplexere ausdrücke verstehen       | finished       | (?)      |
+| ExractReqResFromFunction (Komplexe Objektypen?)          | finished       | (?)      |
 | Große For-Loop abbrechbar?                               | finished       | x        |
-| typeToString                                             |                |
-| eliminate boiler plate                                   |                |
+| typeToString                                             | finished       | x        |
+| eliminate boiler plate                                   | finished       | x        |
 | auslagern von konstanten                                 | finished       | x        |
 | Support router ?                                         | finished       | x        |
 | Support more complex operations (e.g res.status.send...) | finished       | x        |
-| QuickFix support for missing Configs?                    |
+| QuickFix support for missing Configs?                    |                |          |
 
 #
 

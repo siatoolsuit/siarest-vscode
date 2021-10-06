@@ -346,6 +346,8 @@ export class StaticExpressAnalyzer {
    * @returns List of missing objects/types
    */
   private findMissingTypes(actualObjects: any, objectsToCompare: any): Map<string, string> {
+    //TODO recursive machen
+
     const nameToTypeMap: Map<string, string> = new Map();
     for (let firstType in actualObjects) {
       let foundTypeInConfig: boolean = false;
