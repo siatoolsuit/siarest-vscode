@@ -4,8 +4,8 @@
 
 | Task                           | Current Status | Finished |
 | ------------------------------ | -------------- | -------- |
-| Autocompletion kaputt          |                | X        |
-| Hover kaputt                   |                |          |
+| Autocompletion kaputt          | finished       | x        |
+| Hover kaputt                   | finished       | x        |
 | Super Komplete rekursiv parsen | finished       | x        |
 
 ## Allgemein
