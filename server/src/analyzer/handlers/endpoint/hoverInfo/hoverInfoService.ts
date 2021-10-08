@@ -31,11 +31,9 @@ export class HoverInfoService {
       const markdown: MarkupContent = {
         kind: MarkupKind.Markdown,
         value: [
-          '## Service',
-          '### ' + this.currentConfig?.name,
+          '### Service ' + this.currentConfig?.name,
           'Operation: ' + additionalInfo.method,
           '```typescript',
-          'Example()',
           '```',
           this.currentConfig?.baseUri + matchedEnpoint.path,
         ].join('\n'),

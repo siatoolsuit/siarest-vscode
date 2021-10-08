@@ -80,21 +80,22 @@ export class Validator {
   }
 
   public getCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
-    if (params.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX))
+    if (params.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
       if (this.allowValidation()) {
         return this.autoCompletionService.provideCompletionItems(params, token);
       }
+    }
     return [];
   }
 
   public getHover(hoverParams: HoverParams): Hover | undefined {
-    if (this.allowValidation()) {
-      if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
-        const file = getFile(hoverParams.textDocument.uri);
-        return this.hoverInfoService.getInfo(hoverParams, this.analyzer.getEndPointsForFileName(hoverParams.textDocument.uri));
+    if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
+      if (this.allowValidation()) {
+        if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
+          return this.hoverInfoService.getInfo(hoverParams, this.analyzer.getEndPointsForFileName(hoverParams.textDocument.uri));
+        }
       }
     }
-
     return undefined;
   }
 
