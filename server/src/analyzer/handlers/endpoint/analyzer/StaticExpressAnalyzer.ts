@@ -1,3 +1,4 @@
+import { resolve } from 'path/posix';
 import {
   ArrowFunction,
   BindingName,
@@ -19,6 +20,8 @@ import {
   VariableDeclaration,
   Identifier,
   Symbol,
+  PropertyAssignment,
+  TypeFlags,
 } from 'typescript';
 
 import { Endpoint, ServiceConfig } from '../../../config';
@@ -31,6 +34,7 @@ import {
   extractPathAndMethodImplementationFromArguments,
   findEndpointForPath,
   parseLastExpression,
+  removeLastSymbol,
   simpleTypeError,
 } from '../../../utils/helper';
 
@@ -355,6 +359,11 @@ export class StaticExpressAnalyzer {
         const x = actualObjects[firstType];
         const y = objectsToCompare[secondType];
 
+        if (typeof y === 'string') {
+          console.log('im a string: ', y);
+          // fullString.replace(/['",]/g, '');
+        }
+
         if (x === y && firstType === secondType) {
           foundTypeInConfig = true;
         }
@@ -379,9 +388,7 @@ export class StaticExpressAnalyzer {
     let fullString = '{';
     fullString += `"${resVal.getText()}":"${typedString}",`;
 
-    const temp = fullString.split('');
-    temp[fullString.lastIndexOf(',')] = '';
-    fullString = temp.join('');
+    fullString = removeLastSymbol(fullString, ',');
     fullString += '}';
 
     result.fullString = fullString;
@@ -410,17 +417,24 @@ export class StaticExpressAnalyzer {
       members.forEach((value, key) => {
         if (value.valueDeclaration) {
           const type = checker.getTypeAtLocation(value.valueDeclaration);
-          const typedString = checker.typeToString(type);
-          if (typedString !== 'any') {
-            fullString += `"${key.toString()}":"${typedString}",`;
+
+          let typedString = checker.typeToString(type);
+
+          if (type.getProperties().length > 0) {
+            typedString = this.parsePropertiesRecursive(type, checker);
+            fullString += `"${key.toString()}":${typedString},`;
           } else {
-            const variableDeclaration = value.getDeclarations()?.[0] as VariableDeclaration;
-            if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
-              const initializer = variableDeclaration.initializer as Identifier;
-              const symbolOfInit = checker.getSymbolAtLocation(initializer);
-              const undefString = this.getTypeAsStringOfSymbol(symbolOfInit);
-              if (undefString) {
-                fullString += `"${key.toString()}":"${undefString}",`;
+            if (typedString !== 'any') {
+              fullString += `"${key.toString()}":"${typedString}",`;
+            } else {
+              const variableDeclaration = value.getDeclarations()?.[0] as VariableDeclaration;
+              if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
+                const initializer = variableDeclaration.initializer as Identifier;
+                const symbolOfInit = checker.getSymbolAtLocation(initializer);
+                const undefString = this.getTypeAsStringOfSymbol(symbolOfInit);
+                if (undefString) {
+                  fullString += `"${key.toString()}":"${undefString}",`;
+                }
               }
             }
           }
@@ -428,15 +442,59 @@ export class StaticExpressAnalyzer {
       });
     }
 
-    const temp = fullString.split('');
-    temp[fullString.lastIndexOf(',')] = '';
-    fullString = temp.join('');
+    fullString = removeLastSymbol(fullString, ',');
     fullString += '}';
 
     result.fullString = fullString;
     result.normalString = fullString.replace(/['",]/g, '');
 
     return result;
+  }
+  parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
+    const symbolsOfType: Symbol[] = type.getProperties();
+
+    let jsonString: string = '{';
+
+    symbolsOfType.forEach((symbol) => {
+      if (symbol.valueDeclaration?.kind === SyntaxKind.PropertyAssignment) {
+        const propertyAssignment = symbol.valueDeclaration as PropertyAssignment;
+        const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
+
+        let resultString = '';
+
+        switch (typeOfProp.getFlags()) {
+          case TypeFlags.Object:
+            resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
+            break;
+
+          case TypeFlags.Any:
+            console.log('im any kind', typeOfProp);
+            const members = typeOfProp.symbol.members;
+            members?.forEach((value, key) => {
+              if (value.valueDeclaration) {
+                const typeMember = checker.getTypeAtLocation(value.valueDeclaration);
+                let typedString = checker.typeToString(type);
+                console.log();
+              }
+            });
+            // try parse Symble non standard type
+            break;
+          case TypeFlags.String:
+          case TypeFlags.Number:
+          case TypeFlags.Boolean:
+            resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
+          default:
+            break;
+        }
+
+        jsonString += resultString + ',';
+      }
+    });
+
+    jsonString = removeLastSymbol(jsonString, ',');
+
+    jsonString += '}';
+    return jsonString;
   }
 
   /**

@@ -168,3 +168,9 @@ export const findEndpointForPath = (path: string, endpoints: Endpoint[]): Endpoi
 export const isBetween = (lower: number, upper: number, between: Number): Boolean => {
   return between >= lower && between <= upper ? true : false;
 };
+
+export const removeLastSymbol = (stringToRemove: string, symbol: string): string => {
+  const temp = stringToRemove.split('');
+  temp[stringToRemove.lastIndexOf(symbol)] = '';
+  return temp.join('');
+};
