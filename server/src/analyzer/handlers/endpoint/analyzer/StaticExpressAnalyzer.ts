@@ -484,9 +484,7 @@ export class StaticExpressAnalyzer {
           case TypeFlags.Object:
             resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
             break;
-
           case TypeFlags.Any:
-            console.log('im any kind', typeOfProp);
             const string = this.getTypeAsStringOfSymbol(symbol, checker);
             resultString += `"${symbol.name}":"${string}"`;
             break;
