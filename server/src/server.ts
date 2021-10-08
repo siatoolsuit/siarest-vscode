@@ -74,8 +74,6 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 });
 
 connection.onHover((event): Hover | undefined => {
-  // Create hover description for a typescript file
-  const path = event.textDocument.uri;
   return validator.getHover(event);
 });
 
