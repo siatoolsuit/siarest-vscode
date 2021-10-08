@@ -320,7 +320,10 @@ export class StaticExpressAnalyzer {
       const siarcObject = JSON.parse(JSON.stringify(resType));
 
       const missingTypesInTS: Map<string, string> = this.findMissingTypes(siarcObject, actualObject);
-      const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
+
+      // TODO vlt Seb fragen?!
+      // const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
+      const missingDeclarationInSiarc: Map<string, string> = new Map();
 
       if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
         return undefined;
@@ -352,20 +355,26 @@ export class StaticExpressAnalyzer {
   private findMissingTypes(actualObjects: any, objectsToCompare: any): Map<string, string> {
     //TODO recursive machen
 
-    const nameToTypeMap: Map<string, string> = new Map();
+    let nameToTypeMap: Map<string, string> = new Map();
     for (let firstType in actualObjects) {
       let foundTypeInConfig: boolean = false;
       for (let secondType in objectsToCompare) {
         const x = actualObjects[firstType];
         const y = objectsToCompare[secondType];
 
-        if (typeof y === 'string') {
-          console.log('im a string: ', y);
-          // fullString.replace(/['",]/g, '');
-        }
-
         if (x === y && firstType === secondType) {
           foundTypeInConfig = true;
+          break;
+        } else if (typeof x === 'object' && typeof y === 'object') {
+          const nestedTypesByName = this.findMissingTypes(x, y);
+          if (nestedTypesByName.size < 1) {
+            foundTypeInConfig = true;
+          } else {
+            nestedTypesByName.forEach((value, key) => {
+              nameToTypeMap.set(key, value);
+            });
+            foundTypeInConfig = true;
+          }
         }
       }
 
@@ -418,15 +427,21 @@ export class StaticExpressAnalyzer {
         if (value.valueDeclaration) {
           const type = checker.getTypeAtLocation(value.valueDeclaration);
 
-          let typedString = checker.typeToString(type);
+          let typedString = '';
 
-          if (type.getProperties().length > 0) {
-            typedString = this.parsePropertiesRecursive(type, checker);
-            fullString += `"${key.toString()}":${typedString},`;
-          } else {
-            if (typedString !== 'any') {
+          switch (type.flags) {
+            case TypeFlags.Object:
+              typedString = this.parsePropertiesRecursive(type, checker);
+              fullString += `"${key.toString()}":${typedString},`;
+              break;
+
+            case TypeFlags.Number:
+            case TypeFlags.String:
+            case TypeFlags.Boolean:
+              typedString = checker.typeToString(type);
               fullString += `"${key.toString()}":"${typedString}",`;
-            } else {
+              break;
+            case TypeFlags.Any:
               const variableDeclaration = value.getDeclarations()?.[0] as VariableDeclaration;
               if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
                 const initializer = variableDeclaration.initializer as Identifier;
@@ -436,7 +451,10 @@ export class StaticExpressAnalyzer {
                   fullString += `"${key.toString()}":"${undefString}",`;
                 }
               }
-            }
+              break;
+
+            default:
+              break;
           }
         }
       });
@@ -469,15 +487,8 @@ export class StaticExpressAnalyzer {
 
           case TypeFlags.Any:
             console.log('im any kind', typeOfProp);
-            const members = typeOfProp.symbol.members;
-            members?.forEach((value, key) => {
-              if (value.valueDeclaration) {
-                const typeMember = checker.getTypeAtLocation(value.valueDeclaration);
-                let typedString = checker.typeToString(type);
-                console.log();
-              }
-            });
-            // try parse Symble non standard type
+            const string = this.getTypeAsStringOfSymbol(symbol, checker);
+            resultString += `"${symbol.name}":"${string}"`;
             break;
           case TypeFlags.String:
           case TypeFlags.Number:
@@ -502,21 +513,30 @@ export class StaticExpressAnalyzer {
    * @param symbol Symbol of an object
    * @returns Either undefined or the type of the object
    */
-  private getTypeAsStringOfSymbol(symbol?: Symbol): string | undefined {
+  private getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker?: TypeChecker): string | undefined {
     let typedString: string | undefined;
     if (symbol) {
       const declarations = symbol.getDeclarations();
       if (declarations) {
         const firstDecl = declarations[0];
-        if (firstDecl.kind === SyntaxKind.VariableDeclaration) {
-          const typeNode = (firstDecl as VariableDeclaration).type;
-          if (typeNode) {
-            typeNode.forEachChild((child) => {
-              if (child.kind === SyntaxKind.Identifier) {
-                typedString = (child as Identifier).getText();
-              }
-            });
-          }
+
+        let typeNode;
+        switch (firstDecl.kind) {
+          case SyntaxKind.VariableDeclaration:
+            typeNode = (firstDecl as VariableDeclaration).type;
+            if (typeNode) {
+              typeNode.forEachChild((child) => {
+                if (child.kind === SyntaxKind.Identifier) {
+                  typedString = (child as Identifier).getText();
+                }
+              });
+            }
+            break;
+          case SyntaxKind.PropertyAssignment:
+            const propsAssignment = firstDecl as PropertyAssignment;
+            const symbolRec = checker?.getSymbolAtLocation(propsAssignment.initializer);
+            typedString = this.getTypeAsStringOfSymbol(symbolRec);
+            console.log();
         }
       }
     }
