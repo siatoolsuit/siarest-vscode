@@ -80,9 +80,10 @@ export class Validator {
   }
 
   public getCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
-    if (this.allowValidation()) {
-      return this.autoCompletionService.provideCompletionItems(params, token);
-    }
+    if (params.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX))
+      if (this.allowValidation()) {
+        return this.autoCompletionService.provideCompletionItems(params, token);
+      }
     return [];
   }
 
