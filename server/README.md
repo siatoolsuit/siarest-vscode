@@ -6,7 +6,7 @@
 | ------------------------------ | -------------- | -------- |
 | Autocompletion kaputt          |                |          |
 | Hover kaputt                   |                |          |
-| Super Komplete rekursiv parsen |                |          |
+| Super Komplete rekursiv parsen | finished       | x        |
 
 ## Allgemein
 
@@ -28,9 +28,9 @@
 | -------------------------------------------------------- | -------------- | -------- |
 | Übersichtlicher gestalten                                | finished       | x        |
 | Fehlermeldungen auslagern                                | finished       | x        |
-| ExtractExpressExpression komplexere ausdrücke verstehen  | in progress    |          |
-| FindEndpointForPath komplexere ausdrücke verstehen       | finished       | (?)      |
-| ExractReqResFromFunction (Komplexe Objektypen?)          | finished       | (?)      |
+| ExtractExpressExpression komplexere ausdrücke verstehen  | finished       | x        |
+| FindEndpointForPath komplexere ausdrücke verstehen       | finished       | x        |
+| ExractReqResFromFunction (Komplexe Objektypen?)          | finished       | x        |
 | Große For-Loop abbrechbar?                               | finished       | x        |
 | typeToString                                             | finished       | x        |
 | eliminate boiler plate                                   | finished       | x        |
