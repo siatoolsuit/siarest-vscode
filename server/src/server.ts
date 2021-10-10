@@ -5,7 +5,6 @@ import {
   InitializeParams,
   InitializeResult,
   CancellationToken,
-  HoverParams,
   CompletionParams,
   CompletionItem,
   Hover,

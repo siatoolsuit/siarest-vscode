@@ -87,7 +87,7 @@ export class StaticExpressAnalyzer {
                   if (semanticError) result.push(semanticError);
                   break;
                 case 'object':
-                  semanticError = this.createComplexTypeError(endpoint, resVal, checker);
+                  semanticError = this.createComplexTypeErrorFromExpression(endpoint, resVal, checker);
                   if (semanticError) result.push(semanticError);
                   break;
                 default:
@@ -102,6 +102,7 @@ export class StaticExpressAnalyzer {
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
               if (reqVal) {
+                const semanticError = this.createComplexTypeErrorFromBindingName(endpoint, reqVal, checker);
                 const symbol = checker.getSymbolAtLocation(reqVal);
                 if (symbol && symbol.valueDeclaration) {
                   const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration);
@@ -298,7 +299,7 @@ export class StaticExpressAnalyzer {
    * @param checker
    * @returns SemanticError or undefined
    */
-  private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): SemanticError | undefined {
+  private createComplexTypeErrorFromExpression(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): SemanticError | undefined {
     const resType = endpoint.response;
     let result: { fullString: any; normalString: any } = {
       fullString: undefined,
@@ -315,6 +316,26 @@ export class StaticExpressAnalyzer {
       return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
     }
 
+    return this.createErrorMessage(result, resType, resVal);
+  }
+
+  createComplexTypeErrorFromBindingName(endpoint: Endpoint, reqVal: BindingName, checker: TypeChecker) {
+    const reqType = endpoint.request;
+    let result: { fullString: any; normalString: any } = {
+      fullString: undefined,
+      normalString: undefined,
+    };
+
+    if (reqVal.kind === SyntaxKind.Identifier) {
+      result = this.getTypeAtNodeLocation(reqVal, checker);
+    } else {
+      return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${reqVal.getText()}`, reqVal.getStart(), reqVal.end);
+    }
+
+    return this.createErrorMessage(result, reqType, reqVal);
+  }
+
+  private createErrorMessage(result: { fullString: any; normalString: any }, resType: any, resVal: Expression): SemanticError | undefined {
     if (result.fullString) {
       const actualObject = JSON.parse(result.fullString);
       const siarcObject = JSON.parse(JSON.stringify(resType));
