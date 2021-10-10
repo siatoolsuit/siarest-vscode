@@ -3,18 +3,6 @@
   "tasks": [
     {
       "type": "npm",
-      "script": "compile",
-      "group": "build",
-      "presentation": {
-        "panel": "dedicated",
-        "reveal": "never",
-      },
-      "problemMatcher": [
-        "$tsc"
-      ]
-    },
-    {
-      "type": "npm",
       "script": "watch",
       "isBackground": true,
       "group": {
@@ -22,12 +10,24 @@
         "isDefault": true
       },
       "presentation": {
-        "panel": "dedicated",
         "reveal": "never",
+        "panel": "dedicated"
       },
-      "problemMatcher": [
-        "$tsc-watch"        
-      ]
+      "problemMatcher": ["$tsc-watch"],
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "type": "npm",
+      "script": "compile",
+      "isBackground": false,
+      "group": "build",
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$tsc"]
     }
   ]
 }
