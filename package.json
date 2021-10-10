@@ -1,5 +1,9 @@
 {
   "name": "rest-verification",
+  "publisher": "siatoolsuit",
+  "repository": {
+    "url": "https://github.com/siatoolsuit/siarest-vscode"
+  },
   "description": "A language server for rest endpoint verification",
   "license": "MIT",
   "version": "1.0.0",
