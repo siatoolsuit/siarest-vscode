@@ -37,7 +37,8 @@
     "compile": "tsc -b",
     "clean": "rm -rf ./server/dist && rm -rf ./client/dist",
     "watch": "tsc -b -w",
-    "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^8.2.2",
