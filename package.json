@@ -1,5 +1,9 @@
 {
   "name": "rest-verification",
+  "publisher": "siatoolsuit",
+  "repository": {
+    "url": "https://github.com/siatoolsuit/siarest-vscode"
+  },
   "description": "A language server for rest endpoint verification",
   "license": "MIT",
   "version": "1.0.0",
@@ -27,8 +31,10 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "npm run clean && tsc -b",
+    "vscode:prepublish": "npm run webpack",
+    "webpack": "npm run clean && webpack --mode production --config ./client/webpack.config.js && webpack --mode production --config ./server/webpack.config.js",
+    "webpack:dev": "npm run clean && webpack --mode none --config ./client/webpack.config.js && webpack --mode none --config ./server/webpack.config.js",
+    "compile": "tsc -b",
     "clean": "rm -rf ./server/dist && rm -rf ./client/dist",
     "watch": "tsc -b -w",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
@@ -40,7 +46,11 @@
     "@typescript-eslint/parser": "^4.23.0",
     "eslint": "^7.26.0",
     "mocha": "^8.3.2",
-    "typescript": "^4.3.5"
+    "ts-loader": "^9.2.6",
+    "typescript": "^4.3.5",
+    "webpack": "^5.58.1",
+    "webpack-cli": "^4.9.0",
+    "merge-options": "^3.0.4"
   },
   "dependencies": {}
 }
