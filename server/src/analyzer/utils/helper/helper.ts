@@ -1,8 +1,6 @@
 import {
-  ArrowFunction,
   CallExpression,
   Expression,
-  getLineAndCharacterOfPosition,
   Identifier,
   ImportDeclaration,
   NamedImports,
@@ -12,6 +10,7 @@ import {
   Statement,
   StringLiteral,
   SyntaxKind,
+  TypeNode,
   VariableStatement,
 } from 'typescript';
 import { _Connection } from 'vscode-languageserver';
@@ -173,4 +172,16 @@ export const removeLastSymbol = (stringToRemove: string, symbol: string): string
   const temp = stringToRemove.split('');
   temp[stringToRemove.lastIndexOf(symbol)] = '';
   return temp.join('');
+};
+
+export const findIdentifierInChild = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string => {
+  let typedString = '';
+  if (typeNode) {
+    typeNode.forEachChild((child) => {
+      if (child.kind === syntaxKind) {
+        typedString = (child as Identifier).getText();
+      }
+    });
+  }
+  return typedString;
 };

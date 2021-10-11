@@ -1,7 +1,5 @@
-import { resolve } from 'path/posix';
 import {
   ArrowFunction,
-  BindingName,
   Block,
   CallExpression,
   factory,
@@ -22,6 +20,8 @@ import {
   Symbol,
   PropertyAssignment,
   TypeFlags,
+  Declaration,
+  PropertySignature,
 } from 'typescript';
 
 import { Endpoint, ServiceConfig } from '../../../config';
@@ -33,6 +33,7 @@ import {
   extractExpressVariable,
   extractPathAndMethodImplementationFromArguments,
   findEndpointForPath,
+  findIdentifierInChild as findBySyntaxKindInChildren,
   parseLastExpression,
   removeLastSymbol,
   simpleTypeError,
@@ -73,7 +74,7 @@ export class StaticExpressAnalyzer {
           // Validates the defined endpoint with the service configuration
           if (endpoint) {
             if (endpoint.method !== endpointExprs.method) {
-              result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.expression.getStart(), expr.expression.end));
+              result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
             }
 
             const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
@@ -102,24 +103,9 @@ export class StaticExpressAnalyzer {
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
               if (reqVal) {
-                const semanticError = this.createComplexTypeErrorFromBindingName(endpoint, reqVal, checker);
-                const symbol = checker.getSymbolAtLocation(reqVal);
-                if (symbol && symbol.valueDeclaration) {
-                  const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration);
-                  // Normalize type strings and compare them
-                  const { fullString, normalString } = this.parseObject(type, checker);
-                  const normalTypeInCodeString = normalString;
-                  const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
-                  if (normalTypeInCodeString !== normalTypeInConfigString) {
-                    result.push(
-                      createSemanticError(
-                        `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${fullString}`,
-                        reqVal.getStart(),
-                        reqVal.end,
-                      ),
-                    );
-                  }
-                }
+                // const semanticError = this.createComplexTypeErrorFromExpression(endpoint, reqVal, checker);
+                const semanticError = this.createComplexTypeErrorFromDeclaration(endpoint, reqVal, checker);
+                if (semanticError) result.push(semanticError);
               } else {
                 result.push(createSemanticError(`Endpoint with method "${endpoint.method}" has a missing body handling.`, expr.getStart(), expr.end));
               }
@@ -225,10 +211,10 @@ export class StaticExpressAnalyzer {
    * @param inlineFunction an inlineFunction (..) => {...}
    * @returns tuple of { res, req }
    */
-  private extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: BindingName | undefined } {
+  private extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: Declaration | undefined } {
     const result: {
       resVal: Expression | undefined;
-      reqVal: BindingName | undefined;
+      reqVal: Declaration | undefined;
     } = {
       resVal: undefined,
       reqVal: undefined,
@@ -280,7 +266,7 @@ export class StaticExpressAnalyzer {
                 // Check if the current expression is a express body declaration like req.body()
                 const propAccExpr = callExpr.expression as PropertyAccessExpression;
                 if (propAccExpr.expression.getText() === reqVarName && propAccExpr.name.text === 'body') {
-                  result.reqVal = varDecl.name;
+                  result.reqVal = varDecl;
                 }
               }
             }
@@ -319,23 +305,20 @@ export class StaticExpressAnalyzer {
     return this.createErrorMessage(result, resType, resVal);
   }
 
-  createComplexTypeErrorFromBindingName(endpoint: Endpoint, reqVal: BindingName, checker: TypeChecker) {
+  createComplexTypeErrorFromDeclaration(endpoint: Endpoint, reqVal: Declaration, checker: TypeChecker) {
     const reqType = endpoint.request;
     let result: { fullString: any; normalString: any } = {
       fullString: undefined,
       normalString: undefined,
     };
 
-    if (reqVal.kind === SyntaxKind.Identifier) {
-      result = this.getTypeAtNodeLocation(reqVal, checker);
-    } else {
-      return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${reqVal.getText()}`, reqVal.getStart(), reqVal.end);
-    }
+    const type = checker.getTypeAtLocation(reqVal);
+    result = this.parseObject(type, checker);
 
     return this.createErrorMessage(result, reqType, reqVal);
   }
 
-  private createErrorMessage(result: { fullString: any; normalString: any }, resType: any, resVal: Expression): SemanticError | undefined {
+  private createErrorMessage(result: { fullString: any; normalString: any }, resType: any, resVal: Expression | any): SemanticError | undefined {
     if (result.fullString) {
       const actualObject = JSON.parse(result.fullString);
       const siarcObject = JSON.parse(JSON.stringify(resType));
@@ -489,13 +472,37 @@ export class StaticExpressAnalyzer {
 
     return result;
   }
-  parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
+
+  private parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
     const symbolsOfType: Symbol[] = type.getProperties();
 
     let jsonString: string = '{';
 
     symbolsOfType.forEach((symbol) => {
       if (symbol.valueDeclaration?.kind === SyntaxKind.PropertyAssignment) {
+        const propertyAssignment = symbol.valueDeclaration as PropertyAssignment;
+        const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
+
+        let resultString = '';
+
+        switch (typeOfProp.getFlags()) {
+          case TypeFlags.Object:
+            resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
+            break;
+          case TypeFlags.Any:
+            const string = this.getTypeAsStringOfSymbol(symbol, checker);
+            resultString += `"${symbol.name}":"${string}"`;
+            break;
+          case TypeFlags.String:
+          case TypeFlags.Number:
+          case TypeFlags.Boolean:
+            resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
+          default:
+            break;
+        }
+
+        jsonString += resultString + ',';
+      } else if (symbol.valueDeclaration?.kind === SyntaxKind.PropertySignature) {
         const propertyAssignment = symbol.valueDeclaration as PropertyAssignment;
         const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
 
@@ -543,19 +550,17 @@ export class StaticExpressAnalyzer {
         switch (firstDecl.kind) {
           case SyntaxKind.VariableDeclaration:
             typeNode = (firstDecl as VariableDeclaration).type;
-            if (typeNode) {
-              typeNode.forEachChild((child) => {
-                if (child.kind === SyntaxKind.Identifier) {
-                  typedString = (child as Identifier).getText();
-                }
-              });
-            }
+            typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
             break;
           case SyntaxKind.PropertyAssignment:
             const propsAssignment = firstDecl as PropertyAssignment;
             const symbolRec = checker?.getSymbolAtLocation(propsAssignment.initializer);
             typedString = this.getTypeAsStringOfSymbol(symbolRec);
-            console.log();
+            break;
+          case SyntaxKind.PropertySignature:
+            typeNode = (firstDecl as PropertySignature).type;
+            typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+            break;
         }
       }
     }
