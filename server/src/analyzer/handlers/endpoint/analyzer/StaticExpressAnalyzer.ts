@@ -302,7 +302,7 @@ export class StaticExpressAnalyzer {
       return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
     }
 
-    return this.createErrorMessage(result, resType, resVal);
+    return this.createErrorMessage(endpoint, result, resType, resVal);
   }
 
   createComplexTypeErrorFromDeclaration(endpoint: Endpoint, reqVal: Declaration, checker: TypeChecker) {
@@ -315,15 +315,20 @@ export class StaticExpressAnalyzer {
     const type = checker.getTypeAtLocation(reqVal);
     result = this.parseObject(type, checker);
 
-    return this.createErrorMessage(result, reqType, reqVal);
+    return this.createErrorMessage(endpoint, result, reqType, reqVal);
   }
 
-  private createErrorMessage(result: { fullString: any; normalString: any }, resType: any, resVal: Expression | any): SemanticError | undefined {
+  private createErrorMessage(
+    endpoint: Endpoint,
+    result: { fullString: any; normalString: any },
+    resType: any,
+    resVal: Expression | any,
+  ): SemanticError | undefined {
     if (result.fullString) {
       const actualObject = JSON.parse(result.fullString);
       const siarcObject = JSON.parse(JSON.stringify(resType));
 
-      const missingTypesInTS: Map<string, string> = this.findMissingTypes(siarcObject, actualObject);
+      const missingTypesInTS: Map<string, any> = this.findMissingTypes(siarcObject, actualObject);
 
       // TODO vlt Seb fragen?!
       // const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
@@ -335,7 +340,7 @@ export class StaticExpressAnalyzer {
 
       let errorString = '';
       missingTypesInTS.forEach((value, key) => {
-        errorString += `Missing property: ${key}: ${value} \n`;
+        errorString += `Missing property: ${key}: ${value.actual} \n`;
       });
 
       missingDeclarationInSiarc.forEach((value, key) => {
@@ -352,18 +357,18 @@ export class StaticExpressAnalyzer {
 
   /**
    * Compares two JSON objects and returns missing objects/types
-   * @param actualObjects objects
+   * @param siarcObjects objects
    * @param objectsToCompare objects to compare to
    * @returns List of missing objects/types
    */
-  private findMissingTypes(actualObjects: any, objectsToCompare: any): Map<string, string> {
+  private findMissingTypes(siarcObjects: any, objectsToCompare: any): Map<string, any> {
     //TODO recursive machen
 
-    let nameToTypeMap: Map<string, string> = new Map();
-    for (let firstType in actualObjects) {
+    let nameToTypeMap: Map<string, any> = new Map();
+    for (let firstType in siarcObjects) {
       let foundTypeInConfig: boolean = false;
       for (let secondType in objectsToCompare) {
-        const x = actualObjects[firstType];
+        const x = siarcObjects[firstType];
         const y = objectsToCompare[secondType];
 
         if (x === y && firstType === secondType) {
@@ -383,7 +388,7 @@ export class StaticExpressAnalyzer {
       }
 
       if (!foundTypeInConfig) {
-        nameToTypeMap.set(firstType.toString(), actualObjects[firstType]);
+        nameToTypeMap.set(firstType.toString(), { actual: siarcObjects[firstType] });
       }
     }
     return nameToTypeMap;

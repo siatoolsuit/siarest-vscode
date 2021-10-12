@@ -1,5 +1,6 @@
 import { DiagnosticSeverity, JSONDocument, TextDocument } from 'vscode-json-languageservice';
 import { Diagnostic } from 'vscode-languageserver';
+import { createDiagnostic } from '../utils/helper';
 
 export class ConfigValidator {
   validateConfigSemantic(textDoc: TextDocument, jsonDoc: JSONDocument): Diagnostic[] {
@@ -21,14 +22,15 @@ export class ConfigValidator {
                 const nameValue = property.valueNode.value as string;
                 // We found a duplicate
                 if (servicesNames.includes(nameValue)) {
-                  result.push({
-                    message: 'Duplicate name, service name needs to be unique',
-                    range: {
-                      start: textDoc.positionAt(property.valueNode.offset),
-                      end: textDoc.positionAt(property.valueNode.offset),
-                    },
-                    severity: DiagnosticSeverity.Error,
-                  });
+                  result.push(
+                    createDiagnostic(
+                      textDoc,
+                      'Duplicate name, service name needs to be unique',
+                      property.valueNode.offset,
+                      property.valueNode.offset,
+                      DiagnosticSeverity.Error,
+                    ),
+                  );
                   // Add the same to the name list
                 } else if (nameValue) {
                   servicesNames.push(nameValue);
@@ -37,14 +39,15 @@ export class ConfigValidator {
                 const baseURIValue = property.valueNode.value as string;
                 // We found a duplicate
                 if (baseUris.includes(baseURIValue)) {
-                  result.push({
-                    message: 'Duplicate baseUri, service baseUri needs to be unique',
-                    range: {
-                      start: textDoc.positionAt(property.valueNode.offset),
-                      end: textDoc.positionAt(property.valueNode.offset),
-                    },
-                    severity: DiagnosticSeverity.Error,
-                  });
+                  result.push(
+                    createDiagnostic(
+                      textDoc,
+                      'Duplicate baseUri, service baseUri needs to be unique',
+                      property.valueNode.offset,
+                      property.valueNode.offset,
+                      DiagnosticSeverity.Error,
+                    ),
+                  );
                   // Add the same to the name list
                 } else if (baseURIValue) {
                   baseUris.push(baseURIValue);
@@ -67,25 +70,27 @@ export class ConfigValidator {
                     // There need to be the request field to be defined
                     if (method === 'POST' || method === 'PUT') {
                       if (!request) {
-                        result.push({
-                          message: 'Missing request field',
-                          range: {
-                            start: textDoc.positionAt(endpoint.offset),
-                            end: textDoc.positionAt(endpoint.offset),
-                          },
-                          severity: DiagnosticSeverity.Error,
-                        });
+                        result.push(
+                          createDiagnostic(
+                            textDoc,
+                            'Missing request field',
+                            property.valueNode.offset,
+                            property.valueNode.offset,
+                            DiagnosticSeverity.Error,
+                          ),
+                        );
                       }
                     } else if (method === 'GET' || method === 'DELETE') {
                       if (request) {
-                        result.push({
-                          message: 'Unnecessary request field',
-                          range: {
-                            start: textDoc.positionAt(request.offset),
-                            end: textDoc.positionAt(request.offset),
-                          },
-                          severity: DiagnosticSeverity.Error,
-                        });
+                        result.push(
+                          createDiagnostic(
+                            textDoc,
+                            'Missing request field',
+                            property.valueNode.offset,
+                            property.valueNode.offset,
+                            DiagnosticSeverity.Error,
+                          ),
+                        );
                       }
                     }
                   }

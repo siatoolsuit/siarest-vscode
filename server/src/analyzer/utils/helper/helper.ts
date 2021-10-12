@@ -13,7 +13,8 @@ import {
   TypeNode,
   VariableStatement,
 } from 'typescript';
-import { _Connection } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticSeverity, _Connection } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { expressImportByName } from '..';
 import { Endpoint } from '../../config';
 import { ExpressPathAndFunction, SemanticError } from '../../types';
@@ -184,4 +185,22 @@ export const findIdentifierInChild = (typeNode: TypeNode | undefined, syntaxKind
     });
   }
   return typedString;
+};
+
+export const createDiagnostic = (
+  document: TextDocument,
+  message: string,
+  start: number,
+  end: number,
+  diagnosticLevel: DiagnosticSeverity,
+): Diagnostic => {
+  return {
+    message: message,
+    range: {
+      start: document.positionAt(start),
+      end: document.positionAt(end),
+    },
+    severity: diagnosticLevel,
+    source: 'Siarc-Toolkit',
+  };
 };

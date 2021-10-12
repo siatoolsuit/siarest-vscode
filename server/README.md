@@ -1,5 +1,10 @@
 # TODO LIST
 
+| Task                               | Current Status | Finished |
+| ---------------------------------- | -------------- | -------- |
+| Meldungen ersichtlicher gestallten | TODO           |          |
+| Res/Req Error messages             | working on     |          |
+
 ## Bug Fixes
 
 | Task                           | Current Status | Finished |
@@ -14,7 +19,6 @@
 | ------------------------------------------ | -------------- | -------- |
 | Async File Handling                        | finished       | x        |
 | Use Temp Files for static express analyser | finished       | x        |
-| Meldungen ersichtlicher gestallten         | TODO           |          |
 | Async Promise Then.Catch                   | finished       | x        |
 | Validate Json Suffix Problem               | finished       | x        |
 | Own File for validation                    | finished       | x        |
