@@ -1,4 +1,4 @@
-import { CancellationToken, CompletionItem, CompletionParams, MarkupContent, Position, TextEdit } from 'vscode-languageserver/node';
+import { CancellationToken, CompletionItem, CompletionParams, TextEdit } from 'vscode-languageserver/node';
 import { ServiceConfig, Endpoint } from '../../../config';
 
 export class AutoCompletionService {
