@@ -34,9 +34,11 @@ import {
   extractPathAndMethodImplementationFromArguments,
   findEndpointForPath,
   findIdentifierInChild as findBySyntaxKindInChildren,
+  findIdentifierInChild,
   parseLastExpression,
   removeLastSymbol,
   simpleTypeError,
+  tryParseJSONObject,
 } from '../../../utils/helper';
 
 export class StaticExpressAnalyzer {
@@ -84,6 +86,7 @@ export class StaticExpressAnalyzer {
               let semanticError: any;
               switch (typeof resConf) {
                 case 'string':
+                  // TODO get ref of a variable for example and validate it
                   semanticError = simpleTypeError(resConf, resVal);
                   if (semanticError) result.push(semanticError);
                   break;
@@ -98,12 +101,9 @@ export class StaticExpressAnalyzer {
               result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
             }
 
-            // TODO ASK den SEB
-            // Check the body, only if this function is a post or put
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
               if (reqVal) {
-                // const semanticError = this.createComplexTypeErrorFromExpression(endpoint, reqVal, checker);
                 const semanticError = this.createComplexTypeErrorFromDeclaration(endpoint, reqVal, checker);
                 if (semanticError) result.push(semanticError);
               } else {
@@ -312,8 +312,25 @@ export class StaticExpressAnalyzer {
       normalString: undefined,
     };
 
-    const type = checker.getTypeAtLocation(reqVal);
-    result = this.parseObject(type, checker);
+    const varDecl = reqVal as VariableDeclaration;
+    if (!varDecl.type) {
+      return undefined;
+    }
+
+    let type: any;
+
+    switch (varDecl.type.kind) {
+      case SyntaxKind.TypeLiteral:
+        type = checker.getTypeAtLocation(varDecl);
+        result = this.parseObject(type, checker);
+        break;
+
+      case SyntaxKind.TypeReference:
+        const identifier = findIdentifierInChild(varDecl.type, SyntaxKind.Identifier);
+        result.fullString = identifier;
+        result.normalString = identifier;
+        break;
+    }
 
     return this.createErrorMessage(endpoint, result, reqType, reqVal);
   }
@@ -325,27 +342,34 @@ export class StaticExpressAnalyzer {
     resVal: Expression | any,
   ): SemanticError | undefined {
     if (result.fullString) {
-      const actualObject = JSON.parse(result.fullString);
-      const siarcObject = JSON.parse(JSON.stringify(resType));
-
-      const missingTypesInTS: Map<string, any> = this.findMissingTypes(siarcObject, actualObject);
-
-      // TODO vlt Seb fragen?!
-      // const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
-      const missingDeclarationInSiarc: Map<string, string> = new Map();
-
-      if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
-        return undefined;
-      }
-
+      const actualObject = tryParseJSONObject(result.fullString);
+      const siarcObject = tryParseJSONObject(JSON.stringify(resType));
       let errorString = '';
-      missingTypesInTS.forEach((value, key) => {
-        errorString += `Missing property: ${key}: ${value.actual} \n`;
-      });
 
-      missingDeclarationInSiarc.forEach((value, key) => {
-        errorString += `Missing decl in siarc: ${key}: ${value} \n`;
-      });
+      if (siarcObject === false && actualObject === false) {
+        if (result.fullString !== resType) {
+          errorString += `${result.fullString} needs to be ${resType}`;
+        }
+      } else {
+        const missingTypesInTS: Map<string, any> = this.findMissingTypes(siarcObject, actualObject);
+
+        // TODO better error message with endpoint
+        // TODO vlt Seb fragen?!
+        // const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
+        const missingDeclarationInSiarc: Map<string, string> = new Map();
+
+        if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
+          return undefined;
+        }
+
+        missingTypesInTS.forEach((value, key) => {
+          errorString += `Missing property: ${key}: ${value.actual} \n`;
+        });
+
+        missingDeclarationInSiarc.forEach((value, key) => {
+          errorString += `Missing decl in siarc: ${key}: ${value} \n`;
+        });
+      }
 
       if (errorString !== '') {
         return createSemanticError(errorString, resVal.getStart(), resVal.end);

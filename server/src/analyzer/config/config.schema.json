@@ -56,7 +56,7 @@
             "method": {
               "type": "string",
               "description": "The HTTP Method of this endpoint",
-              "enum": [ "GET", "POST", "PUT", "DELETE" ]
+              "enum": ["GET", "POST", "PUT", "DELETE"]
             },
             "path": {
               "type": "string",
@@ -68,8 +68,18 @@
               "oneOf": [
                 {
                   "type": "string",
-                  "description": "Use a simple type as return type.",
-                  "enum": [ "string", "number", "boolean" ]
+                  "description": "Use a String, class or interface as return type.",
+                  "default": "string"
+                },
+                {
+                  "type": "string",
+                  "description": "Use a boolean as return type.",
+                  "enum": ["boolean"]
+                },
+                {
+                  "type": "string",
+                  "description": "Use a number as return type.",
+                  "enum": ["number"]
                 },
                 {
                   "type": "object",
@@ -81,20 +91,35 @@
                     }
                   },
                   "additionalProperties": true
+                },
+                {
+                  "type": "array",
+                  "description": "not implemented atm"
                 }
               ]
             },
             "request": {
-              "type": "object",
-              "description": "Use a complex object type as request type",
-              "properties": {},
-              "additionalProperties": true
+              "description": "The request type of this endpoint",
+              "oneOf": [
+                {
+                  "type": "object",
+                  "description": "Use a complex object type as request type",
+                  "properties": {
+                    "isArray": {
+                      "type": "boolean",
+                      "description": "Is this response an array type, true or false"
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                { "description": "Use a type as string", "type": "string" }
+              ]
             }
           },
-          "required": [ "method", "path", "response" ]
+          "required": ["method", "path", "response"]
         }
       }
     },
-    "required": [ "name", "baseUri" ]
+    "required": ["name", "baseUri"]
   }
 }

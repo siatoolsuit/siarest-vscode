@@ -26,7 +26,7 @@ import { ExpressPathAndFunction, SemanticError } from '../../types';
  */
 export const sendNotification = (connection: _Connection, message: any) => {
   // TODO Won't fix atm does not do anything atm
-  connection.sendNotification(message);
+  // connection.sendNotification(message);
 };
 
 /**
@@ -203,4 +203,30 @@ export const createDiagnostic = (
     severity: diagnosticLevel,
     source: 'Siarc-Toolkit',
   };
+};
+
+export const tryParseJSONObject = (jsonString: string) => {
+  try {
+    var object = JSON.parse(jsonString);
+    if (object && typeof object === 'object') {
+      return object;
+    }
+  } catch (e) {
+    console.log(e, jsonString);
+  }
+
+  return false;
+};
+
+export const tryParseJSONString = (jsonObject: object) => {
+  try {
+    var object = JSON.stringify(jsonObject);
+    if (object && typeof object === 'string') {
+      return object;
+    }
+  } catch (e) {
+    console.log(e, jsonObject);
+  }
+
+  return false;
 };
