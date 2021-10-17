@@ -23,7 +23,6 @@ import {
   Declaration,
   PropertySignature,
 } from 'typescript';
-
 import { Endpoint, ServiceConfig } from '../../../config';
 import { EndpointExpression, IResult, SemanticError } from '../../../types';
 import { httpMethods, sendMethods } from '../../../utils';

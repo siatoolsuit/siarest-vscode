@@ -6,7 +6,6 @@ import { connection, documents } from '../../../server';
 import { ConfigValidator } from '../../config';
 import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
 import { getOrCreateTempFile, IFile } from '../file/FileHandler';
-
 import * as siaSchema from '../../config/config.schema.json';
 import { AutoCompletionService as AutoCompletionService } from '../endpoint/autocompletion/autoCompletionService';
 import { HoverInfoService as HoverInfoService } from '../endpoint/hoverInfo/hoverInfoService';
