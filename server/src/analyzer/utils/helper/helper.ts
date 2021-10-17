@@ -10,6 +10,9 @@ import {
   Statement,
   StringLiteral,
   SyntaxKind,
+  Type,
+  TypeChecker,
+  TypeFlags,
   TypeNode,
   VariableStatement,
 } from 'typescript';
@@ -55,12 +58,37 @@ export const simpleTypeError = (resConf: string, resVal: Expression): SemanticEr
   if (resConf === 'string' && resVal.kind !== SyntaxKind.StringLiteral) {
     return createSemanticError('Return value needs to be a string.', resVal.getStart(), resVal.end);
   } else if (resConf === 'number' && resVal.kind !== SyntaxKind.NumericLiteral) {
-    createSemanticError('Return value needs to be a number.', resVal.getStart(), resVal.end);
+    return createSemanticError('Return value needs to be a number.', resVal.getStart(), resVal.end);
   } else if (resConf === 'boolean' && resVal.kind !== SyntaxKind.TrueKeyword && resVal.kind !== SyntaxKind.FalseKeyword) {
-    createSemanticError('Return value needs to be true or false.', resVal.getStart(), resVal.end);
+    return createSemanticError('Return value needs to be true or false.', resVal.getStart(), resVal.end);
+  } else if (!['string', 'number', 'boolean'].includes(resConf)) {
+    return createSemanticError(`Return value needs to be ${resConf}`, resVal.getStart(), resVal.end);
   }
 
   return undefined;
+};
+
+export const getSimpleTypeFromType = (type: Type, checker: TypeChecker): string => {
+  switch (type.getFlags()) {
+    case TypeFlags.String:
+    case TypeFlags.StringLike:
+    case TypeFlags.StringLiteral:
+      return 'string';
+      break;
+    case TypeFlags.Number:
+    case TypeFlags.NumberLike:
+    case TypeFlags.NumberLiteral:
+      return 'number';
+      break;
+    case TypeFlags.Boolean:
+    case TypeFlags.BooleanLike:
+    case TypeFlags.BooleanLiteral:
+      return 'boolean';
+      break;
+    default:
+      return 'error';
+      break;
+  }
 };
 
 /**
@@ -175,8 +203,8 @@ export const removeLastSymbol = (stringToRemove: string, symbol: string): string
   return temp.join('');
 };
 
-export const findIdentifierInChild = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string => {
-  let typedString = '';
+export const findBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
+  let typedString = undefined;
   if (typeNode) {
     typeNode.forEachChild((child) => {
       if (child.kind === syntaxKind) {
@@ -212,7 +240,7 @@ export const tryParseJSONObject = (jsonString: string) => {
       return object;
     }
   } catch (e) {
-    console.log(e, jsonString);
+    // console.log(e, jsonString);
   }
 
   return false;
@@ -225,7 +253,7 @@ export const tryParseJSONString = (jsonObject: object) => {
       return object;
     }
   } catch (e) {
-    console.log(e, jsonObject);
+    // console.log(e, jsonObject);
   }
 
   return false;

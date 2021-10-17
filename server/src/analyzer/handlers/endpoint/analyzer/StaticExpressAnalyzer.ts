@@ -33,8 +33,8 @@ import {
   extractExpressVariable,
   extractPathAndMethodImplementationFromArguments,
   findEndpointForPath,
-  findIdentifierInChild as findBySyntaxKindInChildren,
-  findIdentifierInChild,
+  findBySyntaxKindInChildren,
+  getSimpleTypeFromType,
   parseLastExpression,
   removeLastSymbol,
   simpleTypeError,
@@ -87,7 +87,12 @@ export class StaticExpressAnalyzer {
               switch (typeof resConf) {
                 case 'string':
                   // TODO get ref of a variable for example and validate it
-                  semanticError = simpleTypeError(resConf, resVal);
+                  if (resVal.kind === SyntaxKind.Identifier) {
+                    semanticError = this.createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
+                  } else {
+                    semanticError = simpleTypeError(resConf, resVal);
+                  }
+
                   if (semanticError) result.push(semanticError);
                   break;
                 case 'object':
@@ -278,6 +283,25 @@ export class StaticExpressAnalyzer {
     return result;
   }
 
+  private createSimpleTypeErrorFromIdentifier(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): any {
+    const resType = endpoint.response;
+    let result: { fullString: any; normalString: any } = {
+      fullString: undefined,
+      normalString: undefined,
+    };
+
+    if (resVal.kind === SyntaxKind.Identifier) {
+      const symbol = checker.getSymbolAtLocation(resVal);
+      const typeString = this.getTypeAsStringOfSymbol(symbol, checker);
+      result.fullString = typeString;
+      result.normalString = typeString;
+    } else {
+      return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
+    }
+
+    return this.createErrorMessage(endpoint, result, resType, resVal);
+  }
+
   /**
    * // TODO needs further implementation
    * @param endpoint
@@ -326,7 +350,7 @@ export class StaticExpressAnalyzer {
         break;
 
       case SyntaxKind.TypeReference:
-        const identifier = findIdentifierInChild(varDecl.type, SyntaxKind.Identifier);
+        const identifier = findBySyntaxKindInChildren(varDecl.type, SyntaxKind.Identifier);
         result.fullString = identifier;
         result.normalString = identifier;
         break;
@@ -425,7 +449,7 @@ export class StaticExpressAnalyzer {
     };
 
     const symbol = checker.getSymbolAtLocation(resVal);
-    const typedString = this.getTypeAsStringOfSymbol(symbol);
+    const typedString = this.getTypeAsStringOfSymbol(symbol, checker);
 
     let fullString = '{';
     fullString += `"${resVal.getText()}":"${typedString}",`;
@@ -479,7 +503,7 @@ export class StaticExpressAnalyzer {
               if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
                 const initializer = variableDeclaration.initializer as Identifier;
                 const symbolOfInit = checker.getSymbolAtLocation(initializer);
-                const undefString = this.getTypeAsStringOfSymbol(symbolOfInit);
+                const undefString = this.getTypeAsStringOfSymbol(symbolOfInit, checker);
                 if (undefString) {
                   fullString += `"${key.toString()}":"${undefString}",`;
                 }
@@ -568,7 +592,7 @@ export class StaticExpressAnalyzer {
    * @param symbol Symbol of an object
    * @returns Either undefined or the type of the object
    */
-  private getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker?: TypeChecker): string | undefined {
+  private getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecker): string | undefined {
     let typedString: string | undefined;
     if (symbol) {
       const declarations = symbol.getDeclarations();
@@ -578,13 +602,29 @@ export class StaticExpressAnalyzer {
         let typeNode;
         switch (firstDecl.kind) {
           case SyntaxKind.VariableDeclaration:
-            typeNode = (firstDecl as VariableDeclaration).type;
-            typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+            const varDecl = firstDecl as VariableDeclaration;
+            if (varDecl.type) {
+              typeNode = varDecl.type;
+              typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+            } else {
+              const type = checker?.getTypeAtLocation(varDecl);
+              if (type) {
+                typedString = getSimpleTypeFromType(type, checker);
+              }
+            }
+
+            if (!typedString) {
+              typeNode = varDecl.type;
+              if (typeNode) {
+                typedString = checker.typeToString(checker.getTypeAtLocation(typeNode));
+              }
+            }
+
             break;
           case SyntaxKind.PropertyAssignment:
             const propsAssignment = firstDecl as PropertyAssignment;
             const symbolRec = checker?.getSymbolAtLocation(propsAssignment.initializer);
-            typedString = this.getTypeAsStringOfSymbol(symbolRec);
+            typedString = this.getTypeAsStringOfSymbol(symbolRec, checker);
             break;
           case SyntaxKind.PropertySignature:
             typeNode = (firstDecl as PropertySignature).type;

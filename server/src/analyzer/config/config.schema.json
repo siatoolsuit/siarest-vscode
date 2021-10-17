@@ -65,21 +65,22 @@
             },
             "response": {
               "description": "The response type of this endpoint. May be an string for a primitive type like boolean or number. Can also be a complex data type.",
-              "oneOf": [
-                {
-                  "type": "string",
-                  "description": "Use a String, class or interface as return type.",
-                  "default": "string"
-                },
+              "anyOf": [
                 {
                   "type": "string",
                   "description": "Use a boolean as return type.",
                   "enum": ["boolean"]
                 },
+
                 {
                   "type": "string",
                   "description": "Use a number as return type.",
                   "enum": ["number"]
+                },
+                {
+                  "type": "string",
+                  "description": "Use a String, class or interface as return type.",
+                  "default": "string"
                 },
                 {
                   "type": "object",
