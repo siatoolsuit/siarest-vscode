@@ -89,31 +89,50 @@
                     "isArray": {
                       "type": "boolean",
                       "description": "Is this response an array type, true or false"
+                    },
+                    "type": {
+                      "type": "string",
+                      "description": "Type of the array"
                     }
                   },
                   "additionalProperties": true
-                },
-                {
-                  "type": "array",
-                  "description": "not implemented atm"
                 }
               ]
             },
             "request": {
               "description": "The request type of this endpoint",
-              "oneOf": [
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Use a boolean as return type.",
+                  "enum": ["boolean"]
+                },
+
+                {
+                  "type": "string",
+                  "description": "Use a number as return type.",
+                  "enum": ["number"]
+                },
+                {
+                  "type": "string",
+                  "description": "Use a String, class or interface as return type.",
+                  "default": "string"
+                },
                 {
                   "type": "object",
-                  "description": "Use a complex object type as request type",
+                  "description": "Use a complex object type as return type",
                   "properties": {
                     "isArray": {
                       "type": "boolean",
                       "description": "Is this response an array type, true or false"
+                    },
+                    "type": {
+                      "type": "string",
+                      "description": "Type of the array"
                     }
                   },
                   "additionalProperties": true
-                },
-                { "description": "Use a type as string", "type": "string" }
+                }
               ]
             }
           },
