@@ -23,6 +23,7 @@ import {
   Declaration,
   PropertySignature,
   ArrayTypeNode,
+  TypeLiteralNode,
 } from 'typescript';
 import { isArray } from 'util';
 import { Endpoint, ServiceConfig } from '../../../config';
@@ -413,6 +414,8 @@ export class StaticExpressAnalyzer {
   private findMissingTypes(siarcObjects: any, objectsToCompare: any): Map<string, any> {
     //TODO recursive machen
 
+    const arrayType = { isArray: true, type: 'UserDTO' };
+
     let nameToTypeMap: Map<string, any> = new Map();
     for (let firstType in siarcObjects) {
       let foundTypeInConfig: boolean = false;
@@ -563,25 +566,29 @@ export class StaticExpressAnalyzer {
 
         jsonString += resultString + ',';
       } else if (symbol.valueDeclaration?.kind === SyntaxKind.PropertySignature) {
-        const propertyAssignment = symbol.valueDeclaration as PropertyAssignment;
+        const propertyAssignment = symbol.valueDeclaration as PropertySignature;
         const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
 
         let resultString = '';
 
-        switch (typeOfProp.getFlags()) {
-          case TypeFlags.Object:
-            resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
-            break;
-          case TypeFlags.Any:
-            const string = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
-            resultString += `"${symbol.name}":"${string}"`;
-            break;
-          case TypeFlags.String:
-          case TypeFlags.Number:
-          case TypeFlags.Boolean:
-            resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
-          default:
-            break;
+        if (propertyAssignment.type?.kind === SyntaxKind.ArrayType) {
+          resultString += `"${symbol.name}":${this.getTypeAsStringOfSymbol(symbol, checker).typedString}`;
+        } else {
+          switch (typeOfProp.getFlags()) {
+            case TypeFlags.Object:
+              resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
+              break;
+            case TypeFlags.Any:
+              const string = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
+              resultString += `"${symbol.name}":"${string}"`;
+              break;
+            case TypeFlags.String:
+            case TypeFlags.Number:
+            case TypeFlags.Boolean:
+              resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
+            default:
+              break;
+          }
         }
 
         jsonString += resultString + ',';
@@ -623,6 +630,8 @@ export class StaticExpressAnalyzer {
                 result.typedString = JSON.stringify(array);
                 result.isArray = true;
                 return result;
+              } else if (typeNode.kind == SyntaxKind.TypeLiteral) {
+                typedString = this.parseTypeLiteral(typeNode as TypeLiteralNode, checker);
               } else {
                 typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
               }
@@ -632,6 +641,8 @@ export class StaticExpressAnalyzer {
                 typedString = getSimpleTypeFromType(type, checker);
               }
             }
+
+            // TODO direct obj parse ...
 
             if (!typedString) {
               typeNode = varDecl.type;
@@ -652,6 +663,16 @@ export class StaticExpressAnalyzer {
           case SyntaxKind.PropertySignature:
             typeNode = (firstDecl as PropertySignature).type;
             typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+            if (typeNode?.kind === SyntaxKind.ArrayType) {
+              const arrayType = typeNode as ArrayTypeNode;
+              typeNode = arrayType.elementType;
+              typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+
+              const array = { isArray: true, type: typedString };
+              result.typedString = JSON.stringify(array);
+              result.isArray = true;
+              return result;
+            }
             result.typedString = typedString;
             return result;
             break;
@@ -659,5 +680,12 @@ export class StaticExpressAnalyzer {
       }
     }
     return result;
+  }
+
+  private parseTypeLiteral(typeLiteral: TypeLiteralNode, checker: TypeChecker): string | undefined {
+    const type = checker.getTypeAtLocation(typeLiteral);
+    const typedLiteralAsJson = this.parsePropertiesRecursive(type, checker); // this works
+
+    return typedLiteralAsJson;
   }
 }
