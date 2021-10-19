@@ -22,7 +22,9 @@ import {
   TypeFlags,
   Declaration,
   PropertySignature,
+  ArrayTypeNode,
 } from 'typescript';
+import { isArray } from 'util';
 import { Endpoint, ServiceConfig } from '../../../config';
 import { EndpointExpression, IResult, SemanticError } from '../../../types';
 import { httpMethods, sendMethods } from '../../../utils';
@@ -291,7 +293,7 @@ export class StaticExpressAnalyzer {
 
     if (resVal.kind === SyntaxKind.Identifier) {
       const symbol = checker.getSymbolAtLocation(resVal);
-      const typeString = this.getTypeAsStringOfSymbol(symbol, checker);
+      const typeString = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
       result.fullString = typeString;
       result.normalString = typeString;
     } else {
@@ -450,11 +452,17 @@ export class StaticExpressAnalyzer {
     const symbol = checker.getSymbolAtLocation(resVal);
     const typedString = this.getTypeAsStringOfSymbol(symbol, checker);
 
-    let fullString = '{';
-    fullString += `"${resVal.getText()}":"${typedString}",`;
+    let fullString = '';
 
-    fullString = removeLastSymbol(fullString, ',');
-    fullString += '}';
+    if (typedString.isArray) {
+      fullString += `${typedString.typedString},`;
+      fullString = removeLastSymbol(fullString, ',');
+    } else {
+      fullString = '{';
+      fullString += `"${resVal.getText()}":"${typedString}",`;
+      fullString = removeLastSymbol(fullString, ',');
+      fullString += '}';
+    }
 
     result.fullString = fullString;
     result.normalString = fullString.replace(/['",]/g, '');
@@ -502,7 +510,7 @@ export class StaticExpressAnalyzer {
               if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
                 const initializer = variableDeclaration.initializer as Identifier;
                 const symbolOfInit = checker.getSymbolAtLocation(initializer);
-                const undefString = this.getTypeAsStringOfSymbol(symbolOfInit, checker);
+                const undefString = this.getTypeAsStringOfSymbol(symbolOfInit, checker).typedString;
                 if (undefString) {
                   fullString += `"${key.toString()}":"${undefString}",`;
                 }
@@ -542,7 +550,7 @@ export class StaticExpressAnalyzer {
             resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
             break;
           case TypeFlags.Any:
-            const string = this.getTypeAsStringOfSymbol(symbol, checker);
+            const string = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
             resultString += `"${symbol.name}":"${string}"`;
             break;
           case TypeFlags.String:
@@ -565,7 +573,7 @@ export class StaticExpressAnalyzer {
             resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
             break;
           case TypeFlags.Any:
-            const string = this.getTypeAsStringOfSymbol(symbol, checker);
+            const string = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
             resultString += `"${symbol.name}":"${string}"`;
             break;
           case TypeFlags.String:
@@ -591,7 +599,9 @@ export class StaticExpressAnalyzer {
    * @param symbol Symbol of an object
    * @returns Either undefined or the type of the object
    */
-  private getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecker): string | undefined {
+  private getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecker): { typedString: String | undefined; isArray: boolean } {
+    let result: { typedString: String | undefined; isArray: boolean } = { typedString: undefined, isArray: false };
+
     let typedString: string | undefined;
     if (symbol) {
       const declarations = symbol.getDeclarations();
@@ -604,7 +614,18 @@ export class StaticExpressAnalyzer {
             const varDecl = firstDecl as VariableDeclaration;
             if (varDecl.type) {
               typeNode = varDecl.type;
-              typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+              if (typeNode.kind === SyntaxKind.ArrayType) {
+                const arrayType = typeNode as ArrayTypeNode;
+                typeNode = arrayType.elementType;
+                typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+
+                const array = { isArray: true, type: typedString };
+                result.typedString = JSON.stringify(array);
+                result.isArray = true;
+                return result;
+              } else {
+                typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+              }
             } else {
               const type = checker?.getTypeAtLocation(varDecl);
               if (type) {
@@ -619,19 +640,24 @@ export class StaticExpressAnalyzer {
               }
             }
 
+            result.typedString = typedString;
+            return result;
             break;
           case SyntaxKind.PropertyAssignment:
             const propsAssignment = firstDecl as PropertyAssignment;
             const symbolRec = checker?.getSymbolAtLocation(propsAssignment.initializer);
-            typedString = this.getTypeAsStringOfSymbol(symbolRec, checker);
+            result = this.getTypeAsStringOfSymbol(symbolRec, checker);
+            return result;
             break;
           case SyntaxKind.PropertySignature:
             typeNode = (firstDecl as PropertySignature).type;
             typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+            result.typedString = typedString;
+            return result;
             break;
         }
       }
     }
-    return typedString;
+    return result;
   }
 }
