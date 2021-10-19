@@ -142,7 +142,7 @@ export const getSimpleTypeFromType = (type: Type, checker: TypeChecker): string 
       return 'boolean';
       break;
     default:
-      return 'error';
+      return '';
       break;
   }
 };

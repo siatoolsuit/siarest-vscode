@@ -459,7 +459,7 @@ export class StaticExpressAnalyzer {
       fullString = removeLastSymbol(fullString, ',');
     } else {
       fullString = '{';
-      fullString += `"${resVal.getText()}":"${typedString}",`;
+      fullString += `"${resVal.getText()}":"${typedString.typedString}",`;
       fullString = removeLastSymbol(fullString, ',');
       fullString += '}';
     }
