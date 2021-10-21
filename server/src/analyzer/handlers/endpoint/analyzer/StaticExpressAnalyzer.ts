@@ -381,8 +381,8 @@ export class StaticExpressAnalyzer {
 
         // TODO better error message with endpoint
         // TODO vlt Seb fragen?!
-        // const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
-        const missingDeclarationInSiarc: Map<string, string> = new Map();
+        // const missingDeclarationInSiarc: Map<string, string> = new Map();
+        const missingDeclarationInSiarc: Map<string, any> = this.findMissingTypes(actualObject, siarcObject);
 
         if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
           return undefined;
@@ -393,7 +393,7 @@ export class StaticExpressAnalyzer {
         });
 
         missingDeclarationInSiarc.forEach((value, key) => {
-          errorString += `Missing decl in siarc: ${key}: ${value} \n`;
+          errorString += `Not declared in siarc.json: ${key}: ${value.actual} \n`;
         });
       }
 
@@ -426,21 +426,34 @@ export class StaticExpressAnalyzer {
         if (x === y && firstType === secondType) {
           foundTypeInConfig = true;
           break;
-        } else if (typeof x === 'object' && typeof y === 'object') {
-          const nestedTypesByName = this.findMissingTypes(x, y);
-          if (nestedTypesByName.size < 1) {
-            foundTypeInConfig = true;
+        } else if (typeof x === 'object' && typeof y === 'object' && firstType === secondType) {
+          if (x.isArray) {
+            if (x.isArray === y.isArray && x.type === y.type) {
+              foundTypeInConfig = true;
+              break;
+            }
           } else {
-            nestedTypesByName.forEach((value, key) => {
-              nameToTypeMap.set(key, value);
-            });
-            foundTypeInConfig = true;
+            const nestedTypesByName = this.findMissingTypes(x, y);
+            if (nestedTypesByName.size < 1) {
+              foundTypeInConfig = true;
+              break;
+            } else {
+              nestedTypesByName.forEach((value, key) => {
+                nameToTypeMap.set(key, value);
+              });
+              foundTypeInConfig = true;
+              break;
+            }
           }
         }
       }
 
       if (!foundTypeInConfig) {
-        nameToTypeMap.set(firstType.toString(), { actual: siarcObjects[firstType] });
+        if (siarcObjects[firstType].isArray) {
+          nameToTypeMap.set(firstType.toString(), { actual: `${siarcObjects[firstType].type}[]` });
+        } else {
+          nameToTypeMap.set(firstType.toString(), { actual: siarcObjects[firstType] });
+        }
       }
     }
     return nameToTypeMap;
@@ -632,6 +645,7 @@ export class StaticExpressAnalyzer {
                 return result;
               } else if (typeNode.kind == SyntaxKind.TypeLiteral) {
                 typedString = this.parseTypeLiteral(typeNode as TypeLiteralNode, checker);
+                result.isArray = true;
               } else {
                 typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
               }
