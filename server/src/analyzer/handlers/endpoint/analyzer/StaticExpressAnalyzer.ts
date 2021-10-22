@@ -25,7 +25,6 @@ import {
   ArrayTypeNode,
   TypeLiteralNode,
 } from 'typescript';
-import { isArray } from 'util';
 import { Endpoint, ServiceConfig } from '../../../config';
 import { EndpointExpression, IResult, SemanticError } from '../../../types';
 import { httpMethods, sendMethods } from '../../../utils';
