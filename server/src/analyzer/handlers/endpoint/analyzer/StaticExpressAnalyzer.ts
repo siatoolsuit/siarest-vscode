@@ -356,6 +356,19 @@ export class StaticExpressAnalyzer {
         result.fullString = identifier;
         result.normalString = identifier;
         break;
+
+      case SyntaxKind.ArrayType:
+        type = varDecl.type as ArrayTypeNode;
+        const typeNode = type.elementType;
+        const typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+
+        const array = { isArray: true, type: typedString };
+        const fullString = JSON.stringify(array);
+
+        result.fullString = fullString;
+        result.normalString = fullString.replace(/['",]/g, '');
+
+        break;
     }
 
     return this.createErrorMessage(endpoint, result, reqType, reqVal);
