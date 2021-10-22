@@ -1,5 +1,26 @@
 # TODO LIST
 
+### On Folder with no siarc/Service ?!
+
+## On Folder with no siarc/Service ?!
+
+- Request initialize failed with message: Cannot read property 'serviceName' of undefined
+
+## Fehler
+
+## TODO:
+
+Multi Root workspace -> siarc ?!?!?!
+Muss ein paar verschiedene Verbindungsmethoden verwenden -> fetch() (TSX) angular ->
+Use from Frontend endpoints
+
+- Request initialize failed with message: Cannot read property 'serviceName' of undefined
+
+| Task                               | Current Status | Finished |
+| ---------------------------------- | -------------- | -------- |
+| Meldungen ersichtlicher gestallten | TODO           |          |
+| Res/Req Error messages             | working on     |          |
+
 ## Bug Fixes
 
 | Task                           | Current Status | Finished |
@@ -14,7 +35,6 @@
 | ------------------------------------------ | -------------- | -------- |
 | Async File Handling                        | finished       | x        |
 | Use Temp Files for static express analyser | finished       | x        |
-| Meldungen ersichtlicher gestallten         | TODO           |          |
 | Async Promise Then.Catch                   | finished       | x        |
 | Validate Json Suffix Problem               | finished       | x        |
 | Own File for validation                    | finished       | x        |

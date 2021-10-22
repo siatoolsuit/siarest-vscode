@@ -5,16 +5,13 @@ import {
   InitializeParams,
   InitializeResult,
   CancellationToken,
-  HoverParams,
   CompletionParams,
   CompletionItem,
   Hover,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
 import { cleanTempFiles } from './analyzer/handlers/file/index';
 import { TYPE_TYPESCRIPT } from './analyzer/utils';
-
 import { Validator } from './analyzer/handlers/validator';
 
 export const connection = createConnection(ProposedFeatures.all);

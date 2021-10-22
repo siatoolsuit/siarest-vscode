@@ -1,7 +1,5 @@
-import { resolve } from 'path/posix';
 import {
   ArrowFunction,
-  BindingName,
   Block,
   CallExpression,
   factory,
@@ -22,8 +20,11 @@ import {
   Symbol,
   PropertyAssignment,
   TypeFlags,
+  Declaration,
+  PropertySignature,
+  ArrayTypeNode,
+  TypeLiteralNode,
 } from 'typescript';
-
 import { Endpoint, ServiceConfig } from '../../../config';
 import { EndpointExpression, IResult, SemanticError } from '../../../types';
 import { httpMethods, sendMethods } from '../../../utils';
@@ -33,9 +34,12 @@ import {
   extractExpressVariable,
   extractPathAndMethodImplementationFromArguments,
   findEndpointForPath,
+  findBySyntaxKindInChildren,
+  getSimpleTypeFromType,
   parseLastExpression,
   removeLastSymbol,
   simpleTypeError,
+  tryParseJSONObject,
 } from '../../../utils/helper';
 
 export class StaticExpressAnalyzer {
@@ -73,7 +77,7 @@ export class StaticExpressAnalyzer {
           // Validates the defined endpoint with the service configuration
           if (endpoint) {
             if (endpoint.method !== endpointExprs.method) {
-              result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.expression.getStart(), expr.expression.end));
+              result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
             }
 
             const { resVal, reqVal } = this.extractReqResFromFunction(endpointExprs.inlineFunction);
@@ -83,11 +87,17 @@ export class StaticExpressAnalyzer {
               let semanticError: any;
               switch (typeof resConf) {
                 case 'string':
-                  semanticError = simpleTypeError(resConf, resVal);
+                  // TODO get ref of a variable for example and validate it
+                  if (resVal.kind === SyntaxKind.Identifier) {
+                    semanticError = this.createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
+                  } else {
+                    semanticError = simpleTypeError(resConf, resVal);
+                  }
+
                   if (semanticError) result.push(semanticError);
                   break;
                 case 'object':
-                  semanticError = this.createComplexTypeError(endpoint, resVal, checker);
+                  semanticError = this.createComplexTypeErrorFromExpression(endpoint, resVal, checker);
                   if (semanticError) result.push(semanticError);
                   break;
                 default:
@@ -97,28 +107,11 @@ export class StaticExpressAnalyzer {
               result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
             }
 
-            // TODO ASK den SEB
-            // Check the body, only if this function is a post or put
             if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
               const reqType = endpoint.request;
               if (reqVal) {
-                const symbol = checker.getSymbolAtLocation(reqVal);
-                if (symbol && symbol.valueDeclaration) {
-                  const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration);
-                  // Normalize type strings and compare them
-                  const { fullString, normalString } = this.parseObject(type, checker);
-                  const normalTypeInCodeString = normalString;
-                  const normalTypeInConfigString = JSON.stringify(reqType).replace(/['",]/g, '');
-                  if (normalTypeInCodeString !== normalTypeInConfigString) {
-                    result.push(
-                      createSemanticError(
-                        `Wrong type.\nExpected:\n${JSON.stringify(reqType)}\nActual:\n${fullString}`,
-                        reqVal.getStart(),
-                        reqVal.end,
-                      ),
-                    );
-                  }
-                }
+                const semanticError = this.createComplexTypeErrorFromDeclaration(endpoint, reqVal, checker);
+                if (semanticError) result.push(semanticError);
               } else {
                 result.push(createSemanticError(`Endpoint with method "${endpoint.method}" has a missing body handling.`, expr.getStart(), expr.end));
               }
@@ -224,10 +217,10 @@ export class StaticExpressAnalyzer {
    * @param inlineFunction an inlineFunction (..) => {...}
    * @returns tuple of { res, req }
    */
-  private extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: BindingName | undefined } {
+  private extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: Declaration | undefined } {
     const result: {
       resVal: Expression | undefined;
-      reqVal: BindingName | undefined;
+      reqVal: Declaration | undefined;
     } = {
       resVal: undefined,
       reqVal: undefined,
@@ -279,7 +272,7 @@ export class StaticExpressAnalyzer {
                 // Check if the current expression is a express body declaration like req.body()
                 const propAccExpr = callExpr.expression as PropertyAccessExpression;
                 if (propAccExpr.expression.getText() === reqVarName && propAccExpr.name.text === 'body') {
-                  result.reqVal = varDecl.name;
+                  result.reqVal = varDecl;
                 }
               }
             }
@@ -291,6 +284,25 @@ export class StaticExpressAnalyzer {
     return result;
   }
 
+  private createSimpleTypeErrorFromIdentifier(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): any {
+    const resType = endpoint.response;
+    let result: { fullString: any; normalString: any } = {
+      fullString: undefined,
+      normalString: undefined,
+    };
+
+    if (resVal.kind === SyntaxKind.Identifier) {
+      const symbol = checker.getSymbolAtLocation(resVal);
+      const typeString = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
+      result.fullString = typeString;
+      result.normalString = typeString;
+    } else {
+      return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
+    }
+
+    return this.createErrorMessage(endpoint, result, resType, resVal);
+  }
+
   /**
    * // TODO needs further implementation
    * @param endpoint
@@ -298,7 +310,7 @@ export class StaticExpressAnalyzer {
    * @param checker
    * @returns SemanticError or undefined
    */
-  private createComplexTypeError(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): SemanticError | undefined {
+  private createComplexTypeErrorFromExpression(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): SemanticError | undefined {
     const resType = endpoint.response;
     let result: { fullString: any; normalString: any } = {
       fullString: undefined,
@@ -315,28 +327,87 @@ export class StaticExpressAnalyzer {
       return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
     }
 
+    return this.createErrorMessage(endpoint, result, resType, resVal);
+  }
+
+  createComplexTypeErrorFromDeclaration(endpoint: Endpoint, reqVal: Declaration, checker: TypeChecker) {
+    const reqType = endpoint.request;
+    let result: { fullString: any; normalString: any } = {
+      fullString: undefined,
+      normalString: undefined,
+    };
+
+    const varDecl = reqVal as VariableDeclaration;
+    if (!varDecl.type) {
+      return undefined;
+    }
+
+    let type: any;
+
+    switch (varDecl.type.kind) {
+      case SyntaxKind.TypeLiteral:
+        type = checker.getTypeAtLocation(varDecl);
+        result = this.parseObject(type, checker);
+        break;
+
+      case SyntaxKind.TypeReference:
+        const identifier = findBySyntaxKindInChildren(varDecl.type, SyntaxKind.Identifier);
+        result.fullString = identifier;
+        result.normalString = identifier;
+        break;
+
+      case SyntaxKind.ArrayType:
+        type = varDecl.type as ArrayTypeNode;
+        const typeNode = type.elementType;
+        const typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+
+        const array = { isArray: true, type: typedString };
+        const fullString = JSON.stringify(array);
+
+        result.fullString = fullString;
+        result.normalString = fullString.replace(/['",]/g, '');
+
+        break;
+    }
+
+    return this.createErrorMessage(endpoint, result, reqType, reqVal);
+  }
+
+  private createErrorMessage(
+    endpoint: Endpoint,
+    result: { fullString: any; normalString: any },
+    resType: any,
+    resVal: Expression | any,
+  ): SemanticError | undefined {
     if (result.fullString) {
-      const actualObject = JSON.parse(result.fullString);
-      const siarcObject = JSON.parse(JSON.stringify(resType));
-
-      const missingTypesInTS: Map<string, string> = this.findMissingTypes(siarcObject, actualObject);
-
-      // TODO vlt Seb fragen?!
-      // const missingDeclarationInSiarc: Map<string, string> = this.findMissingTypes(actualObject, siarcObject);
-      const missingDeclarationInSiarc: Map<string, string> = new Map();
-
-      if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
-        return undefined;
-      }
-
+      const actualObject = tryParseJSONObject(result.fullString);
+      const siarcObject = tryParseJSONObject(JSON.stringify(resType));
       let errorString = '';
-      missingTypesInTS.forEach((value, key) => {
-        errorString += `Missing property: ${key}: ${value} \n`;
-      });
 
-      missingDeclarationInSiarc.forEach((value, key) => {
-        errorString += `Missing decl in siarc: ${key}: ${value} \n`;
-      });
+      if (siarcObject === false && actualObject === false) {
+        if (result.fullString !== resType) {
+          errorString += `${result.fullString} needs to be ${resType}`;
+        }
+      } else {
+        const missingTypesInTS: Map<string, any> = this.findMissingTypes(siarcObject, actualObject);
+
+        // TODO better error message with endpoint
+        // TODO vlt Seb fragen?!
+        // const missingDeclarationInSiarc: Map<string, string> = new Map();
+        const missingDeclarationInSiarc: Map<string, any> = this.findMissingTypes(actualObject, siarcObject);
+
+        if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
+          return undefined;
+        }
+
+        missingTypesInTS.forEach((value, key) => {
+          errorString += `Missing property: ${key}: ${value.actual} \n`;
+        });
+
+        missingDeclarationInSiarc.forEach((value, key) => {
+          errorString += `Not declared in siarc.json: ${key}: ${value.actual} \n`;
+        });
+      }
 
       if (errorString !== '') {
         return createSemanticError(errorString, resVal.getStart(), resVal.end);
@@ -348,38 +419,53 @@ export class StaticExpressAnalyzer {
 
   /**
    * Compares two JSON objects and returns missing objects/types
-   * @param actualObjects objects
+   * @param siarcObjects objects
    * @param objectsToCompare objects to compare to
    * @returns List of missing objects/types
    */
-  private findMissingTypes(actualObjects: any, objectsToCompare: any): Map<string, string> {
+  private findMissingTypes(siarcObjects: any, objectsToCompare: any): Map<string, any> {
     //TODO recursive machen
 
-    let nameToTypeMap: Map<string, string> = new Map();
-    for (let firstType in actualObjects) {
+    const arrayType = { isArray: true, type: 'UserDTO' };
+
+    let nameToTypeMap: Map<string, any> = new Map();
+    for (let firstType in siarcObjects) {
       let foundTypeInConfig: boolean = false;
       for (let secondType in objectsToCompare) {
-        const x = actualObjects[firstType];
+        const x = siarcObjects[firstType];
         const y = objectsToCompare[secondType];
 
         if (x === y && firstType === secondType) {
           foundTypeInConfig = true;
           break;
-        } else if (typeof x === 'object' && typeof y === 'object') {
-          const nestedTypesByName = this.findMissingTypes(x, y);
-          if (nestedTypesByName.size < 1) {
-            foundTypeInConfig = true;
+        } else if (typeof x === 'object' && typeof y === 'object' && firstType === secondType) {
+          if (x.isArray) {
+            if (x.isArray === y.isArray && x.type === y.type) {
+              foundTypeInConfig = true;
+              break;
+            }
           } else {
-            nestedTypesByName.forEach((value, key) => {
-              nameToTypeMap.set(key, value);
-            });
-            foundTypeInConfig = true;
+            const nestedTypesByName = this.findMissingTypes(x, y);
+            if (nestedTypesByName.size < 1) {
+              foundTypeInConfig = true;
+              break;
+            } else {
+              nestedTypesByName.forEach((value, key) => {
+                nameToTypeMap.set(key, value);
+              });
+              foundTypeInConfig = true;
+              break;
+            }
           }
         }
       }
 
       if (!foundTypeInConfig) {
-        nameToTypeMap.set(firstType.toString(), actualObjects[firstType]);
+        if (siarcObjects[firstType].isArray) {
+          nameToTypeMap.set(firstType.toString(), { actual: `${siarcObjects[firstType].type}[]` });
+        } else {
+          nameToTypeMap.set(firstType.toString(), { actual: siarcObjects[firstType] });
+        }
       }
     }
     return nameToTypeMap;
@@ -392,13 +478,19 @@ export class StaticExpressAnalyzer {
     };
 
     const symbol = checker.getSymbolAtLocation(resVal);
-    const typedString = this.getTypeAsStringOfSymbol(symbol);
+    const typedString = this.getTypeAsStringOfSymbol(symbol, checker);
 
-    let fullString = '{';
-    fullString += `"${resVal.getText()}":"${typedString}",`;
+    let fullString = '';
 
-    fullString = removeLastSymbol(fullString, ',');
-    fullString += '}';
+    if (typedString.isArray) {
+      fullString += `${typedString.typedString},`;
+      fullString = removeLastSymbol(fullString, ',');
+    } else {
+      fullString = '{';
+      fullString += `"${resVal.getText()}":"${typedString.typedString}",`;
+      fullString = removeLastSymbol(fullString, ',');
+      fullString += '}';
+    }
 
     result.fullString = fullString;
     result.normalString = fullString.replace(/['",]/g, '');
@@ -446,7 +538,7 @@ export class StaticExpressAnalyzer {
               if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
                 const initializer = variableDeclaration.initializer as Identifier;
                 const symbolOfInit = checker.getSymbolAtLocation(initializer);
-                const undefString = this.getTypeAsStringOfSymbol(symbolOfInit);
+                const undefString = this.getTypeAsStringOfSymbol(symbolOfInit, checker).typedString;
                 if (undefString) {
                   fullString += `"${key.toString()}":"${undefString}",`;
                 }
@@ -468,7 +560,8 @@ export class StaticExpressAnalyzer {
 
     return result;
   }
-  parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
+
+  private parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
     const symbolsOfType: Symbol[] = type.getProperties();
 
     let jsonString: string = '{';
@@ -485,7 +578,7 @@ export class StaticExpressAnalyzer {
             resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
             break;
           case TypeFlags.Any:
-            const string = this.getTypeAsStringOfSymbol(symbol, checker);
+            const string = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
             resultString += `"${symbol.name}":"${string}"`;
             break;
           case TypeFlags.String:
@@ -494,6 +587,33 @@ export class StaticExpressAnalyzer {
             resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
           default:
             break;
+        }
+
+        jsonString += resultString + ',';
+      } else if (symbol.valueDeclaration?.kind === SyntaxKind.PropertySignature) {
+        const propertyAssignment = symbol.valueDeclaration as PropertySignature;
+        const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
+
+        let resultString = '';
+
+        if (propertyAssignment.type?.kind === SyntaxKind.ArrayType) {
+          resultString += `"${symbol.name}":${this.getTypeAsStringOfSymbol(symbol, checker).typedString}`;
+        } else {
+          switch (typeOfProp.getFlags()) {
+            case TypeFlags.Object:
+              resultString += `"${symbol.name}":${this.parsePropertiesRecursive(typeOfProp, checker)}`;
+              break;
+            case TypeFlags.Any:
+              const string = this.getTypeAsStringOfSymbol(symbol, checker).typedString;
+              resultString += `"${symbol.name}":"${string}"`;
+              break;
+            case TypeFlags.String:
+            case TypeFlags.Number:
+            case TypeFlags.Boolean:
+              resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
+            default:
+              break;
+          }
         }
 
         jsonString += resultString + ',';
@@ -511,7 +631,9 @@ export class StaticExpressAnalyzer {
    * @param symbol Symbol of an object
    * @returns Either undefined or the type of the object
    */
-  private getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker?: TypeChecker): string | undefined {
+  private getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecker): { typedString: String | undefined; isArray: boolean } {
+    let result: { typedString: String | undefined; isArray: boolean } = { typedString: undefined, isArray: false };
+
     let typedString: string | undefined;
     if (symbol) {
       const declarations = symbol.getDeclarations();
@@ -521,23 +643,75 @@ export class StaticExpressAnalyzer {
         let typeNode;
         switch (firstDecl.kind) {
           case SyntaxKind.VariableDeclaration:
-            typeNode = (firstDecl as VariableDeclaration).type;
-            if (typeNode) {
-              typeNode.forEachChild((child) => {
-                if (child.kind === SyntaxKind.Identifier) {
-                  typedString = (child as Identifier).getText();
-                }
-              });
+            const varDecl = firstDecl as VariableDeclaration;
+            if (varDecl.type) {
+              typeNode = varDecl.type;
+              if (typeNode.kind === SyntaxKind.ArrayType) {
+                const arrayType = typeNode as ArrayTypeNode;
+                typeNode = arrayType.elementType;
+                typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+
+                const array = { isArray: true, type: typedString };
+                result.typedString = JSON.stringify(array);
+                result.isArray = true;
+                return result;
+              } else if (typeNode.kind == SyntaxKind.TypeLiteral) {
+                typedString = this.parseTypeLiteral(typeNode as TypeLiteralNode, checker);
+                result.isArray = true;
+              } else {
+                typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+              }
+            } else {
+              const type = checker?.getTypeAtLocation(varDecl);
+              if (type) {
+                typedString = getSimpleTypeFromType(type, checker);
+              }
             }
+
+            // TODO direct obj parse ...
+
+            if (!typedString) {
+              typeNode = varDecl.type;
+              if (typeNode) {
+                typedString = checker.typeToString(checker.getTypeAtLocation(typeNode));
+              }
+            }
+
+            result.typedString = typedString;
+            return result;
             break;
           case SyntaxKind.PropertyAssignment:
             const propsAssignment = firstDecl as PropertyAssignment;
             const symbolRec = checker?.getSymbolAtLocation(propsAssignment.initializer);
-            typedString = this.getTypeAsStringOfSymbol(symbolRec);
-            console.log();
+            result = this.getTypeAsStringOfSymbol(symbolRec, checker);
+            return result;
+            break;
+          case SyntaxKind.PropertySignature:
+            typeNode = (firstDecl as PropertySignature).type;
+            typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+            if (typeNode?.kind === SyntaxKind.ArrayType) {
+              const arrayType = typeNode as ArrayTypeNode;
+              typeNode = arrayType.elementType;
+              typedString = findBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
+
+              const array = { isArray: true, type: typedString };
+              result.typedString = JSON.stringify(array);
+              result.isArray = true;
+              return result;
+            }
+            result.typedString = typedString;
+            return result;
+            break;
         }
       }
     }
-    return typedString;
+    return result;
+  }
+
+  private parseTypeLiteral(typeLiteral: TypeLiteralNode, checker: TypeChecker): string | undefined {
+    const type = checker.getTypeAtLocation(typeLiteral);
+    const typedLiteralAsJson = this.parsePropertiesRecursive(type, checker); // this works
+
+    return typedLiteralAsJson;
   }
 }

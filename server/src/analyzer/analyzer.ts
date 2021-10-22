@@ -78,12 +78,10 @@ export class Analyzer {
       if (dep.includes('express')) {
         // Try to extract the configuration for this service by name
         let currentServiceConfig;
-        for (const config of this.validConfig) {
-          if (config.name === this.currentServiceName) {
-            currentServiceConfig = config;
-            break;
-          }
-        }
+        currentServiceConfig = this.validConfig.find((config) => {
+          config.name === this.currentServiceName;
+        });
+
         this.staticEndpointAnalyzerHandler = new StaticExpressAnalyzer(this.currentServiceName, currentServiceConfig);
         break;
       }

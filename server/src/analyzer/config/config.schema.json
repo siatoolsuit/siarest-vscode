@@ -56,7 +56,7 @@
             "method": {
               "type": "string",
               "description": "The HTTP Method of this endpoint",
-              "enum": [ "GET", "POST", "PUT", "DELETE" ]
+              "enum": ["GET", "POST", "PUT", "DELETE"]
             },
             "path": {
               "type": "string",
@@ -65,11 +65,22 @@
             },
             "response": {
               "description": "The response type of this endpoint. May be an string for a primitive type like boolean or number. Can also be a complex data type.",
-              "oneOf": [
+              "anyOf": [
                 {
                   "type": "string",
-                  "description": "Use a simple type as return type.",
-                  "enum": [ "string", "number", "boolean" ]
+                  "description": "Use a boolean as return type.",
+                  "enum": ["boolean"]
+                },
+
+                {
+                  "type": "string",
+                  "description": "Use a number as return type.",
+                  "enum": ["number"]
+                },
+                {
+                  "type": "string",
+                  "description": "Use a String, class or interface as return type.",
+                  "default": "string"
                 },
                 {
                   "type": "object",
@@ -78,6 +89,10 @@
                     "isArray": {
                       "type": "boolean",
                       "description": "Is this response an array type, true or false"
+                    },
+                    "type": {
+                      "type": "string",
+                      "description": "Type of the array"
                     }
                   },
                   "additionalProperties": true
@@ -85,16 +100,46 @@
               ]
             },
             "request": {
-              "type": "object",
-              "description": "Use a complex object type as request type",
-              "properties": {},
-              "additionalProperties": true
+              "description": "The request type of this endpoint",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Use a boolean as return type.",
+                  "enum": ["boolean"]
+                },
+
+                {
+                  "type": "string",
+                  "description": "Use a number as return type.",
+                  "enum": ["number"]
+                },
+                {
+                  "type": "string",
+                  "description": "Use a String, class or interface as return type.",
+                  "default": "string"
+                },
+                {
+                  "type": "object",
+                  "description": "Use a complex object type as return type",
+                  "properties": {
+                    "isArray": {
+                      "type": "boolean",
+                      "description": "Is this response an array type, true or false"
+                    },
+                    "type": {
+                      "type": "string",
+                      "description": "Type of the array"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              ]
             }
           },
-          "required": [ "method", "path", "response" ]
+          "required": ["method", "path", "response"]
         }
       }
     },
-    "required": [ "name", "baseUri" ]
+    "required": ["name", "baseUri"]
   }
 }

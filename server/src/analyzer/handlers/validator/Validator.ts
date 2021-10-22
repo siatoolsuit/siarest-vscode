@@ -1,27 +1,16 @@
 import { JSONSchema, DiagnosticSeverity, LanguageService, getLanguageService } from 'vscode-json-languageservice';
-import {
-  InitializeParams,
-  Diagnostic,
-  CompletionItem,
-  CancellationToken,
-  CompletionParams,
-  Hover,
-  HoverParams,
-  ProtocolNotificationType0,
-} from 'vscode-languageserver';
+import { InitializeParams, Diagnostic, CompletionItem, CancellationToken, CompletionParams, Hover, HoverParams } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Analyzer, SemanticError } from '../..';
 import { connection, documents } from '../../../server';
 import { ConfigValidator } from '../../config';
 import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
-import { getFile, getOrCreateTempFile, IFile } from '../file/FileHandler';
-
+import { getOrCreateTempFile, IFile } from '../file/FileHandler';
 import * as siaSchema from '../../config/config.schema.json';
 import { AutoCompletionService as AutoCompletionService } from '../endpoint/autocompletion/autoCompletionService';
 import { HoverInfoService as HoverInfoService } from '../endpoint/hoverInfo/hoverInfoService';
-import { Files } from 'vscode-languageserver/node';
 import { existsSync } from 'fs';
-import { sendNotification } from '../../utils/helper';
+import { createDiagnostic, sendNotification } from '../../utils/helper';
 
 const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 const validationDelay = 300;
@@ -197,21 +186,14 @@ export class Validator {
 
     const version = document.version;
     this.analyzer.analyzeEndpoints(file).forEach((error: SemanticError) => {
-      diagnostics.push({
-        message: error.message,
-        range: {
-          start: document.positionAt(error.position.start),
-          end: document.positionAt(error.position.end),
-        },
-        severity: DiagnosticSeverity.Error,
-      });
+      diagnostics.push(createDiagnostic(document, error.message, error.position.start, error.position.end, DiagnosticSeverity.Error));
     });
 
     setImmediate(() => {
       // To be clear to send the correct diagnostics to the current document
       const currDoc = documents.get(document.uri);
       if (currDoc && currDoc.version === version) {
-        connection.sendDiagnostics({ uri: document.uri, diagnostics });
+        connection.sendDiagnostics({ uri: document.uri, diagnostics, version: currDoc.version });
       }
     });
   }
