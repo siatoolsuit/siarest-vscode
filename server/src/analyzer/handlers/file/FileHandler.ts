@@ -138,10 +138,10 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   const split: string[] = fileName.split(POINT);
 
   if (split.length < 1) {
-    throw error;
+    throw error('Filename could not be generated');
   }
 
-  let hash = createHash('sha256');
+  const hash = createHash('sha256');
   hash.update(uri);
 
   split[0] = `${split[0]}_${hash.digest('hex')}`;
