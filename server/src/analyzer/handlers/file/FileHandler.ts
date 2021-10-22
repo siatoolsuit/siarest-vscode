@@ -3,6 +3,8 @@ import { tmpdir } from 'os';
 import { unlink } from 'fs';
 import { writeFile } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { createHash } from 'crypto';
+import { error } from 'console';
 
 export interface IFile {
   fileName: string;
@@ -12,6 +14,7 @@ export interface IFile {
 }
 
 const SLASH = '/';
+const POINT = '.';
 
 /**
  * Map with Key fileUri
@@ -131,7 +134,21 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   let pathSeperator = '/';
   if (process.platform === 'win32') pathSeperator = '\\';
 
-  res.tempFileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
+  const fileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
+  const split: string[] = fileName.split(POINT);
+
+  if (split.length < 1) {
+    throw error;
+  }
+
+  let hash = createHash('sha256');
+  hash.update(uri);
+
+  split[0] = `${split[0]}_${hash.digest('hex')}`;
+  split[split.length - 1] = `.${split[split.length - 1]}`;
+  const tempFileName = split.join('');
+
+  res.tempFileName = `${tempFileName}`;
   res.tempFileUri = `${tmpdir()}${pathSeperator}${res.tempFileName}`;
   return res;
 }

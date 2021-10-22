@@ -57,6 +57,8 @@ export async function activate(context: ExtensionContext): Promise<void> {
     packageJson = '';
   }
 
+  // Must be in root of a folder
+
   // Try to load the siarc.json
   uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
   let siarc: string;
