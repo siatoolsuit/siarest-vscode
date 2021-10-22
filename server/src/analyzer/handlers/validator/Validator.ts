@@ -31,17 +31,24 @@ export class Validator {
 
     // Load package.json and .siarc.json, if they exists
     if (params.initializationOptions) {
-      if (params.initializationOptions.siarcTextDoc) {
-        const siarc = params.initializationOptions.siarcTextDoc;
-        if (existsSync(siarc.uri)) {
-          const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-          this.validateConfig(textDoc);
-        } else {
-          sendNotification(connection, 'Could not find ' + siarc.uri);
-        }
-      }
-      if (params.initializationOptions.packageJson) {
-        this.loadPackageJson(params.initializationOptions.packageJson);
+      if (params.initializationOptions.list) {
+        params.initializationOptions.list.forEach((obj: any) => {
+          console.debug(obj);
+
+          if (obj.siarcTextDoc) {
+            const siarc = obj.siarcTextDoc;
+            if (existsSync(siarc.uri)) {
+              const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
+              this.validateConfig(textDoc);
+            } else {
+              sendNotification(connection, 'Could not find ' + siarc.uri);
+            }
+          }
+
+          if (obj.packageJson) {
+            this.loadPackageJson(obj.packageJson);
+          }
+        });
       }
     }
 

@@ -7,9 +7,9 @@
     "node": ">14.0.0"
   },
   "dependencies": {
-    "vscode-json-languageservice": "^4.1.5",
+    "vscode-json-languageservice": "^4.1.8",
     "vscode-languageserver": "^7.0.0",
-    "vscode-languageserver-textdocument": "^1.0.1"
+    "vscode-languageserver-textdocument": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^16.4.10"

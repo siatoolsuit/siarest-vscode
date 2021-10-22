@@ -48,24 +48,57 @@ export async function activate(context: ExtensionContext): Promise<void> {
   });
   context.subscriptions.push(disposable);
 
+  const packageJsons = await (
+    await workspace.findFiles('**/package.json', '**​/node_modules/**')
+  ).filter((val) => !val.path.includes('node_modules'));
+
   // Try to load the package.json
-  let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json');
-  let packageJson: string;
-  try {
-    packageJson = fs.readFileSync(uri).toString();
-  } catch (error) {
-    packageJson = '';
-  }
 
   // Must be in root of a folder
 
+  const siarcFiles = await workspace.findFiles('**/.siarc.json', '**​/node_modules/**');
+
+  const res = [];
+
+  siarcFiles.forEach((file) => {
+    const lastIndexOf = file.path.lastIndexOf('/');
+    const path = file.path.slice(0, lastIndexOf + 1);
+
+    const packageJsonFile = packageJsons.find((packageFile) => {
+      if (packageFile.path.startsWith(path) === true) {
+        return packageFile;
+      }
+    });
+
+    if (packageJsonFile) {
+      try {
+        const siarc: string = fs.readFileSync(file.path).toString();
+        const packJson: string = fs.readFileSync(packageJsonFile.path).toString();
+
+        res.push({
+          siarcTextDoc: { uri: file.path, languageId: 'json', version: 1, content: siarc } || '',
+          packageJson: packJson || '',
+          rootPath: path,
+        });
+      } catch (error) {}
+    } else {
+    }
+  });
+
   // Try to load the siarc.json
-  uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
+  let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
   let siarc: string;
   try {
     siarc = fs.readFileSync(uri).toString();
   } catch (error) {
     siarc = '';
+  }
+
+  let packageJson: string;
+  try {
+    packageJson = fs.readFileSync(path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json')).toString();
+  } catch (error) {
+    packageJson = '';
   }
 
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
@@ -87,6 +120,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     initializationOptions: {
       siarcTextDoc: { uri, languageId: 'json', version: 1, content: siarc } || '',
       packageJson: packageJson || '',
+      list: res,
     },
   };
 
