@@ -52,6 +52,21 @@ export class ConfigValidator {
                 } else if (baseURIValue) {
                   baseUris.push(baseURIValue);
                 }
+              } else if (property.keyNode.value === 'frontends' && property.valueNode && property.valueNode.children) {
+                const frontends = property.valueNode.children;
+                if (frontends?.length < 1) {
+                  result.push(
+                    createDiagnostic(
+                      textDoc,
+                      'Please fill with frontend names',
+                      property.valueNode.offset,
+                      property.valueNode.offset,
+                      DiagnosticSeverity.Warning,
+                    ),
+                  );
+                }
+
+                console.log(frontends);
               } else if (property.keyNode.value === 'endpoints' && property.valueNode && property.valueNode.children) {
                 // Check each endpoint whether a endpoint with method of POST or PUT has a request defined, and vice verse
                 for (const endpoint of property.valueNode.children) {
