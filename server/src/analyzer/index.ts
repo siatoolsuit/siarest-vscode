@@ -1,2 +1,2 @@
-export * from './analyzer';
+export * from './SiarcService';
 export * from './types';

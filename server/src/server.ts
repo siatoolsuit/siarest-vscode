@@ -12,12 +12,12 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { cleanTempFiles } from './analyzer/handlers/file/index';
 import { TYPE_TYPESCRIPT } from './analyzer/utils';
-import { Validator } from './analyzer/handlers/validator';
+import { SiarcController } from './analyzer/handlers/siarcController';
 
 export const connection = createConnection(ProposedFeatures.all);
 export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-let validator: Validator;
+let siarcController: SiarcController;
 
 connection.onInitialize(async (params: InitializeParams) => {
   const result: InitializeResult = {
@@ -30,25 +30,25 @@ connection.onInitialize(async (params: InitializeParams) => {
     },
   };
 
-  validator = new Validator(params);
+  siarcController = new SiarcController(params);
 
   return result;
 });
 
 documents.onDidOpen((event) => {
-  validator.validate(event.document);
+  siarcController.validate(event.document);
 });
 
 documents.onDidSave((event) => {
-  validator.validate(event.document);
+  siarcController.validate(event.document);
 });
 
 documents.onDidChangeContent((event) => {
-  validator.validate(event.document);
+  siarcController.validate(event.document);
 });
 
 documents.onDidClose((event) => {
-  validator.cleanPendingValidations(event.document.uri);
+  siarcController.cleanPendingValidations(event.document.uri);
   if (event.document.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
     cleanTempFiles(event.document.uri)
       .then((fileUri) => {
@@ -62,7 +62,7 @@ documents.onDidClose((event) => {
 });
 
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
-  const completionItems: CompletionItem[] = validator.getCompletionItems(params, token);
+  const completionItems: CompletionItem[] = siarcController.getCompletionItems(params, token);
   return completionItems;
 });
 
@@ -71,7 +71,7 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 });
 
 connection.onHover((event): Hover | undefined => {
-  return validator.getHover(event);
+  return siarcController.getHover(event);
 });
 
 documents.listen(connection);

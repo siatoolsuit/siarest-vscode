@@ -58,7 +58,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
   const siarcFiles = await workspace.findFiles('**/.siarc.json', '**​/node_modules/**');
 
-  const res = [];
+  const projects = [];
 
   siarcFiles.forEach((file) => {
     const lastIndexOf = file.path.lastIndexOf('/');
@@ -75,7 +75,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
         const siarc: string = fs.readFileSync(file.path).toString();
         const packJson: string = fs.readFileSync(packageJsonFile.path).toString();
 
-        res.push({
+        projects.push({
           siarcTextDoc: { uri: file.path, languageId: 'json', version: 1, content: siarc } || '',
           packageJson: packJson || '',
           rootPath: path,
@@ -118,9 +118,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     ],
     // Send the initialized package.json and .siarc.json, only if they exists
     initializationOptions: {
-      siarcTextDoc: { uri, languageId: 'json', version: 1, content: siarc } || '',
-      packageJson: packageJson || '',
-      list: res,
+      projects: projects,
     },
   };
 

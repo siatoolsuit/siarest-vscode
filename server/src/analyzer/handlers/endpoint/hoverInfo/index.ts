@@ -1,1 +1,1 @@
-import { HoverInfoService } from './hoverInfoService';
+import { HoverInfoService } from './HoverInfoService';

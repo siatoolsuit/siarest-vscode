@@ -1,1 +1,1 @@
-import { AutoCompletionService } from './autoCompletionService';
+import { AutoCompletionService } from './AutoCompletionService';
