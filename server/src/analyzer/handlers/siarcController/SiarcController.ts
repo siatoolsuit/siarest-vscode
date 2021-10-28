@@ -79,7 +79,7 @@ export class SiarcController {
 
   private async checkForValidation(document: TextDocument): Promise<void> {
     // TODO get the right config
-
+    this.siarcService.setCurrentConfiguration(document);
     switch (document.languageId) {
       case TYPE_TYPESCRIPT.LANGUAGE_ID: {
         getOrCreateTempFile(document)
@@ -117,11 +117,11 @@ export class SiarcController {
 
   private allowValidation(): boolean {
     //TODO
-    if (this.siarcService && this.siarcService.staticExpressAnalyzer) {
+    if (this.siarcService) {
       return true;
     }
     // return false;
-    return true;
+    return false;
   }
 
   public cleanPendingValidations(uri: string) {

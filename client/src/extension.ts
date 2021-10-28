@@ -60,46 +60,46 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
   const projects = [];
 
-  siarcFiles.forEach((file) => {
+  packageJsons.forEach((file) => {
     const lastIndexOf = file.path.lastIndexOf('/');
     const path = file.path.slice(0, lastIndexOf + 1);
 
-    const packageJsonFile = packageJsons.find((packageFile) => {
+    const siarcFile = siarcFiles.find((packageFile) => {
       if (packageFile.path.startsWith(path) === true) {
         return packageFile;
       }
     });
 
-    if (packageJsonFile) {
+    let siarc: string;
+    let packJson: string;
+
+    if (siarcFile) {
       try {
-        const siarc: string = fs.readFileSync(file.path).toString();
-        const packJson: string = fs.readFileSync(packageJsonFile.path).toString();
-
-        projects.push({
-          siarcTextDoc: { uri: file.path, languageId: 'json', version: 1, content: siarc } || '',
-          packageJson: packJson || '',
-          rootPath: path,
-        });
-      } catch (error) {}
-    } else {
+        siarc = fs.readFileSync(siarcFile.path).toString();
+      } catch (error) {
+        siarc = undefined;
+      }
     }
+
+    try {
+      packJson = fs.readFileSync(file.path).toString();
+    } catch (error) {
+      packJson = undefined;
+    }
+
+    let siaConf = undefined;
+    if (siarc) {
+      siaConf = { uri: file.path, languageId: 'json', version: 1, content: siarc };
+    }
+
+    const projectConfig = {
+      siarcTextDoc: siaConf,
+      packageJson: packJson || undefined,
+      rootPath: path,
+    };
+
+    projects.push(projectConfig);
   });
-
-  // Try to load the siarc.json
-  let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
-  let siarc: string;
-  try {
-    siarc = fs.readFileSync(uri).toString();
-  } catch (error) {
-    siarc = '';
-  }
-
-  let packageJson: string;
-  try {
-    packageJson = fs.readFileSync(path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json')).toString();
-  } catch (error) {
-    packageJson = '';
-  }
 
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
   const serverOptions: ServerOptions = {

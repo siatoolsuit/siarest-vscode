@@ -25,3 +25,14 @@ export interface EndpointExpression {
   readonly end: LineAndCharacter;
   readonly inlineFunction: ArrowFunction;
 }
+
+export interface IProject {
+  rootPath: string;
+  packageJson: string;
+  siarcTextDoc?: {
+    content: string;
+    languageId: string;
+    uri: string;
+    version: number;
+  };
+}

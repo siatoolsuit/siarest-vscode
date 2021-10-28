@@ -5,11 +5,11 @@ import { CompletionItem, CompletionParams, Hover, HoverParams, InitializeParams 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { EndpointExpression } from '.';
 import { ServiceConfig, validateConfigSemantic } from './config';
-import { StaticExpressAnalyzer } from './handlers';
+import { analyze } from './handlers';
 import { AutoCompletionService } from './handlers/endpoint/autocompletion/AutoCompletionService';
 import { HoverInfoService } from './handlers/endpoint/hoverInfo/HoverInfoService';
 import { getOrCreateTempFile, IFile } from './handlers/file';
-import { SemanticError } from './types';
+import { IProject, SemanticError } from './types';
 import * as siaSchema from './config/config.schema.json';
 import { connection, documents } from '../server';
 import { TYPE_TYPESCRIPT } from './utils';
@@ -17,10 +17,12 @@ import { createDiagnostic, sendNotification } from './utils/helper';
 import { pendingValidations, validationDelay } from './handlers/siarcController';
 
 export class SiarcService {
+  public currentServiceName!: string;
+  public currenServiceConfig: ServiceConfig | undefined = undefined;
+
   private validConfig: ServiceConfig[] = [];
 
-  private currentServiceName!: string;
-  public staticExpressAnalyzer!: StaticExpressAnalyzer;
+  private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
 
   private avaibaleEndpoints: Map<string, EndpointExpression[]> = new Map();
 
@@ -35,32 +37,43 @@ export class SiarcService {
     if (initOptions) {
       if (initOptions.projects) {
         initOptions.projects.forEach((obj: any) => {
-          console.debug('Project: ' + obj);
+          const project: IProject = {
+            rootPath: obj.rootPath,
+            packageJson: obj.packageJson,
+          };
+
           if (obj.siarcTextDoc) {
-            const siarc = obj.siarcTextDoc;
+            project.siarcTextDoc = obj.siarcTextDoc;
+          }
+
+          console.debug('Project: ', project);
+          this.projectsByProjectNames.set(project.rootPath, project);
+
+          if (project.siarcTextDoc) {
+            const siarc = project.siarcTextDoc;
             if (existsSync(siarc.uri)) {
               const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
               this.validateConfig(textDoc);
-              console.debug('Found and loaded siarc');
+              console.debug('Found and loaded siarc from Project: ' + project.rootPath);
             }
           }
 
-          if (obj.packageJson) {
-            this.loadPackageJson(obj.packageJson);
-            console.debug('Found and loaded package.json');
+          if (project.packageJson) {
+            this.loadPackageJson(project.packageJson);
+            console.debug('Found and loaded package.json from Project: ' + project.rootPath);
           }
         });
       }
     }
 
-    this.autoCompletionService = new AutoCompletionService('');
-    this.hoverInfoService = new HoverInfoService('');
+    this.autoCompletionService = new AutoCompletionService(this.currentServiceName, this.currenServiceConfig);
+    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.currenServiceConfig);
   }
 
   public init() {
     //TODO
-    this.autoCompletionService = new AutoCompletionService('');
-    this.hoverInfoService = new HoverInfoService('');
+    this.autoCompletionService = new AutoCompletionService(this.currentServiceName, this.currenServiceConfig);
+    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.currenServiceConfig);
   }
 
   /**
@@ -68,22 +81,8 @@ export class SiarcService {
    * @param text as string (siarc.json)
    */
   set config(text: string) {
-    this.validConfig = JSON.parse(text);
     // Load the config to all analyzer handler
-    if (this.staticExpressAnalyzer) {
-      let found = false;
-      for (const config of this.validConfig) {
-        if (config.name === this.staticExpressAnalyzer.serviceName) {
-          this.staticExpressAnalyzer.config = config;
-          found = true;
-          break;
-        }
-      }
-      // There is no configuration with the given service name
-      if (!found) {
-        this.staticExpressAnalyzer.config = undefined;
-      }
-    }
+    this.validConfig = JSON.parse(text);
   }
 
   set currentService(name: string) {
@@ -114,8 +113,8 @@ export class SiarcService {
    * @returns List of SemanticErrors
    */
   public analyzeEndpoints(file: IFile): SemanticError[] {
-    if (this.staticExpressAnalyzer && file.tempFileUri) {
-      const results = this.staticExpressAnalyzer.analyze(file.tempFileUri);
+    if (file.tempFileUri) {
+      const results = analyze(file.tempFileUri, this.currentServiceName, this.currenServiceConfig);
 
       if (results.endPointsAvaiable) {
         this.avaibaleEndpoints.set(file.tempFileName, results.endPointsAvaiable);
@@ -220,7 +219,7 @@ export class SiarcService {
    * detectFrameworkOrLibrary
    * @param packJ packageJson
    */
-  public detectFrameworkOrLibrary(packJ: any): void {
+  private detectFrameworkOrLibrary(packJ: any): void {
     // Extract the list of all compile time dependencies and look for supported frameworks and libraries
     const deps = packJ.dependencies;
     for (const dep of Object.keys(deps)) {
@@ -228,11 +227,48 @@ export class SiarcService {
         // Try to extract the configuration for this service by name
         let currentServiceConfig;
         currentServiceConfig = this.validConfig.find((config) => {
-          config.name === this.currentServiceName;
+          if (config.name === this.currentServiceName) return config;
         });
 
-        this.staticExpressAnalyzer = new StaticExpressAnalyzer(this.currentServiceName, currentServiceConfig);
+        this.currenServiceConfig = currentServiceConfig;
         break;
+      }
+    }
+  }
+
+  public setCurrentConfiguration(document: TextDocument) {
+    let uri = document.uri;
+
+    if (uri.startsWith('file:///')) {
+      uri = uri.substring(7);
+    }
+
+    let foundKey: string | undefined = undefined;
+    this.projectsByProjectNames.forEach((project: IProject, key: string) => {
+      if (uri.startsWith(key)) {
+        foundKey = key;
+        console.debug('Found project! ', key, project);
+      }
+    });
+
+    let foundProject: IProject | undefined = undefined;
+    if (foundKey) {
+      foundProject = this.projectsByProjectNames.get(foundKey);
+    }
+
+    if (foundProject) {
+      if (foundProject.siarcTextDoc) {
+        const siarc = foundProject.siarcTextDoc;
+        if (existsSync(siarc.uri)) {
+          const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
+          this.validateConfig(textDoc);
+          console.debug('loaded siarc for Project: ' + foundProject.rootPath);
+        }
+      }
+
+      if (foundProject.packageJson) {
+        this.loadPackageJson(foundProject.packageJson);
+        console.debug('loaded package.json for Project: ' + foundProject.rootPath);
       }
     }
   }

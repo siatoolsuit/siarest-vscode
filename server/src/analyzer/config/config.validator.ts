@@ -64,8 +64,6 @@ export function validateConfigSemantic(textDoc: TextDocument, jsonDoc: JSONDocum
                   ),
                 );
               }
-
-              console.log(frontends);
             } else if (property.keyNode.value === 'endpoints' && property.valueNode && property.valueNode.children) {
               // Check each endpoint whether a endpoint with method of POST or PUT has a request defined, and vice verse
               for (const endpoint of property.valueNode.children) {
