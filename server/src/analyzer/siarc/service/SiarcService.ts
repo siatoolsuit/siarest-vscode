@@ -109,7 +109,7 @@ export class SiarcService {
       const results = analyze(file.tempFileUri, this.currentServiceName, this.currenServiceConfig, this.validateFrontend);
 
       if (results.endPointsAvaiable) {
-        this.avaibaleEndpoints.set(file.tempFileName, results.endPointsAvaiable);
+        this.avaibaleEndpoints.set(file.fileUri, results.endPointsAvaiable);
       }
 
       if (results.semanticErrors) {

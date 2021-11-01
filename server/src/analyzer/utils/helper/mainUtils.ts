@@ -51,6 +51,6 @@ export const createDiagnostic = (
 };
 
 export const getEndPointsForFileName = (fileName: string, map: Map<any, any>): EndpointExpression[] | undefined => {
-  fileName = fileName.substring(fileName.lastIndexOf('/') + 1, fileName.length);
+  // fileName = fileName.substring(fileName.lastIndexOf('/') + 1, fileName.length);
   return map.get(fileName);
 };

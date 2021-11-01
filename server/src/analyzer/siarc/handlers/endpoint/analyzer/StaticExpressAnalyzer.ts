@@ -51,121 +51,6 @@ import {
   findSyntaxKindInChildren,
 } from '../../../../utils/helper';
 
-function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration | undefined; endpointExpressions: ClientExpression[] } {
-  const result: {
-    httpImport: ImportDeclaration | undefined;
-    endpointExpressions: ClientExpression[];
-  } = {
-    httpImport: undefined,
-    endpointExpressions: [],
-  };
-
-  // parse from top to down
-
-  const statements = tsFile.statements;
-  // TODO replace with a list of e.g for express.Router etc
-  let httpClientVarName: string;
-  for (const statement of statements) {
-    switch (statement.kind) {
-      case SyntaxKind.ImportDeclaration:
-        const importStatement = extractHttpClientImport(statement);
-        if (importStatement) {
-          result.httpImport = importStatement;
-        }
-        break;
-
-      case SyntaxKind.VariableStatement:
-        // FIND in constructor
-
-        break;
-
-      case SyntaxKind.ClassDeclaration:
-        const classStatement = statement as ClassDeclaration;
-        classStatement.members.forEach((member) => {
-          switch (member.kind) {
-            case SyntaxKind.Constructor:
-              const constructorMember = member as ConstructorDeclaration;
-              constructorMember.parameters.forEach((parameter) => {
-                const parameterDeclaration = parameter as ParameterDeclaration;
-                if (parameterDeclaration.type) {
-                  // TYPENODE
-                  const foundIdentifier = findSyntaxKindInChildren(parameterDeclaration.type, SyntaxKind.Identifier) as Identifier;
-                  if (foundIdentifier) {
-                    if (foundIdentifier.text === httpLibsByName.get('HttpClient')) {
-                      httpClientVarName = parameterDeclaration.name.getText();
-                      console.debug(foundIdentifier);
-                    }
-                  }
-                }
-              });
-              break;
-
-            case SyntaxKind.MethodDeclaration:
-              const methodDecl = member as MethodDeclaration;
-              const x = test(methodDecl, httpClientVarName, tsFile);
-              if (x) {
-                result.endpointExpressions.push(x);
-              }
-              break;
-            default:
-              break;
-          }
-        });
-        break;
-
-      default:
-        break;
-    }
-  }
-
-  return result;
-}
-
-function test(methodDecl: MethodDeclaration, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined {
-  if (methodDecl.body) {
-    const funcBody = methodDecl.body;
-    let statList: NodeArray<Statement> = factory.createNodeArray();
-    switch (funcBody.kind) {
-      case SyntaxKind.Block:
-        statList = (funcBody as Block).statements;
-        break;
-    }
-
-    for (const stat of statList) {
-      switch (stat.kind) {
-        case SyntaxKind.ExpressionStatement:
-          break;
-
-        case SyntaxKind.VariableStatement:
-          break;
-
-        case SyntaxKind.ReturnStatement:
-          const returnStatement = stat as ReturnStatement;
-          const expr = returnStatement.expression;
-          if (expr?.kind === SyntaxKind.CallExpression) {
-            const callExpr = returnStatement.expression as CallExpression;
-            if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
-              const propAccExpr = callExpr.expression as PropertyAccessExpression;
-              const { start, end, path } = extractPathAndMethodImplementationFromArguments(callExpr.arguments, sourceFile);
-              if (propAccExpr.expression.getText().endsWith(httpClientVarName) && httpMethods.includes(propAccExpr.name.text)) {
-                return {
-                  method: propAccExpr.name.getText().toUpperCase(),
-                  start: start,
-                  end: end,
-                  expr: callExpr,
-                  path: path,
-                };
-              }
-            }
-          }
-          break;
-      }
-    }
-
-    return undefined;
-  }
-}
-
 /**
  *
  * @param uri to the pending file for validation
@@ -199,69 +84,74 @@ export function analyze(uri: string, serviceName: string, config: ServiceConfig 
     }
 
     const results: IResult = {};
-    const result: SemanticError[] = [];
-
-    if (config && serviceName) {
-      if (endpointExpressions.length > 0) {
-        for (const endpointExprs of endpointExpressions) {
-          const expr = endpointExprs.expr;
-          const endpoint = findEndpointForPath(endpointExprs.path, config.endpoints);
-          // Validates the defined endpoint with the service configuration
-          if (endpoint) {
-            if (endpoint.method !== endpointExprs.method) {
-              result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
-            }
-
-            const { resVal, reqVal } = extractReqResFromFunction(endpointExprs.inlineFunction);
-            // Validate the return value of the inner function
-            if (resVal) {
-              const resConf = endpoint.response;
-              let semanticError: any;
-              switch (typeof resConf) {
-                case 'string':
-                  // TODO get ref of a variable for example and validate it
-                  if (resVal.kind === SyntaxKind.Identifier) {
-                    semanticError = createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
-                  } else {
-                    semanticError = simpleTypeError(resConf, resVal);
-                  }
-
-                  if (semanticError) result.push(semanticError);
-                  break;
-                case 'object':
-                  semanticError = createComplexTypeErrorFromExpression(endpoint, resVal, checker);
-                  if (semanticError) result.push(semanticError);
-                  break;
-                default:
-                  break;
-              }
-            } else {
-              result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
-            }
-
-            if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
-              const reqType = endpoint.request;
-              if (reqVal) {
-                const semanticError = createComplexTypeErrorFromDeclaration(endpoint, reqVal, checker);
-                if (semanticError) result.push(semanticError);
-              } else {
-                result.push(createSemanticError(`Endpoint with method "${endpoint.method}" has a missing body handling.`, expr.getStart(), expr.end));
-              }
-            }
-          } else {
-            result.push(createSemanticError('Endpoint is not defined for this service.', expr.getStart(), expr.end));
-          }
-        }
-      }
-    } else {
-      // TODO end of file? Warning not error
-      result.push(createSemanticError(`Missing configuration for service ${serviceName} in .siarc.json.`, 0, 0));
-    }
+    const result: SemanticError[] = analyzeExpress(config, serviceName, endpointExpressions, checker);
 
     results.semanticErrors = result;
     results.endPointsAvaiable = endpointExpressions;
     return results;
   }
+}
+
+function analyzeExpress(config: ServiceConfig | undefined, serviceName: string, endpointExpressions: EndpointExpression[], checker: TypeChecker) {
+  const result: SemanticError[] = [];
+
+  if (config && serviceName) {
+    if (endpointExpressions.length > 0) {
+      for (const endpointExprs of endpointExpressions) {
+        const expr = endpointExprs.expr;
+        const endpoint = findEndpointForPath(endpointExprs.path, config.endpoints);
+        // Validates the defined endpoint with the service configuration
+        if (endpoint) {
+          if (endpoint.method !== endpointExprs.method) {
+            result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
+          }
+
+          const { resVal, reqVal } = extractReqResFromFunction(endpointExprs.inlineFunction);
+          // Validate the return value of the inner function
+          if (resVal) {
+            const resConf = endpoint.response;
+            let semanticError: any;
+            switch (typeof resConf) {
+              case 'string':
+                // TODO get ref of a variable for example and validate it
+                if (resVal.kind === SyntaxKind.Identifier) {
+                  semanticError = createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
+                } else {
+                  semanticError = simpleTypeError(resConf, resVal);
+                }
+
+                if (semanticError) result.push(semanticError);
+                break;
+              case 'object':
+                semanticError = createComplexTypeErrorFromExpression(endpoint, resVal, checker);
+                if (semanticError) result.push(semanticError);
+                break;
+              default:
+                break;
+            }
+          } else {
+            result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
+          }
+
+          if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
+            const reqType = endpoint.request;
+            if (reqVal) {
+              const semanticError = createComplexTypeErrorFromDeclaration(endpoint, reqVal, checker);
+              if (semanticError) result.push(semanticError);
+            } else {
+              result.push(createSemanticError(`Endpoint with method "${endpoint.method}" has a missing body handling.`, expr.getStart(), expr.end));
+            }
+          }
+        } else {
+          result.push(createSemanticError('Endpoint is not defined for this service.', expr.getStart(), expr.end));
+        }
+      }
+    }
+  } else {
+    // TODO end of file? Warning not error
+    result.push(createSemanticError(`Missing configuration for service ${serviceName} in .siarc.json.`, 0, 0));
+  }
+  return result;
 }
 
 /**
@@ -847,4 +737,119 @@ function parseTypeLiteral(typeLiteral: TypeLiteralNode, checker: TypeChecker): s
   const typedLiteralAsJson = parsePropertiesRecursive(type, checker); // this works
 
   return typedLiteralAsJson;
+}
+
+function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration | undefined; endpointExpressions: ClientExpression[] } {
+  const result: {
+    httpImport: ImportDeclaration | undefined;
+    endpointExpressions: ClientExpression[];
+  } = {
+    httpImport: undefined,
+    endpointExpressions: [],
+  };
+
+  // parse from top to down
+
+  const statements = tsFile.statements;
+  // TODO replace with a list of e.g for express.Router etc
+  let httpClientVarName: string;
+  for (const statement of statements) {
+    switch (statement.kind) {
+      case SyntaxKind.ImportDeclaration:
+        const importStatement = extractHttpClientImport(statement);
+        if (importStatement) {
+          result.httpImport = importStatement;
+        }
+        break;
+
+      case SyntaxKind.VariableStatement:
+        // FIND in constructor
+
+        break;
+
+      case SyntaxKind.ClassDeclaration:
+        const classStatement = statement as ClassDeclaration;
+        classStatement.members.forEach((member) => {
+          switch (member.kind) {
+            case SyntaxKind.Constructor:
+              const constructorMember = member as ConstructorDeclaration;
+              constructorMember.parameters.forEach((parameter) => {
+                const parameterDeclaration = parameter as ParameterDeclaration;
+                if (parameterDeclaration.type) {
+                  // TYPENODE
+                  const foundIdentifier = findSyntaxKindInChildren(parameterDeclaration.type, SyntaxKind.Identifier) as Identifier;
+                  if (foundIdentifier) {
+                    if (foundIdentifier.text === httpLibsByName.get('HttpClient')) {
+                      httpClientVarName = parameterDeclaration.name.getText();
+                      console.debug(foundIdentifier);
+                    }
+                  }
+                }
+              });
+              break;
+
+            case SyntaxKind.MethodDeclaration:
+              const methodDecl = member as MethodDeclaration;
+              const x = extractPathFromMethods(methodDecl, httpClientVarName, tsFile);
+              if (x) {
+                result.endpointExpressions.push(x);
+              }
+              break;
+            default:
+              break;
+          }
+        });
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  return result;
+}
+
+function extractPathFromMethods(methodDecl: MethodDeclaration, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined {
+  if (methodDecl.body) {
+    const funcBody = methodDecl.body;
+    let statList: NodeArray<Statement> = factory.createNodeArray();
+    switch (funcBody.kind) {
+      case SyntaxKind.Block:
+        statList = (funcBody as Block).statements;
+        break;
+    }
+
+    for (const stat of statList) {
+      switch (stat.kind) {
+        case SyntaxKind.ExpressionStatement:
+          break;
+
+        case SyntaxKind.VariableStatement:
+          break;
+
+        case SyntaxKind.ReturnStatement:
+          const returnStatement = stat as ReturnStatement;
+          const expr = returnStatement.expression;
+          if (expr?.kind === SyntaxKind.CallExpression) {
+            const callExpr = returnStatement.expression as CallExpression;
+            if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+              const propAccExpr = callExpr.expression as PropertyAccessExpression;
+              const { start, end, path } = extractPathAndMethodImplementationFromArguments(callExpr.arguments, sourceFile);
+              if (propAccExpr.expression.getText().endsWith(httpClientVarName) && httpMethods.includes(propAccExpr.name.text)) {
+                return {
+                  method: propAccExpr.name.getText().toUpperCase(),
+                  start: start,
+                  end: end,
+                  expr: callExpr,
+                  path: path,
+                };
+              }
+            }
+          }
+          break;
+      }
+    }
+
+    return undefined;
+  }
 }

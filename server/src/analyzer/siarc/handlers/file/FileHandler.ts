@@ -97,8 +97,10 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
           reject("Couldn't update temp file");
         });
     } else {
+      const splits = textDoc.uri.split('/');
+
       var file: IFile = {
-        fileName: res.tempFileName,
+        fileName: splits[splits.length - 1],
         fileUri: textDoc.uri,
         tempFileName: res.tempFileName,
         tempFileUri: res.tempFileUri,
