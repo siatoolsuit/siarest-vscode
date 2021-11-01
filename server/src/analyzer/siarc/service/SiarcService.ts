@@ -3,22 +3,23 @@ import { Diagnostic, DiagnosticSeverity, getLanguageService, JSONSchema, Languag
 import { CancellationToken } from 'vscode-jsonrpc';
 import { CompletionItem, CompletionParams, Hover, HoverParams, InitializeParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { EndpointExpression } from '.';
-import { ServiceConfig, validateConfigSemantic } from './config';
-import { analyze } from './handlers';
-import { AutoCompletionService } from './handlers/endpoint/autocompletion/AutoCompletionService';
-import { HoverInfoService } from './handlers/endpoint/hoverInfo/HoverInfoService';
-import { getOrCreateTempFile, IFile } from './handlers/file';
-import { IProject, SemanticError } from './types';
-import * as siaSchema from './config/config.schema.json';
-import { connection, documents } from '../server';
-import { TYPE_TYPESCRIPT } from './utils';
-import { createDiagnostic, sendNotification } from './utils/helper';
-import { pendingValidations, validationDelay } from './handlers/siarcController';
+import { EndpointExpression } from '../..';
+import { ServiceConfig, validateConfigSemantic } from '../../config';
+import { analyze } from '../handlers';
+import { AutoCompletionService } from '../handlers/endpoint/autocompletion/AutoCompletionService';
+import { HoverInfoService } from '../handlers/endpoint/hoverInfo/HoverInfoService';
+import { getOrCreateTempFile, IFile } from '../handlers/file';
+import { IProject, SemanticError } from '../../types';
+import * as siaSchema from '../../config/config.schema.json';
+import { connection, documents } from '../../../server';
+import { TYPE_TYPESCRIPT } from '../../utils';
+import { createDiagnostic, sendNotification } from '../../utils/helper';
+import { pendingValidations, validationDelay } from '../controller';
 
 export class SiarcService {
   public currentServiceName!: string;
   public currenServiceConfig: ServiceConfig | undefined = undefined;
+  public currentProject: IProject | undefined = undefined;
 
   private validConfig: ServiceConfig[] = [];
 
@@ -243,6 +244,12 @@ export class SiarcService {
       uri = uri.substring(7);
     }
 
+    if (this.currentProject) {
+      if (uri.startsWith(this.currentProject.rootPath)) {
+        return;
+      }
+    }
+
     let foundKey: string | undefined = undefined;
     this.projectsByProjectNames.forEach((project: IProject, key: string) => {
       if (uri.startsWith(key)) {
@@ -257,6 +264,7 @@ export class SiarcService {
     }
 
     if (foundProject) {
+      this.currentProject = foundProject;
       if (foundProject.siarcTextDoc) {
         const siarc = foundProject.siarcTextDoc;
         if (existsSync(siarc.uri)) {

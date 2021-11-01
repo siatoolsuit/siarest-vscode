@@ -1,9 +1,9 @@
 import { InitializeParams, CompletionItem, CancellationToken, CompletionParams, Hover, HoverParams } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { SiarcService } from '../..';
+import { SiarcService } from '../service';
 import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
-import { getOrCreateTempFile } from '../file/FileHandler';
+import { getOrCreateTempFile } from '../handlers/file/FileHandler';
 import { sendNotification } from '../../utils/helper';
 
 export const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
@@ -15,35 +15,6 @@ export class SiarcController {
   constructor(params: InitializeParams) {
     this.siarcService = new SiarcService(params);
   }
-
-  // constructor2(params: InitializeParams) {
-  //   this.jsonLanguageService = getLanguageService({
-  //     clientCapabilities: params.capabilities,
-  //   });
-
-  //   // Load package.json and .siarc.json, if they exists
-  //   if (params.initializationOptions) {
-  //     if (params.initializationOptions.list) {
-  //       params.initializationOptions.list.forEach((obj: any) => {
-  //         console.debug(obj);
-
-  //         if (obj.siarcTextDoc) {
-  //           const siarc = obj.siarcTextDoc;
-  //           if (existsSync(siarc.uri)) {
-  //             const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-  //             this.validateConfig(textDoc);
-  //           } else {
-  //             sendNotification(connection, 'Could not find ' + siarc.uri);
-  //           }
-  //         }
-
-  //         if (obj.packageJson) {
-  //           this.loadPackageJson(obj.packageJson);
-  //         }
-  //       });
-  //     }
-  //   }
-  // }
 
   public async validate(document: TextDocument) {
     if (this.allowValidation()) {

@@ -1,7 +1,7 @@
-import { ServiceConfig } from '../../../config';
+import { ServiceConfig } from '../../../../config';
 import { Hover, HoverParams, MarkupContent, MarkupKind } from 'vscode-languageserver';
-import { isBetween } from '../../../utils/helper';
-import { EndpointExpression } from '../../../types';
+import { isBetween } from '../../../../utils/helper';
+import { EndpointExpression } from '../../../../types';
 
 export class HoverInfoService {
   constructor(protected currentServiceName: string, protected currentConfig?: ServiceConfig) {}

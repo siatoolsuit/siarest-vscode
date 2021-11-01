@@ -25,9 +25,9 @@ import {
   ArrayTypeNode,
   TypeLiteralNode,
 } from 'typescript';
-import { Endpoint, ServiceConfig } from '../../../config';
-import { EndpointExpression, IResult, SemanticError } from '../../../types';
-import { httpMethods, sendMethods } from '../../../utils';
+import { Endpoint, ServiceConfig } from '../../../../config';
+import { EndpointExpression, IResult, SemanticError } from '../../../../types';
+import { httpMethods, sendMethods } from '../../../../utils';
 import {
   createSemanticError,
   extractExpressImport,
@@ -40,7 +40,7 @@ import {
   removeLastSymbol,
   simpleTypeError,
   tryParseJSONObject,
-} from '../../../utils/helper';
+} from '../../../../utils/helper';
 
 /**
  *

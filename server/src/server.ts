@@ -10,9 +10,9 @@ import {
   Hover,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { cleanTempFiles } from './analyzer/handlers/file/index';
+import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';
 import { TYPE_TYPESCRIPT } from './analyzer/utils';
-import { SiarcController } from './analyzer/handlers/siarcController';
+import { SiarcController } from './analyzer/siarc/controller';
 
 export const connection = createConnection(ProposedFeatures.all);
 export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
