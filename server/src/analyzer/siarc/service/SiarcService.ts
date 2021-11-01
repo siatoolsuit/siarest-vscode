@@ -12,8 +12,8 @@ import { getOrCreateTempFile, IFile } from '../handlers/file';
 import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
-import { TYPE_TYPESCRIPT } from '../../utils';
-import { createDiagnostic, sendNotification } from '../../utils/helper';
+import { TYPE_TYPESCRIPT, VS_CODE_URI_BEGIN } from '../../utils';
+import { createDiagnostic, getEndPointsForFileName, sendNotification } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
 
 export class SiarcService {
@@ -22,6 +22,14 @@ export class SiarcService {
   public currentProject: IProject | undefined = undefined;
 
   private validConfig: ServiceConfig[] = [];
+  /**
+   * Setter config
+   * @param text as string (siarc.json)
+   */
+  set config(text: string) {
+    // Load the config to all analyzer handler
+    this.validConfig = JSON.parse(text);
+  }
 
   private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
 
@@ -47,7 +55,7 @@ export class SiarcService {
             project.siarcTextDoc = obj.siarcTextDoc;
           }
 
-          console.debug('Project: ', project);
+          console.debug('Project: ', project.rootPath);
           this.projectsByProjectNames.set(project.rootPath, project);
 
           if (project.siarcTextDoc) {
@@ -77,26 +85,8 @@ export class SiarcService {
     this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.currenServiceConfig);
   }
 
-  /**
-   * Setter config
-   * @param text as string (siarc.json)
-   */
-  set config(text: string) {
-    // Load the config to all analyzer handler
-    this.validConfig = JSON.parse(text);
-  }
-
-  set currentService(name: string) {
-    this.currentServiceName = name;
-  }
-
-  private getEndPointsForFileName(fileName: string): EndpointExpression[] | undefined {
-    fileName = fileName.substring(fileName.lastIndexOf('/') + 1, fileName.length);
-    return this.avaibaleEndpoints.get(fileName);
-  }
-
   public getInfo(hoverParams: HoverParams): Hover | undefined {
-    return this.hoverInfoService.getInfo(hoverParams, this.getEndPointsForFileName(hoverParams.textDocument.uri));
+    return this.hoverInfoService.getInfo(hoverParams, getEndPointsForFileName(hoverParams.textDocument.uri, this.avaibaleEndpoints));
   }
 
   public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
@@ -147,31 +137,6 @@ export class SiarcService {
     }, validationDelay);
   }
 
-  public triggerTypescriptValidation(document: TextDocument, file: IFile): void {
-    this.cleanPendingValidations(file.fileUri);
-    pendingValidations[file.fileUri] = setTimeout(() => {
-      delete pendingValidations[file.fileUri];
-      this.validateTypescript(document, file);
-    }, validationDelay);
-  }
-
-  public validateTypescript(document: TextDocument, file: IFile): void {
-    const diagnostics: Diagnostic[] = [];
-
-    const version = document.version;
-    this.analyzeEndpoints(file).forEach((error: SemanticError) => {
-      diagnostics.push(createDiagnostic(document, error.message, error.position.start, error.position.end, DiagnosticSeverity.Error));
-    });
-
-    setImmediate(() => {
-      // To be clear to send the correct diagnostics to the current document
-      const currDoc = documents.get(document.uri);
-      if (currDoc && currDoc.version === version) {
-        connection.sendDiagnostics({ uri: document.uri, diagnostics, version: currDoc.version });
-      }
-    });
-  }
-
   public async validateConfig(document: TextDocument): Promise<void> {
     const jsonDoc = this.jsonLanguageService.parseJSONDocument(document);
 
@@ -205,11 +170,36 @@ export class SiarcService {
     this.init();
   }
 
+  public triggerTypescriptValidation(document: TextDocument, file: IFile): void {
+    this.cleanPendingValidations(file.fileUri);
+    pendingValidations[file.fileUri] = setTimeout(() => {
+      delete pendingValidations[file.fileUri];
+      this.validateTypescript(document, file);
+    }, validationDelay);
+  }
+
+  public validateTypescript(document: TextDocument, file: IFile): void {
+    const diagnostics: Diagnostic[] = [];
+
+    const version = document.version;
+    this.analyzeEndpoints(file).forEach((error: SemanticError) => {
+      diagnostics.push(createDiagnostic(document, error.message, error.position.start, error.position.end, DiagnosticSeverity.Error));
+    });
+
+    setImmediate(() => {
+      // To be clear to send the correct diagnostics to the current document
+      const currDoc = documents.get(document.uri);
+      if (currDoc && currDoc.version === version) {
+        connection.sendDiagnostics({ uri: document.uri, diagnostics, version: currDoc.version });
+      }
+    });
+  }
+
   public loadPackageJson(json: string) {
     if (json) {
       const pack = JSON.parse(json);
       if (pack.name) {
-        this.currentService = pack.name;
+        this.currentServiceName = pack.name;
         console.log('Currently used backend: ' + this.currentServiceName);
       }
       this.detectFrameworkOrLibrary(pack);
@@ -240,7 +230,7 @@ export class SiarcService {
   public setCurrentConfiguration(document: TextDocument) {
     let uri = document.uri;
 
-    if (uri.startsWith('file:///')) {
+    if (uri.startsWith(VS_CODE_URI_BEGIN)) {
       uri = uri.substring(7);
     }
 

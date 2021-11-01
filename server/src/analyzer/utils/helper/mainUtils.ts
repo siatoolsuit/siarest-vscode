@@ -1,6 +1,7 @@
 import { Diagnostic, DiagnosticSeverity, _Connection } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Endpoint } from '../../config';
+import { EndpointExpression } from '../../types';
 
 /**
  * Send a notification to vscode
@@ -47,4 +48,9 @@ export const createDiagnostic = (
     severity: diagnosticLevel,
     source: 'Siarc-Toolkit',
   };
+};
+
+export const getEndPointsForFileName = (fileName: string, map: Map<any, any>): EndpointExpression[] | undefined => {
+  fileName = fileName.substring(fileName.lastIndexOf('/') + 1, fileName.length);
+  return map.get(fileName);
 };

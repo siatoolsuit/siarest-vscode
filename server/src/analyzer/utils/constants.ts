@@ -17,5 +17,12 @@ export const expressImportByName: Map<String, String> = new Map([
   ['Router', 'Router'],
 ]);
 
+export const httpLibsByName: Map<String, String> = new Map([
+  ['HttpClient', 'HttpClient'], // ANGULAR
+  ['api', 'api'], //REACT
+]);
+
 export const httpMethods: string[] = ['get', 'post', 'put', 'delete'];
 export const sendMethods: string[] = ['send', 'json'];
+
+export const VS_CODE_URI_BEGIN = 'file:///';
