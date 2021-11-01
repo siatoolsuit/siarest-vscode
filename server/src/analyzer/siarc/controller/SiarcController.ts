@@ -81,7 +81,8 @@ export class SiarcController {
       this.siarcService.loadPackageJson(document.getText());
       // Revalidate all typescript files
       documents.all().forEach((doc: TextDocument) => {
-        this.checkForValidation(doc);
+        // TODO
+        // this.checkForValidation(doc);
       });
     }
   }

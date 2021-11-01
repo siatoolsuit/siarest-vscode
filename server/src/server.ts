@@ -61,6 +61,10 @@ documents.onDidClose((event) => {
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
+connection.onShutdown((event) => {
+  //TODO remove all files
+});
+
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
   const completionItems: CompletionItem[] = siarcController.getCompletionItems(params, token);
   return completionItems;

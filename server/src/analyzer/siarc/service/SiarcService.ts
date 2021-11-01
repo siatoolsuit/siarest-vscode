@@ -3,7 +3,7 @@ import { Diagnostic, DiagnosticSeverity, getLanguageService, JSONSchema, Languag
 import { CancellationToken } from 'vscode-jsonrpc';
 import { CompletionItem, CompletionParams, Hover, HoverParams, InitializeParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { EndpointExpression } from '../..';
+import { ClientExpression, EndpointExpression, IResult } from '../..';
 import { ServiceConfig, validateConfigSemantic } from '../../config';
 import { analyze } from '../handlers';
 import { AutoCompletionService } from '../handlers/endpoint/autocompletion/AutoCompletionService';
@@ -22,6 +22,7 @@ export class SiarcService {
   public currentProject: IProject | undefined = undefined;
 
   private validConfig: ServiceConfig[] = [];
+  private validateFrontend: boolean = false;
   /**
    * Setter config
    * @param text as string (siarc.json)
@@ -33,7 +34,7 @@ export class SiarcService {
 
   private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
 
-  private avaibaleEndpoints: Map<string, EndpointExpression[]> = new Map();
+  private avaibaleEndpoints: Map<string, ClientExpression[]> = new Map();
 
   private autoCompletionService: AutoCompletionService;
   private hoverInfoService: HoverInfoService;
@@ -105,7 +106,7 @@ export class SiarcService {
    */
   public analyzeEndpoints(file: IFile): SemanticError[] {
     if (file.tempFileUri) {
-      const results = analyze(file.tempFileUri, this.currentServiceName, this.currenServiceConfig);
+      const results = analyze(file.tempFileUri, this.currentServiceName, this.currenServiceConfig, this.validateFrontend);
 
       if (results.endPointsAvaiable) {
         this.avaibaleEndpoints.set(file.tempFileName, results.endPointsAvaiable);
@@ -182,7 +183,8 @@ export class SiarcService {
     const diagnostics: Diagnostic[] = [];
 
     const version = document.version;
-    this.analyzeEndpoints(file).forEach((error: SemanticError) => {
+    const semanticErrors = this.analyzeEndpoints(file);
+    semanticErrors.forEach((error: SemanticError) => {
       diagnostics.push(createDiagnostic(document, error.message, error.position.start, error.position.end, DiagnosticSeverity.Error));
     });
 
@@ -200,7 +202,7 @@ export class SiarcService {
       const pack = JSON.parse(json);
       if (pack.name) {
         this.currentServiceName = pack.name;
-        console.log('Currently used backend: ' + this.currentServiceName);
+        console.log('Currently using service: ' + this.currentServiceName);
       }
       this.detectFrameworkOrLibrary(pack);
     }
@@ -222,7 +224,10 @@ export class SiarcService {
         });
 
         this.currenServiceConfig = currentServiceConfig;
+        this.validateFrontend = false;
         break;
+      } else if (dep.includes('@angular/core')) {
+        this.validateFrontend = true;
       }
     }
   }
