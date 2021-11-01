@@ -144,9 +144,8 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   const hash = createHash('sha256');
   hash.update(uri);
 
-  split[0] = `${split[0]}_${hash.digest('hex')}`;
-  split[split.length - 1] = `.${split[split.length - 1]}`;
-  const tempFileName = split.join('');
+  split[split.length - 2] = `${split[split.length - 2]}_${hash.digest('hex')}`;
+  const tempFileName = split.join(POINT);
 
   res.tempFileName = `${tempFileName}`;
   res.tempFileUri = `${tmpdir()}${pathSeperator}${res.tempFileName}`;
