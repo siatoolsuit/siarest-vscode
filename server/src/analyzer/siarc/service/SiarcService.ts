@@ -29,6 +29,7 @@ export class SiarcService {
    */
   set config(text: string) {
     // Load the config to all analyzer handler
+    //TODO all configs save here
     this.validConfig = JSON.parse(text);
   }
 

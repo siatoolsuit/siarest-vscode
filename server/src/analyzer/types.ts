@@ -1,4 +1,5 @@
 import { ArrowFunction, CallExpression, LineAndCharacter } from 'typescript';
+import { ServiceConfig } from './config';
 
 export interface SemanticError {
   position: { start: number; end: number };
@@ -38,4 +39,5 @@ export interface IProject {
     uri: string;
     version: number;
   };
+  serviceConfig?: ServiceConfig;
 }
