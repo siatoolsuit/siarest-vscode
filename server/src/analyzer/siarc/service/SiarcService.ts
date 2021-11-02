@@ -21,17 +21,7 @@ export class SiarcService {
   public currenServiceConfig: ServiceConfig | undefined = undefined;
   public currentProject: IProject | undefined = undefined;
 
-  private validConfig: ServiceConfig[] = [];
   private validateFrontend: boolean = false;
-  /**
-   * Setter config
-   * @param text as string (siarc.json)
-   */
-  set config(text: string) {
-    // Load the config to all analyzer handler
-    //TODO all configs save here
-    this.validConfig = JSON.parse(text);
-  }
 
   private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
 
@@ -58,13 +48,12 @@ export class SiarcService {
           }
 
           console.debug('Project: ', project.rootPath);
-          this.projectsByProjectNames.set(project.rootPath, project);
 
           if (project.siarcTextDoc) {
             const siarc = project.siarcTextDoc;
             if (existsSync(siarc.uri)) {
               const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-              this.validateConfig(textDoc);
+              this.validateConfig(textDoc, project);
               console.debug('Found and loaded siarc from Project: ' + project.rootPath);
             }
           }
@@ -73,6 +62,8 @@ export class SiarcService {
             this.loadPackageJson(project.packageJson);
             console.debug('Found and loaded package.json from Project: ' + project.rootPath);
           }
+
+          this.projectsByProjectNames.set(project.rootPath, project);
         });
       }
     }
@@ -135,11 +126,11 @@ export class SiarcService {
     this.cleanPendingValidations(document.uri);
     pendingValidations[document.uri] = setTimeout(async () => {
       delete pendingValidations[document.uri];
-      await this.validateConfig(document);
+      await this.validateConfig(document, this.currentProject);
     }, validationDelay);
   }
 
-  public async validateConfig(document: TextDocument): Promise<void> {
+  public async validateConfig(document: TextDocument, project?: IProject): Promise<void> {
     const jsonDoc = this.jsonLanguageService.parseJSONDocument(document);
 
     const syntaxErrors = await this.jsonLanguageService.doValidation(
@@ -151,7 +142,11 @@ export class SiarcService {
     const semanticErrors = validateConfigSemantic(document, jsonDoc);
 
     if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
-      this.config = document.getText();
+      // this.config = document.getText();
+      if (project) {
+        project.serviceConfig = JSON.parse(document.getText())[0];
+      }
+
       connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       documents.all().forEach(async (doc: TextDocument) => {
         if (doc.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
@@ -220,11 +215,17 @@ export class SiarcService {
       if (dep.includes('express')) {
         // Try to extract the configuration for this service by name
         let currentServiceConfig;
-        currentServiceConfig = this.validConfig.find((config) => {
-          if (config.name === this.currentServiceName) return config;
+        this.projectsByProjectNames.forEach((project) => {
+          if (project.serviceConfig?.name === this.currentServiceName) {
+            this.currenServiceConfig = project.serviceConfig;
+          }
         });
 
-        this.currenServiceConfig = currentServiceConfig;
+        // currentServiceConfig = this.validConfig.find((config) => {
+        //   if (config.name === this.currentServiceName) return config;
+        // });
+
+        // this.currenServiceConfig = currentServiceConfig;
         this.validateFrontend = false;
         break;
       } else if (dep.includes('@angular/core')) {
@@ -265,7 +266,7 @@ export class SiarcService {
         const siarc = foundProject.siarcTextDoc;
         if (existsSync(siarc.uri)) {
           const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-          this.validateConfig(textDoc);
+          this.validateConfig(textDoc, this.currentProject);
           console.debug('loaded siarc for Project: ' + foundProject.rootPath);
         }
       }

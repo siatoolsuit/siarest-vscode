@@ -781,7 +781,6 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
                   if (foundIdentifier) {
                     if (foundIdentifier.text === httpLibsByName.get('HttpClient')) {
                       httpClientVarName = parameterDeclaration.name.getText();
-                      console.debug(foundIdentifier);
                     }
                   }
                 }
