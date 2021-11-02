@@ -13,6 +13,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';
 import { TYPE_TYPESCRIPT } from './analyzer/utils';
 import { SiarcController } from './analyzer/siarc/controller';
+import { initializeResult } from './config';
 
 export const connection = createConnection(ProposedFeatures.all);
 export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -20,15 +21,7 @@ export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocu
 let siarcController: SiarcController;
 
 connection.onInitialize(async (params: InitializeParams) => {
-  const result: InitializeResult = {
-    capabilities: {
-      completionProvider: {
-        resolveProvider: true,
-        workDoneProgress: true,
-      },
-      hoverProvider: true,
-    },
-  };
+  const result: InitializeResult = initializeResult;
 
   siarcController = new SiarcController(params);
 
@@ -61,8 +54,19 @@ documents.onDidClose((event) => {
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-connection.onShutdown((event) => {
-  //TODO remove all files
+//TODO implement more features
+connection.onShutdown((event) => {});
+
+connection.onDocumentLinks((params, token) => {
+  return null;
+});
+
+connection.onDocumentLinkResolve((params, token) => {
+  return null;
+});
+
+connection.onDefinition((params, token) => {
+  return null;
 });
 
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
