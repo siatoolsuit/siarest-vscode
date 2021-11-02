@@ -138,8 +138,8 @@ export const extractHttpClientImport = (statement: Statement): ImportDeclaration
       }
     } else if (importClause.namedBindings) {
       const imports = importClause.namedBindings as NamedImports;
-
-      for (const element of imports.elements) {
+      const elements = imports.elements;
+      for (const element of elements) {
         if (element.name.escapedText === httpLibsByName.get('HttpClient')) {
           return importDecl;
         }

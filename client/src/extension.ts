@@ -119,6 +119,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     // Send the initialized package.json and .siarc.json, only if they exists
     initializationOptions: {
       projects: projects,
+      rootPath: workspace.workspaceFolders[0].uri.toString(),
     },
   };
 

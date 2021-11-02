@@ -3,7 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { SiarcService } from '../service';
 import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
-import { getOrCreateTempFile } from '../handlers/file/FileHandler';
+import { getAllFilesInProjectSync, getOrCreateTempFile } from '../handlers/file/FileHandler';
 import { sendNotification } from '../../utils/helper';
 
 export const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
@@ -14,6 +14,19 @@ export class SiarcController {
 
   constructor(params: InitializeParams) {
     this.siarcService = new SiarcService(params);
+
+    // this.test(params.initializationOptions.rootPath);
+  }
+
+  public test(pathUri: string) {
+    const path = pathUri;
+    if (path) {
+      const docs = getAllFilesInProjectSync(path);
+
+      docs.forEach((doc) => {
+        this.validate(doc);
+      });
+    }
   }
 
   public async validate(document: TextDocument) {

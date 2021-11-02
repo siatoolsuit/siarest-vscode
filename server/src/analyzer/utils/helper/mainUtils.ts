@@ -1,4 +1,4 @@
-import { Diagnostic, DiagnosticSeverity, _Connection } from 'vscode-languageserver';
+import { Connection, Diagnostic, DiagnosticSeverity, _Connection } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Endpoint } from '../../config';
 import { EndpointExpression } from '../../types';
@@ -8,9 +8,9 @@ import { EndpointExpression } from '../../types';
  * @param connection
  * @param message
  */
-export const sendNotification = (connection: _Connection, message: any) => {
+export const sendNotification = (connection: Connection, message: any) => {
   // TODO Won't fix atm does not do anything atm
-  // connection.sendNotification(message);
+  connection.sendNotification(message);
 };
 
 /**

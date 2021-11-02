@@ -1,10 +1,11 @@
 import { DocumentUri } from 'vscode-languageserver';
 import { tmpdir } from 'os';
-import { unlink } from 'fs';
+import { readdirSync, readFileSync, unlink } from 'fs';
 import { writeFile } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createHash } from 'crypto';
 import { error } from 'console';
+import { sync } from 'fast-glob';
 
 export interface IFile {
   fileName: string;
@@ -152,4 +153,20 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   res.tempFileName = `${tempFileName}`;
   res.tempFileUri = `${tmpdir()}${pathSeperator}${res.tempFileName}`;
   return res;
+}
+
+export function getAllFilesInProjectSync(path: string) {
+  if (path.startsWith('file://')) {
+    path = path.substring(7);
+  }
+
+  const fastGlob = sync(`${path}/**/*.ts`, { absolute: true, onlyFiles: true, ignore: ['**/node_modules/**', '**/build/**'] });
+
+  const textDocs: TextDocument[] = [];
+  fastGlob.forEach((uri) => {
+    const content = readFileSync(uri).toString();
+    textDocs.push(TextDocument.create(uri, 'typescript', 1, content || ''));
+  });
+
+  return textDocs;
 }
