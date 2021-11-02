@@ -228,6 +228,7 @@ function extractExpressStatement(statement: Statement, expressVarName: String, s
           inlineFunction: inlineFunction,
           start: start,
           end: end,
+          expressEndpoint: true,
         };
       }
     }

@@ -19,6 +19,7 @@ export interface IResult {
 }
 
 export interface EndpointExpression extends ClientExpression {
+  readonly expressEndpoint: boolean;
   readonly inlineFunction: ArrowFunction;
 }
 

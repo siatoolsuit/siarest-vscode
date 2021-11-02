@@ -41,6 +41,7 @@ export class SiarcController {
     if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
       if (this.allowValidation()) {
         if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
+          this.siarcService.setCurrentConfiguration(hoverParams.textDocument.uri);
           return this.siarcService.getInfo(hoverParams);
         }
       }
@@ -50,7 +51,7 @@ export class SiarcController {
 
   private async checkForValidation(document: TextDocument): Promise<void> {
     // TODO get the right config
-    this.siarcService.setCurrentConfiguration(document);
+    this.siarcService.setCurrentConfiguration(document.uri);
     switch (document.languageId) {
       case TYPE_TYPESCRIPT.LANGUAGE_ID: {
         getOrCreateTempFile(document)

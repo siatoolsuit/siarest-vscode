@@ -69,17 +69,17 @@ export class SiarcService {
     }
 
     this.autoCompletionService = new AutoCompletionService(this.currentServiceName, this.currenServiceConfig);
-    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.currenServiceConfig);
+    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.projectsByProjectNames, this.currenServiceConfig);
   }
 
   public init() {
     //TODO
     this.autoCompletionService = new AutoCompletionService(this.currentServiceName, this.currenServiceConfig);
-    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.currenServiceConfig);
+    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.projectsByProjectNames, this.currenServiceConfig);
   }
 
   public getInfo(hoverParams: HoverParams): Hover | undefined {
-    return this.hoverInfoService.getInfo(hoverParams, getEndPointsForFileName(hoverParams.textDocument.uri, this.avaibaleEndpoints));
+    return this.hoverInfoService.getInfo(hoverParams, this.avaibaleEndpoints);
   }
 
   public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
@@ -234,8 +234,8 @@ export class SiarcService {
     }
   }
 
-  public setCurrentConfiguration(document: TextDocument) {
-    let uri = document.uri;
+  public setCurrentConfiguration(documentUri: string) {
+    let uri = documentUri;
 
     if (uri.startsWith(VS_CODE_URI_BEGIN)) {
       uri = uri.substring(7);
@@ -243,7 +243,7 @@ export class SiarcService {
 
     if (this.currentProject) {
       if (uri.startsWith(this.currentProject.rootPath)) {
-        return;
+        // return;
       }
     }
 
