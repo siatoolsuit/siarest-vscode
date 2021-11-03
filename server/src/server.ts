@@ -34,6 +34,7 @@ documents.onDidOpen((event) => {
 
 documents.onDidSave((event) => {
   siarcController.validate(event.document);
+  
 });
 
 documents.onDidChangeContent((event) => {

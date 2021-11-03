@@ -2,7 +2,6 @@ import { Connection, Diagnostic, DiagnosticSeverity, _Connection } from 'vscode-
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { IProject } from '../..';
 import { Endpoint } from '../../config';
-import { IFile } from '../../siarc/handlers';
 import { EndpointExpression } from '../../types';
 
 /**

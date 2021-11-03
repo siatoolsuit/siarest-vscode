@@ -15,10 +15,10 @@ export class SiarcController {
   constructor(params: InitializeParams) {
     this.siarcService = new SiarcService(params);
 
-    this.test(params.initializationOptions.rootPath);
+    this.initFiles(params.initializationOptions.rootPath);
   }
 
-  public test(pathUri: string) {
+  public initFiles(pathUri: string) {
     const path = pathUri;
     if (path) {
       const docs = getAllFilesInProjectSync(path);
@@ -55,12 +55,6 @@ export class SiarcController {
       }
       default: {
       }
-    }
-  }
-
-  public generateCompletionItems() {
-    if (this.allowValidation()) {
-      this.siarcService.generateCompletionItems();
     }
   }
 

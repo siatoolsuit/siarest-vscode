@@ -2,7 +2,7 @@ import { CancellationToken, CompletionItem, CompletionParams, TextEdit } from 'v
 import { ServiceConfig, Endpoint } from '../../../../config';
 
 export class AutoCompletionService {
-  completionItems!: CompletionItem[];
+  completionItems: CompletionItem[] = [];
 
   constructor() {}
   /**
@@ -29,10 +29,10 @@ export class AutoCompletionService {
 
   public generateCompletionItems(currentConfig: ServiceConfig): CompletionItem[] {
     const completionItems: CompletionItem[] = [];
-
+    console.log('Generate completion ' + currentConfig.endpoints);
     currentConfig?.endpoints.forEach((endpoint) => {
       const completionItem = this.createEndpointCompletionItem(endpoint, currentConfig);
-      completionItems.push(completionItem);
+      this.completionItems.push(completionItem);
     });
 
     return completionItems;

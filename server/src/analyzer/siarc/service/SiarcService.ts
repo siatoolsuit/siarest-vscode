@@ -71,6 +71,8 @@ export class SiarcService {
   }
 
   public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
+    this.generateCompletionItems();
+
     const serviceConfigs: ServiceConfig[] = [];
     this.projectsByProjectNames.forEach((project, key) => {
       if (project.serviceConfig) {

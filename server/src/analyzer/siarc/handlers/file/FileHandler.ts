@@ -1,6 +1,6 @@
 import { DocumentUri } from 'vscode-languageserver';
 import { tmpdir } from 'os';
-import { readdirSync, readFileSync, unlink } from 'fs';
+import { readFileSync, unlink } from 'fs';
 import { writeFile } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createHash } from 'crypto';
