@@ -80,7 +80,10 @@ export class HoverInfoService {
             searchValue = searchValue.substring(1);
           }
 
-          if (matchedEnpoint?.path.includes(searchValue)) {
+          const test = matchedEnpoint?.path.replace(/[\'\`]/gi, '');
+          const splits = test.split(/[+\s]\s*/);
+
+          if (splits.includes(searchValue)) {
             return endPoint;
           }
         });
