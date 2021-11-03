@@ -28,7 +28,7 @@ export class SiarcService {
   constructor(params: InitializeParams) {
     this.jsonLanguageService = getLanguageService({ clientCapabilities: params.capabilities });
     const initOptions = params.initializationOptions;
-    // TODO
+
     if (initOptions) {
       if (initOptions.projects) {
         initOptions.projects.forEach((obj: any) => {
@@ -41,7 +41,7 @@ export class SiarcService {
             project.siarcTextDoc = obj.siarcTextDoc;
           }
 
-          console.debug('Project: ', project.rootPath);
+          // console.debug('Project: ', project.rootPath);
 
           if (project.siarcTextDoc) {
             const siarc = project.siarcTextDoc;
@@ -67,8 +67,7 @@ export class SiarcService {
   }
 
   public getInfo(hoverParams: HoverParams): Hover | undefined {
-    const project = getProject(this.projectsByProjectNames, hoverParams.textDocument.uri);
-    return this.hoverInfoService.getInfo(hoverParams, this.projectsByProjectNames, this.avaibaleEndpoints, project.serviceConfig);
+    return this.hoverInfoService.getInfo(hoverParams, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
   public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
@@ -82,7 +81,6 @@ export class SiarcService {
   }
 
   public generateCompletionItems() {
-    // TODO
     this.projectsByProjectNames.forEach((project, key) => {
       if (project.serviceConfig) {
         this.autoCompletionService.generateCompletionItems(project.serviceConfig);
@@ -147,7 +145,6 @@ export class SiarcService {
     const semanticErrors = validateConfigSemantic(document, jsonDoc);
 
     if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
-      // this.config = document.getText();
       if (project) {
         project.serviceConfig = JSON.parse(document.getText())[0];
       }
@@ -155,15 +152,14 @@ export class SiarcService {
       connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       documents.all().forEach(async (doc: TextDocument) => {
         if (doc.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
-          // TODO
-          // getOrCreateTempFile(document)
-          //   .then((file) => {
-          //     this.triggerTypescriptValidation(document, file);
-          //   })
-          //   .catch((reason) => {
-          //     sendNotification(connection, reason);
-          //     return;
-          //   });
+          getOrCreateTempFile(document)
+            .then((file) => {
+              // this.triggerTypescriptValidation(document, file);
+            })
+            .catch((reason) => {
+              sendNotification(connection, reason);
+              return;
+            });
         }
       });
     } else {
@@ -200,10 +196,6 @@ export class SiarcService {
   public loadPackageJson(json: string) {
     if (json) {
       const pack = JSON.parse(json);
-      // if (pack.name) {
-      //   this.currentServiceName = pack.name;
-      //   console.log('Currently using service: ' + this.currentServiceName);
-      // }
       this.detectFrameworkOrLibrary(pack);
     }
   }
@@ -215,25 +207,26 @@ export class SiarcService {
   private detectFrameworkOrLibrary(packJ: any): void {
     // Extract the list of all compile time dependencies and look for supported frameworks and libraries
     const deps = packJ.dependencies;
-    for (const dep of Object.keys(deps)) {
-      // if (dep.includes('express')) {
-      //   // Try to extract the configuration for this service by name
-      //   let currentServiceConfig;
-      //   this.projectsByProjectNames.forEach((project) => {
-      //     if (project.serviceConfig?.name === this.currentServiceName) {
-      //       this.currenServiceConfig = project.serviceConfig;
-      //     }
-      //   });
-      //   // currentServiceConfig = this.validConfig.find((config) => {
-      //   //   if (config.name === this.currentServiceName) return config;
-      //   // });
-      //   // this.currenServiceConfig = currentServiceConfig;
-      //   this.validateFrontend = false;
-      //   break;
-      // } else if (dep.includes('@angular/core')) {
-      //   this.validateFrontend = true;
-      // }
-    }
+    // TODO maybe need for further events
+    // for (const dep of Object.keys(deps)) {
+    //   if (dep.includes('express')) {
+    //     // Try to extract the configuration for this service by name
+    //     let currentServiceConfig;
+    //     this.projectsByProjectNames.forEach((project) => {
+    //       if (project.serviceConfig?.name === this.currentServiceName) {
+    //         this.currenServiceConfig = project.serviceConfig;
+    //       }
+    //     });
+    //     // currentServiceConfig = this.validConfig.find((config) => {
+    //     //   if (config.name === this.currentServiceName) return config;
+    //     // });
+    //     // this.currenServiceConfig = currentServiceConfig;
+    //     this.validateFrontend = false;
+    //     break;
+    //   } else if (dep.includes('@angular/core')) {
+    //     this.validateFrontend = true;
+    //   }
+    // }
   }
 
   public setCurrentConfiguration(documentUri: string) {

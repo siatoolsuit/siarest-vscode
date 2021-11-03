@@ -1,6 +1,5 @@
-import { ServiceConfig } from '../../../../config';
 import { Hover, HoverParams, MarkupContent, MarkupKind } from 'vscode-languageserver';
-import { isBetween } from '../../../../utils/helper';
+import { getProject, isBetween } from '../../../../utils/helper';
 import { ClientExpression, EndpointExpression } from '../../../../types';
 import { IProject } from '../../../..';
 
@@ -11,14 +10,13 @@ export class HoverInfoService {
     textDocumentPosition: HoverParams,
     projectsByName: Map<string, IProject>,
     avaibaleEndpointsPerFile: Map<string, ClientExpression[]>,
-    currentConfig?: ServiceConfig,
   ): Hover | undefined {
     if (!avaibaleEndpointsPerFile) return;
     if (avaibaleEndpointsPerFile.size < 1) return;
 
     // SIARC backend
 
-    let matchedEnpoint: EndpointExpression | ClientExpression | undefined = undefined;
+    let matchedEnpoint!: EndpointExpression | ClientExpression;
 
     avaibaleEndpointsPerFile.forEach((value, key) => {
       const found = value.find((endPointExpression) => {
@@ -34,16 +32,9 @@ export class HoverInfoService {
       }
     });
 
-    // matchedEnpoint = avaibaleEndpoints.find((endPointExpression) => {
-    //   if (
-    //     endPointExpression.start.line === textDocumentPosition.position.line &&
-    //     isBetween(endPointExpression.start.character, endPointExpression.end.character, textDocumentPosition.position.character)
-    //   ) {
-    //     return endPointExpression;
-    //   }
-    // });
-
     if (matchedEnpoint) {
+      const project = getProject(projectsByName, textDocumentPosition.textDocument.uri);
+      let currentConfig = project.serviceConfig;
       const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
         if (endPoint.path === matchedEnpoint?.path && endPoint.method === matchedEnpoint?.method) {
           return endPoint;
@@ -59,7 +50,7 @@ export class HoverInfoService {
               'Operation: ' + additionalInfo.method,
               '```typescript',
               '```',
-              currentConfig?.baseUri + 'matchedEnpoint.path',
+              currentConfig?.baseUri + matchedEnpoint.path,
             ].join('\n'),
           };
 
@@ -70,23 +61,22 @@ export class HoverInfoService {
           return hoverInfo;
         }
       } /*FRONTED*/ else {
-        // TODO find api path in backends!
-        // TODO markdown machen
-        // TODO profit?
-        let allEndpoints: ClientExpression[] = [];
-        projectsByName.forEach((project, key) => {
+        let allEndpoints: { clientExpression: ClientExpression; uri: string }[] = [];
+        projectsByName.forEach((project, projectKey) => {
           if (project.serviceConfig) {
             avaibaleEndpointsPerFile.forEach((endpoints, key) => {
               if (key.includes(project.rootPath)) {
-                allEndpoints = allEndpoints.concat(endpoints);
+                endpoints.forEach((endPoint) => {
+                  allEndpoints.push({ clientExpression: endPoint, uri: projectKey });
+                });
               }
             });
           }
         });
 
         const matchedBackendEndpoint = allEndpoints.find((endPoint) => {
-          let searchValue: string = endPoint.path;
-          if (endPoint.path.startsWith('/')) {
+          let searchValue: string = endPoint.clientExpression.path;
+          if (endPoint.clientExpression.path.startsWith('/')) {
             searchValue = searchValue.substring(1);
           }
 
@@ -96,14 +86,16 @@ export class HoverInfoService {
         });
 
         if (matchedBackendEndpoint) {
+          const project = projectsByName.get(matchedBackendEndpoint?.uri);
+          currentConfig = project?.serviceConfig;
           const markdown: MarkupContent = {
             kind: MarkupKind.Markdown,
             value: [
               '### Backend ' + currentConfig?.name,
-              'Operation: ' + matchedBackendEndpoint.method,
+              'Operation: ' + matchedBackendEndpoint.clientExpression.method,
               '```typescript',
               '```',
-              currentConfig?.baseUri + matchedBackendEndpoint.path,
+              currentConfig?.baseUri + matchedBackendEndpoint.clientExpression.path,
             ].join('\n'),
           };
 
