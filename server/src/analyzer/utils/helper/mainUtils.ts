@@ -1,6 +1,8 @@
 import { Connection, Diagnostic, DiagnosticSeverity, _Connection } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { IProject } from '../..';
 import { Endpoint } from '../../config';
+import { IFile } from '../../siarc/handlers';
 import { EndpointExpression } from '../../types';
 
 /**
@@ -53,4 +55,15 @@ export const createDiagnostic = (
 export const getEndPointsForFileName = (fileName: string, map: Map<any, any>): EndpointExpression[] | undefined => {
   // fileName = fileName.substring(fileName.lastIndexOf('/') + 1, fileName.length);
   return map.get(fileName);
+};
+
+export const getProject = (projectsByProjectNames: Map<string, IProject>, fileUri: string): IProject => {
+  let project!: IProject;
+  projectsByProjectNames.forEach((value, key) => {
+    if (fileUri.includes(key)) {
+      project = value;
+    }
+  });
+
+  return project;
 };

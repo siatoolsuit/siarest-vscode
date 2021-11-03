@@ -5,9 +5,14 @@ import { ClientExpression, EndpointExpression } from '../../../../types';
 import { IProject } from '../../../..';
 
 export class HoverInfoService {
-  constructor(protected currentServiceName: string, protected projectsByName: Map<string, IProject>, protected currentConfig?: ServiceConfig) {}
+  constructor() {}
 
-  getInfo(textDocumentPosition: HoverParams, avaibaleEndpointsPerFile?: Map<string, ClientExpression[]>): Hover | undefined {
+  getInfo(
+    textDocumentPosition: HoverParams,
+    projectsByName: Map<string, IProject>,
+    avaibaleEndpointsPerFile: Map<string, ClientExpression[]>,
+    currentConfig?: ServiceConfig,
+  ): Hover | undefined {
     if (!avaibaleEndpointsPerFile) return;
     if (avaibaleEndpointsPerFile.size < 1) return;
 
@@ -39,22 +44,22 @@ export class HoverInfoService {
     // });
 
     if (matchedEnpoint) {
-      const additionalInfo = this.currentConfig?.endpoints.find((endPoint) => {
+      const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
         if (endPoint.path === matchedEnpoint?.path && endPoint.method === matchedEnpoint?.method) {
           return endPoint;
         }
       });
 
       if (additionalInfo) {
-        if (this.currentConfig) {
+        if (currentConfig) {
           const markdown: MarkupContent = {
             kind: MarkupKind.Markdown,
             value: [
-              '### Service ' + this.currentConfig?.name,
+              '### Service ' + currentConfig?.name,
               'Operation: ' + additionalInfo.method,
               '```typescript',
               '```',
-              this.currentConfig?.baseUri + 'matchedEnpoint.path',
+              currentConfig?.baseUri + 'matchedEnpoint.path',
             ].join('\n'),
           };
 
@@ -69,7 +74,7 @@ export class HoverInfoService {
         // TODO markdown machen
         // TODO profit?
         let allEndpoints: ClientExpression[] = [];
-        this.projectsByName.forEach((project, key) => {
+        projectsByName.forEach((project, key) => {
           if (project.serviceConfig) {
             avaibaleEndpointsPerFile.forEach((endpoints, key) => {
               if (key.includes(project.rootPath)) {
@@ -94,11 +99,11 @@ export class HoverInfoService {
           const markdown: MarkupContent = {
             kind: MarkupKind.Markdown,
             value: [
-              '### Backend ' + this.currentConfig?.name,
+              '### Backend ' + currentConfig?.name,
               'Operation: ' + matchedBackendEndpoint.method,
               '```typescript',
               '```',
-              this.currentConfig?.baseUri + matchedBackendEndpoint.path,
+              currentConfig?.baseUri + matchedBackendEndpoint.path,
             ].join('\n'),
           };
 

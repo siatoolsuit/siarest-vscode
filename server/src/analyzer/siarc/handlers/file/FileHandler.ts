@@ -160,12 +160,18 @@ export function getAllFilesInProjectSync(path: string) {
     path = path.substring(7);
   }
 
-  const fastGlob = sync(`${path}/**/*.ts`, { absolute: true, onlyFiles: true, ignore: ['**/node_modules/**', '**/build/**'] });
+  const allTypescriptFiles = sync(`${path}/**/*.ts`, { absolute: true, onlyFiles: true, ignore: ['**/node_modules/**', '**/build/**'] });
+
+  allTypescriptFiles.sort((a, b) => {
+    if (a > b) return 1;
+    if (a < b) return -1;
+    return 0;
+  });
 
   const textDocs: TextDocument[] = [];
-  fastGlob.forEach((uri) => {
+  allTypescriptFiles.forEach((uri) => {
     const content = readFileSync(uri).toString();
-    textDocs.push(TextDocument.create(uri, 'typescript', 1, content || ''));
+    textDocs.push(TextDocument.create(`file://${uri}`, 'typescript', 1, content || ''));
   });
 
   return textDocs;

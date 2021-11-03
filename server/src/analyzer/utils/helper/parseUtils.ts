@@ -118,10 +118,12 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
       }
     } else if (importClause.namedBindings) {
       const imports = importClause.namedBindings as NamedImports;
-
-      for (const element of imports.elements) {
-        if (element.name.escapedText === expressImportByName.get('Router')) {
-          return importDecl;
+      const elements = imports.elements;
+      if (imports.elements && imports.elements?.length > 0) {
+        for (const element of elements) {
+          if (element.name.escapedText === expressImportByName.get('Router')) {
+            return importDecl;
+          }
         }
       }
     }
@@ -139,9 +141,11 @@ export const extractHttpClientImport = (statement: Statement): ImportDeclaration
     } else if (importClause.namedBindings) {
       const imports = importClause.namedBindings as NamedImports;
       const elements = imports.elements;
-      for (const element of elements) {
-        if (element.name.escapedText === httpLibsByName.get('HttpClient')) {
-          return importDecl;
+      if (imports.elements && imports.elements?.length > 0) {
+        for (const element of elements) {
+          if (element.name.escapedText === httpLibsByName.get('HttpClient')) {
+            return importDecl;
+          }
         }
       }
     }

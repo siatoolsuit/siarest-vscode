@@ -2,28 +2,21 @@ import { CancellationToken, CompletionItem, CompletionParams, TextEdit } from 'v
 import { ServiceConfig, Endpoint } from '../../../../config';
 
 export class AutoCompletionService {
-  completionItems: CompletionItem[];
+  completionItems!: CompletionItem[];
 
-  constructor(protected currentServiceName: string, protected currentConfig?: ServiceConfig) {
-    this.completionItems = this.generateCompletionItems();
-  }
-
-  set config(newConfig: ServiceConfig | undefined) {
-    this.currentConfig = newConfig;
-  }
-
-  get serviceName(): string {
-    return this.currentServiceName;
-  }
+  constructor() {}
   /**
    * provideCompletionItems
    */
-  public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
+  public provideCompletionItems(params: CompletionParams, token: CancellationToken, currentConfigs: ServiceConfig[]): CompletionItem[] {
     this.completionItems.forEach((completionItem) => {
-      let endpoint = this.currentConfig?.endpoints.find((endpoint) => {
-        if (endpoint.path === completionItem.filterText) {
-          return endpoint;
-        }
+      let endpoint: Endpoint | undefined;
+      currentConfigs.forEach((serviceConfig) => {
+        endpoint = serviceConfig?.endpoints.find((endpoint) => {
+          if (endpoint.path === completionItem.filterText) {
+            return endpoint;
+          }
+        });
       });
 
       if (endpoint) {
@@ -34,18 +27,18 @@ export class AutoCompletionService {
     return this.completionItems;
   }
 
-  public generateCompletionItems(): CompletionItem[] {
+  public generateCompletionItems(currentConfig: ServiceConfig): CompletionItem[] {
     const completionItems: CompletionItem[] = [];
 
-    this.currentConfig?.endpoints.forEach((endpoint) => {
-      const completionItem = this.createEndpointCompletionItem(endpoint);
+    currentConfig?.endpoints.forEach((endpoint) => {
+      const completionItem = this.createEndpointCompletionItem(endpoint, currentConfig);
       completionItems.push(completionItem);
     });
 
     return completionItems;
   }
 
-  private createEndpointCompletionItem(endpoint: Endpoint): CompletionItem {
+  private createEndpointCompletionItem(endpoint: Endpoint, currentConfig: ServiceConfig): CompletionItem {
     const label: string = endpoint.path.toUpperCase();
 
     let completionItem = CompletionItem.create(label);
@@ -53,7 +46,7 @@ export class AutoCompletionService {
     completionItem.detail = 'string';
     completionItem.documentation = {
       kind: 'markdown',
-      value: ['## Service', `${this.currentConfig?.name}`, `${endpoint.path}`, '```typescript', `${this.currentConfig?.baseUri}`, '```'].join('\n'),
+      value: ['## Service', `${currentConfig?.name}`, `${endpoint.path}`, '```typescript', `${currentConfig?.baseUri}`, '```'].join('\n'),
     };
     completionItem.filterText = endpoint.path;
 

@@ -15,7 +15,7 @@ export class SiarcController {
   constructor(params: InitializeParams) {
     this.siarcService = new SiarcService(params);
 
-    // this.test(params.initializationOptions.rootPath);
+    this.test(params.initializationOptions.rootPath);
   }
 
   public test(pathUri: string) {
@@ -24,14 +24,37 @@ export class SiarcController {
       const docs = getAllFilesInProjectSync(path);
 
       docs.forEach((doc) => {
-        this.validate(doc);
+        this.checkForValidation(doc, true);
       });
     }
   }
 
-  public async validate(document: TextDocument) {
+  public validate(document: TextDocument) {
     if (this.allowValidation()) {
       this.checkForValidation(document);
+    }
+  }
+
+  private checkForValidation(document: TextDocument, indexing: boolean = false) {
+    this.siarcService.setCurrentConfiguration(document.uri);
+    switch (document.languageId) {
+      case TYPE_TYPESCRIPT.LANGUAGE_ID: {
+        getOrCreateTempFile(document)
+          .then((file) => {
+            this.siarcService.triggerTypescriptValidation(document, file);
+          })
+          .catch((reason) => {
+            console.log(reason);
+            sendNotification(connection, reason);
+          });
+        break;
+      }
+      case TYPE_JSON.LANGUAGE_ID: {
+        this.validateJson(document);
+        break;
+      }
+      default: {
+      }
     }
   }
 
@@ -60,32 +83,6 @@ export class SiarcController {
       }
     }
     return undefined;
-  }
-
-  private async checkForValidation(document: TextDocument): Promise<void> {
-    // TODO get the right config
-    this.siarcService.setCurrentConfiguration(document.uri);
-    switch (document.languageId) {
-      case TYPE_TYPESCRIPT.LANGUAGE_ID: {
-        getOrCreateTempFile(document)
-          .then((file) => {
-            this.siarcService.triggerTypescriptValidation(document, file);
-          })
-          .catch((reason) => {
-            console.log(reason);
-            sendNotification(connection, reason);
-            return;
-          });
-        break;
-      }
-      case TYPE_JSON.LANGUAGE_ID: {
-        this.validateJson(document);
-        break;
-      }
-      default: {
-        return;
-      }
-    }
   }
 
   private validateJson(document: TextDocument) {

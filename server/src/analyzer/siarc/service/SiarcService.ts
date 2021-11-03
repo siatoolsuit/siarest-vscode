@@ -13,16 +13,10 @@ import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, VS_CODE_URI_BEGIN } from '../../utils';
-import { createDiagnostic, getEndPointsForFileName, sendNotification } from '../../utils/helper';
+import { createDiagnostic, getEndPointsForFileName, getProject, sendNotification } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
 
 export class SiarcService {
-  public currentServiceName!: string;
-  public currenServiceConfig: ServiceConfig | undefined = undefined;
-  public currentProject: IProject | undefined = undefined;
-
-  private validateFrontend: boolean = false;
-
   private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
 
   private avaibaleEndpoints: Map<string, ClientExpression[]> = new Map();
@@ -68,27 +62,32 @@ export class SiarcService {
       }
     }
 
-    this.autoCompletionService = new AutoCompletionService(this.currentServiceName, this.currenServiceConfig);
-    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.projectsByProjectNames, this.currenServiceConfig);
-  }
-
-  public init() {
-    //TODO
-    this.autoCompletionService = new AutoCompletionService(this.currentServiceName, this.currenServiceConfig);
-    this.hoverInfoService = new HoverInfoService(this.currentServiceName, this.projectsByProjectNames, this.currenServiceConfig);
+    this.autoCompletionService = new AutoCompletionService();
+    this.hoverInfoService = new HoverInfoService();
   }
 
   public getInfo(hoverParams: HoverParams): Hover | undefined {
-    return this.hoverInfoService.getInfo(hoverParams, this.avaibaleEndpoints);
+    const project = getProject(this.projectsByProjectNames, hoverParams.textDocument.uri);
+    return this.hoverInfoService.getInfo(hoverParams, this.projectsByProjectNames, this.avaibaleEndpoints, project.serviceConfig);
   }
 
   public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
-    return this.autoCompletionService.provideCompletionItems(params, token);
+    const serviceConfigs: ServiceConfig[] = [];
+    this.projectsByProjectNames.forEach((project, key) => {
+      if (project.serviceConfig) {
+        serviceConfigs.push(project.serviceConfig);
+      }
+    });
+    return this.autoCompletionService.provideCompletionItems(params, token, serviceConfigs);
   }
 
   public generateCompletionItems() {
     // TODO
-    throw new Error('Method not implemented.');
+    this.projectsByProjectNames.forEach((project, key) => {
+      if (project.serviceConfig) {
+        this.autoCompletionService.generateCompletionItems(project.serviceConfig);
+      }
+    });
   }
 
   /**
@@ -98,17 +97,23 @@ export class SiarcService {
    */
   public analyzeEndpoints(file: IFile): SemanticError[] {
     if (file.tempFileUri) {
-      const results = analyze(file.tempFileUri, this.currentServiceName, this.currenServiceConfig, this.validateFrontend);
+      const project = getProject(this.projectsByProjectNames, file.fileUri);
 
-      if (results.endPointsAvaiable) {
-        this.avaibaleEndpoints.set(file.fileUri, results.endPointsAvaiable);
+      if (project) {
+        // const results = analyze(file.tempFileUri, this.currentServiceName, this.currenServiceConfig, this.validateFrontend);
+        const results = analyze(file.tempFileUri, project.serviceConfig?.name || '', project.serviceConfig, project.serviceConfig ? false : true);
+
+        if (results.endPointsAvaiable) {
+          console.debug('Found endpoints in file: ' + file.fileUri, results.endPointsAvaiable);
+          this.avaibaleEndpoints.set(file.fileUri, results.endPointsAvaiable);
+        }
+
+        if (results.semanticErrors) {
+          return results.semanticErrors;
+        }
       }
 
-      if (results.semanticErrors) {
-        return results.semanticErrors;
-      } else {
-        return [];
-      }
+      return [];
     } else {
       return [];
     }
@@ -126,7 +131,7 @@ export class SiarcService {
     this.cleanPendingValidations(document.uri);
     pendingValidations[document.uri] = setTimeout(async () => {
       delete pendingValidations[document.uri];
-      await this.validateConfig(document, this.currentProject);
+      await this.validateConfig(document, getProject(this.projectsByProjectNames, document.uri));
     }, validationDelay);
   }
 
@@ -150,21 +155,20 @@ export class SiarcService {
       connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       documents.all().forEach(async (doc: TextDocument) => {
         if (doc.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
-          getOrCreateTempFile(document)
-            .then((file) => {
-              this.triggerTypescriptValidation(document, file);
-            })
-            .catch((reason) => {
-              sendNotification(connection, reason);
-              return;
-            });
+          // TODO
+          // getOrCreateTempFile(document)
+          //   .then((file) => {
+          //     this.triggerTypescriptValidation(document, file);
+          //   })
+          //   .catch((reason) => {
+          //     sendNotification(connection, reason);
+          //     return;
+          //   });
         }
       });
     } else {
       connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
     }
-
-    this.init();
   }
 
   public triggerTypescriptValidation(document: TextDocument, file: IFile): void {
@@ -196,10 +200,10 @@ export class SiarcService {
   public loadPackageJson(json: string) {
     if (json) {
       const pack = JSON.parse(json);
-      if (pack.name) {
-        this.currentServiceName = pack.name;
-        console.log('Currently using service: ' + this.currentServiceName);
-      }
+      // if (pack.name) {
+      //   this.currentServiceName = pack.name;
+      //   console.log('Currently using service: ' + this.currentServiceName);
+      // }
       this.detectFrameworkOrLibrary(pack);
     }
   }
@@ -212,25 +216,23 @@ export class SiarcService {
     // Extract the list of all compile time dependencies and look for supported frameworks and libraries
     const deps = packJ.dependencies;
     for (const dep of Object.keys(deps)) {
-      if (dep.includes('express')) {
-        // Try to extract the configuration for this service by name
-        let currentServiceConfig;
-        this.projectsByProjectNames.forEach((project) => {
-          if (project.serviceConfig?.name === this.currentServiceName) {
-            this.currenServiceConfig = project.serviceConfig;
-          }
-        });
-
-        // currentServiceConfig = this.validConfig.find((config) => {
-        //   if (config.name === this.currentServiceName) return config;
-        // });
-
-        // this.currenServiceConfig = currentServiceConfig;
-        this.validateFrontend = false;
-        break;
-      } else if (dep.includes('@angular/core')) {
-        this.validateFrontend = true;
-      }
+      // if (dep.includes('express')) {
+      //   // Try to extract the configuration for this service by name
+      //   let currentServiceConfig;
+      //   this.projectsByProjectNames.forEach((project) => {
+      //     if (project.serviceConfig?.name === this.currentServiceName) {
+      //       this.currenServiceConfig = project.serviceConfig;
+      //     }
+      //   });
+      //   // currentServiceConfig = this.validConfig.find((config) => {
+      //   //   if (config.name === this.currentServiceName) return config;
+      //   // });
+      //   // this.currenServiceConfig = currentServiceConfig;
+      //   this.validateFrontend = false;
+      //   break;
+      // } else if (dep.includes('@angular/core')) {
+      //   this.validateFrontend = true;
+      // }
     }
   }
 
@@ -241,32 +243,14 @@ export class SiarcService {
       uri = uri.substring(7);
     }
 
-    if (this.currentProject) {
-      if (uri.startsWith(this.currentProject.rootPath)) {
-        // return;
-      }
-    }
-
-    let foundKey: string | undefined = undefined;
-    this.projectsByProjectNames.forEach((project: IProject, key: string) => {
-      if (uri.startsWith(key)) {
-        foundKey = key;
-        console.debug('Found project! ', key, project);
-      }
-    });
-
-    let foundProject: IProject | undefined = undefined;
-    if (foundKey) {
-      foundProject = this.projectsByProjectNames.get(foundKey);
-    }
+    const foundProject = getProject(this.projectsByProjectNames, documentUri);
 
     if (foundProject) {
-      this.currentProject = foundProject;
       if (foundProject.siarcTextDoc) {
         const siarc = foundProject.siarcTextDoc;
         if (existsSync(siarc.uri)) {
           const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-          this.validateConfig(textDoc, this.currentProject);
+          this.validateConfig(textDoc, foundProject);
           console.debug('loaded siarc for Project: ' + foundProject.rootPath);
         }
       }

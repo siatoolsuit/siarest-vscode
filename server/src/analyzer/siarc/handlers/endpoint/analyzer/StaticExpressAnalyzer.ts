@@ -66,8 +66,6 @@ export function analyze(uri: string, serviceName: string, config: ServiceConfig 
   }
 
   if (validateFrontend) {
-    console.debug('TODO frontend validate');
-
     const { httpImport, endpointExpressions } = extractHttpClient(tsFile);
     const results: IResult = {};
     if (httpImport) {
