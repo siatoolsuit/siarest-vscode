@@ -34,11 +34,6 @@ documents.onDidOpen((event) => {
 
 documents.onDidSave((event) => {
   siarcController.validate(event.document);
-  connection.workspace.getWorkspaceFolders().then((val) => {
-    if (val) {
-      siarcController.test(val[0].uri);
-    }
-  });
 });
 
 documents.onDidChangeContent((event) => {
