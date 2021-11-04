@@ -15,11 +15,12 @@ import {
   TypeChecker,
   TypeFlags,
   VariableStatement,
+  BinaryExpression,
 } from 'typescript';
-import { expressImportByName } from '..';
-import { ExpressPathAndFunction } from '../..';
+import { expressImportByName, httpLibsByName, httpMethods } from '..';
+import { ClientExpression, ExpressPathAndFunction } from '../..';
 
-export const findBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
+export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
   let typedString = undefined;
   if (typeNode) {
     typeNode.forEachChild((child) => {
@@ -29,6 +30,18 @@ export const findBySyntaxKindInChildren = (typeNode: TypeNode | undefined, synta
     });
   }
   return typedString;
+};
+
+export const findSyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): any => {
+  let res = undefined;
+  if (typeNode) {
+    typeNode.forEachChild((child) => {
+      if (child.kind === syntaxKind) {
+        res = child;
+      }
+    });
+  }
+  return res;
 };
 
 /**
@@ -65,12 +78,26 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
   };
 
   for (const node of args) {
-    if (node.kind === SyntaxKind.StringLiteral && args.indexOf(node) === 0) {
-      result.path = (node as StringLiteral).text;
-      result.start = sourceFile.getLineAndCharacterOfPosition(node.getFullStart());
-      result.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
-    } else if (node.kind === SyntaxKind.ArrowFunction) {
-      result.inlineFunction = node;
+    // TODO parse with variables?? get(x) or get('x' + y)
+    switch (node.kind) {
+      case SyntaxKind.StringLiteral:
+        if (args.indexOf(node) === 0) {
+          result.path = (node as StringLiteral).text;
+          result.start = sourceFile.getLineAndCharacterOfPosition(node.getFullStart());
+          result.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
+        }
+        break;
+      case SyntaxKind.ArrowFunction:
+        result.inlineFunction = node;
+        break;
+
+      case SyntaxKind.BinaryExpression:
+        result.path = (node as BinaryExpression).getText();
+        result.start = sourceFile.getLineAndCharacterOfPosition(node.getFullStart());
+        result.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
+        break;
+      default:
+        break;
     }
   }
   return result;
@@ -91,10 +118,34 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
       }
     } else if (importClause.namedBindings) {
       const imports = importClause.namedBindings as NamedImports;
+      const elements = imports.elements;
+      if (imports.elements && imports.elements?.length > 0) {
+        for (const element of elements) {
+          if (element.name.escapedText === expressImportByName.get('Router')) {
+            return importDecl;
+          }
+        }
+      }
+    }
+  }
+};
 
-      for (const element of imports.elements) {
-        if (element.name.escapedText === 'Router') {
-          return importDecl;
+export const extractHttpClientImport = (statement: Statement): ImportDeclaration | undefined => {
+  const importDecl = statement as ImportDeclaration;
+  const importClause = importDecl.importClause;
+  if (importClause) {
+    if (importClause.name) {
+      if (importClause.name.escapedText === httpLibsByName.get('HttpClient')) {
+        return importDecl;
+      }
+    } else if (importClause.namedBindings) {
+      const imports = importClause.namedBindings as NamedImports;
+      const elements = imports.elements;
+      if (imports.elements && imports.elements?.length > 0) {
+        for (const element of elements) {
+          if (element.name.escapedText === httpLibsByName.get('HttpClient')) {
+            return importDecl;
+          }
         }
       }
     }
@@ -171,4 +222,23 @@ export const tryParseJSONString = (jsonObject: object) => {
   }
 
   return false;
+};
+
+export const getHttpClientExpression = (expr: Expression, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined => {
+  if (expr?.kind === SyntaxKind.CallExpression) {
+    const callExpr = expr as CallExpression;
+    if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+      const propAccExpr = callExpr.expression as PropertyAccessExpression;
+      const { start, end, path } = extractPathAndMethodImplementationFromArguments(callExpr.arguments, sourceFile);
+      if (propAccExpr.expression.getText().endsWith(httpClientVarName) && httpMethods.includes(propAccExpr.name.text)) {
+        return {
+          method: propAccExpr.name.getText().toUpperCase(),
+          start: start,
+          end: end,
+          expr: callExpr,
+          path: path,
+        };
+      }
+    }
+  }
 };

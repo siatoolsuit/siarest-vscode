@@ -1,4 +1,5 @@
 import { ArrowFunction, CallExpression, LineAndCharacter } from 'typescript';
+import { ServiceConfig } from './config';
 
 export interface SemanticError {
   position: { start: number; end: number };
@@ -14,14 +15,30 @@ export interface ExpressPathAndFunction {
 
 export interface IResult {
   semanticErrors?: SemanticError[];
-  endPointsAvaiable?: EndpointExpression[];
+  endPointsAvaiable?: ClientExpression[];
 }
 
-export interface EndpointExpression {
+export interface EndpointExpression extends ClientExpression {
+  readonly expressEndpoint: boolean;
+  readonly inlineFunction: ArrowFunction;
+}
+
+export interface ClientExpression {
   readonly expr: CallExpression;
   readonly method: string;
   readonly path: string;
   readonly start: LineAndCharacter;
   readonly end: LineAndCharacter;
-  readonly inlineFunction: ArrowFunction;
+}
+
+export interface IProject {
+  rootPath: string;
+  packageJson: string;
+  siarcTextDoc?: {
+    content: string;
+    languageId: string;
+    uri: string;
+    version: number;
+  };
+  serviceConfig?: ServiceConfig;
 }

@@ -32,6 +32,15 @@
         "format": "uri",
         "description": "The url of this service, e.g. https://myshop.com/api/customer or http://localhost:3000"
       },
+      "frontends": {
+        "type": "array",
+        "description": "The frontends that use this backend.",
+        "default": [],
+        "additionalItems": true,
+        "items": {
+          "anyOf": [{ "type": "string", "description": "Frontend projects name (package.json)", "default": "" }]
+        }
+      },
       "endpoints": {
         "type": "array",
         "description": "A list of endpoints of this service",

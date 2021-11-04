@@ -1,8 +1,11 @@
 import { DocumentUri } from 'vscode-languageserver';
 import { tmpdir } from 'os';
-import { unlink } from 'fs';
+import { readFileSync, unlink } from 'fs';
 import { writeFile } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { createHash } from 'crypto';
+import { error } from 'console';
+import { sync } from 'fast-glob';
 
 export interface IFile {
   fileName: string;
@@ -12,6 +15,7 @@ export interface IFile {
 }
 
 const SLASH = '/';
+const POINT = '.';
 
 /**
  * Map with Key fileUri
@@ -94,8 +98,10 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
           reject("Couldn't update temp file");
         });
     } else {
+      const splits = textDoc.uri.split('/');
+
       var file: IFile = {
-        fileName: res.tempFileName,
+        fileName: splits[splits.length - 1],
         fileUri: textDoc.uri,
         tempFileName: res.tempFileName,
         tempFileUri: res.tempFileUri,
@@ -131,7 +137,42 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   let pathSeperator = '/';
   if (process.platform === 'win32') pathSeperator = '\\';
 
-  res.tempFileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
+  const fileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
+  const split: string[] = fileName.split(POINT);
+
+  if (split.length < 1) {
+    throw error('Filename could not be generated');
+  }
+
+  const hash = createHash('sha256');
+  hash.update(uri);
+
+  split[split.length - 2] = `${split[split.length - 2]}_${hash.digest('hex')}`;
+  const tempFileName = split.join(POINT);
+
+  res.tempFileName = `${tempFileName}`;
   res.tempFileUri = `${tmpdir()}${pathSeperator}${res.tempFileName}`;
   return res;
+}
+
+export function getAllFilesInProjectSync(path: string) {
+  if (path.startsWith('file://')) {
+    path = path.substring(7);
+  }
+
+  const allTypescriptFiles = sync(`${path}/**/*.ts`, { absolute: true, onlyFiles: true, ignore: ['**/node_modules/**', '**/build/**'] });
+
+  allTypescriptFiles.sort((a, b) => {
+    if (a > b) return 1;
+    if (a < b) return -1;
+    return 0;
+  });
+
+  const textDocs: TextDocument[] = [];
+  allTypescriptFiles.forEach((uri) => {
+    const content = readFileSync(uri).toString();
+    textDocs.push(TextDocument.create(`file://${uri}`, 'typescript', 1, content || ''));
+  });
+
+  return textDocs;
 }

@@ -48,23 +48,58 @@ export async function activate(context: ExtensionContext): Promise<void> {
   });
   context.subscriptions.push(disposable);
 
-  // Try to load the package.json
-  let uri = path.join(workspace.workspaceFolders[0].uri.fsPath, 'package.json');
-  let packageJson: string;
-  try {
-    packageJson = fs.readFileSync(uri).toString();
-  } catch (error) {
-    packageJson = '';
-  }
+  const packageJsons = await (
+    await workspace.findFiles('**/package.json', '**​/node_modules/**')
+  ).filter((val) => !val.path.includes('node_modules'));
 
-  // Try to load the siarc.json
-  uri = path.join(workspace.workspaceFolders[0].uri.fsPath, '.siarc.json');
-  let siarc: string;
-  try {
-    siarc = fs.readFileSync(uri).toString();
-  } catch (error) {
-    siarc = '';
-  }
+  // Try to load the package.json
+
+  // Must be in root of a folder
+
+  const siarcFiles = await workspace.findFiles('**/.siarc.json', '**​/node_modules/**');
+
+  const projects = [];
+
+  packageJsons.forEach((file) => {
+    const lastIndexOf = file.path.lastIndexOf('/');
+    const path = file.path.slice(0, lastIndexOf + 1);
+
+    const siarcFile = siarcFiles.find((packageFile) => {
+      if (packageFile.path.startsWith(path) === true) {
+        return packageFile;
+      }
+    });
+
+    let siarc: string;
+    let packJson: string;
+
+    if (siarcFile) {
+      try {
+        siarc = fs.readFileSync(siarcFile.path).toString();
+      } catch (error) {
+        siarc = undefined;
+      }
+    }
+
+    try {
+      packJson = fs.readFileSync(file.path).toString();
+    } catch (error) {
+      packJson = undefined;
+    }
+
+    let siaConf = undefined;
+    if (siarc) {
+      siaConf = { uri: file.path, languageId: 'json', version: 1, content: siarc };
+    }
+
+    const projectConfig = {
+      siarcTextDoc: siaConf,
+      packageJson: packJson || undefined,
+      rootPath: path,
+    };
+
+    projects.push(projectConfig);
+  });
 
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
   const serverOptions: ServerOptions = {
@@ -83,8 +118,8 @@ export async function activate(context: ExtensionContext): Promise<void> {
     ],
     // Send the initialized package.json and .siarc.json, only if they exists
     initializationOptions: {
-      siarcTextDoc: { uri, languageId: 'json', version: 1, content: siarc } || '',
-      packageJson: packageJson || '',
+      projects: projects,
+      rootPath: workspace.workspaceFolders[0].uri.toString(),
     },
   };
 
