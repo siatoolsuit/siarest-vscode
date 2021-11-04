@@ -1,5 +1,5 @@
 import { Hover, HoverParams, MarkupContent, MarkupKind } from 'vscode-languageserver';
-import { getProject, isBetween } from '../../../../utils/helper';
+import { getMatchedEndpoint, getProject, isBetween } from '../../../../utils/helper';
 import { ClientExpression, EndpointExpression } from '../../../../types';
 import { IProject } from '../../../..';
 
@@ -7,7 +7,7 @@ export class HoverInfoService {
   constructor() {}
 
   getInfo(
-    textDocumentPosition: HoverParams,
+    hoverParams: HoverParams,
     projectsByName: Map<string, IProject>,
     avaibaleEndpointsPerFile: Map<string, ClientExpression[]>,
   ): Hover | undefined {
@@ -16,24 +16,13 @@ export class HoverInfoService {
 
     // SIARC backend
 
-    let matchedEnpoint!: EndpointExpression | ClientExpression;
+    const position = hoverParams.position;
+    const uri = hoverParams.textDocument.uri;
 
-    avaibaleEndpointsPerFile.forEach((value, key) => {
-      const found = value.find((endPointExpression) => {
-        if (
-          endPointExpression.start.line === textDocumentPosition.position.line &&
-          isBetween(endPointExpression.start.character, endPointExpression.end.character, textDocumentPosition.position.character)
-        ) {
-          return endPointExpression;
-        }
-      });
-      if (found) {
-        matchedEnpoint = found;
-      }
-    });
+    const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint) {
-      const project = getProject(projectsByName, textDocumentPosition.textDocument.uri);
+      const project = getProject(projectsByName, hoverParams.textDocument.uri);
       let currentConfig = project.serviceConfig;
       const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
         if (endPoint.path === matchedEnpoint?.path && endPoint.method === matchedEnpoint?.method) {
@@ -80,7 +69,7 @@ export class HoverInfoService {
             searchValue = searchValue.substring(1);
           }
 
-          const test = matchedEnpoint?.path.replace(/[\'\`]/gi, '');
+          const test = matchedEnpoint?.path.replace(/[\'\`\/]/gi, '');
           const splits = test.split(/[+\s]\s*/);
 
           if (splits.includes(searchValue)) {

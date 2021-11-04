@@ -1,8 +1,8 @@
-import { Connection, Diagnostic, DiagnosticSeverity, _Connection } from 'vscode-languageserver';
+import { Connection, Diagnostic, DiagnosticSeverity, Position, Range, _Connection } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { IProject } from '../..';
 import { Endpoint } from '../../config';
-import { EndpointExpression } from '../../types';
+import { ClientExpression, EndpointExpression } from '../../types';
 
 /**
  * Send a notification to vscode
@@ -65,4 +65,36 @@ export const getProject = (projectsByProjectNames: Map<string, IProject>, fileUr
   });
 
   return project;
+};
+
+export const getMatchedEndpoint = (avaibaleEndpointsPerFile: Map<string, ClientExpression[]>, position: Position, uri: string) => {
+  let matchedEnpoint!: EndpointExpression | ClientExpression;
+  let matchedEndpointUri: string | undefined;
+
+  avaibaleEndpointsPerFile.forEach((value, fileUri) => {
+    const found = value.find((endPointExpression) => {
+      if (
+        endPointExpression.start.line === position.line &&
+        isBetween(endPointExpression.start.character, endPointExpression.end.character, position.character) &&
+        fileUri === uri
+      ) {
+        return endPointExpression;
+      }
+    });
+
+    if (found) {
+      matchedEnpoint = found;
+      matchedEndpointUri = fileUri;
+    }
+  });
+  return { matchedEnpoint, matchedEndpointUri };
+};
+
+export const createRangeFromClienexpression = (clientExpression: ClientExpression) => {
+  const startLine = clientExpression.start.line;
+  const startChar = clientExpression.start.character;
+  const endLine = clientExpression.end.line;
+  const endChar = clientExpression.end.character;
+
+  return Range.create(startLine, startChar, endLine, endChar);
 };
