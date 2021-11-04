@@ -32,9 +32,10 @@ export class AutoCompletionService {
     console.log('Generate completion ' + currentConfig.endpoints);
     currentConfig?.endpoints.forEach((endpoint) => {
       const completionItem = this.createEndpointCompletionItem(endpoint, currentConfig);
-      this.completionItems.push(completionItem);
+      completionItems.push(completionItem);
     });
 
+    this.completionItems = completionItems;
     return completionItems;
   }
 
