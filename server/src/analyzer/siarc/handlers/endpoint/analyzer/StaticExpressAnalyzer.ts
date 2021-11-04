@@ -701,13 +701,11 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
 
           result.typedString = typedString;
           return result;
-          break;
         case SyntaxKind.PropertyAssignment:
           const propsAssignment = firstDecl as PropertyAssignment;
           const symbolRec = checker?.getSymbolAtLocation(propsAssignment.initializer);
           result = getTypeAsStringOfSymbol(symbolRec, checker);
           return result;
-          break;
         case SyntaxKind.PropertySignature:
           typeNode = (firstDecl as PropertySignature).type;
           typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
@@ -723,7 +721,6 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
           }
           result.typedString = typedString;
           return result;
-          break;
       }
     }
   }

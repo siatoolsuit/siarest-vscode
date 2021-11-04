@@ -8,6 +8,7 @@ import {
   CompletionParams,
   CompletionItem,
   Hover,
+  LocationLink,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';
@@ -34,7 +35,6 @@ documents.onDidOpen((event) => {
 
 documents.onDidSave((event) => {
   siarcController.validate(event.document);
-  
 });
 
 documents.onDidChangeContent((event) => {
@@ -66,8 +66,9 @@ connection.onDocumentLinkResolve((params, token) => {
   return null;
 });
 
-connection.onDefinition((params, token) => {
-  return null;
+connection.onDefinition((params, token): LocationLink[] => {
+  const locationLinks = siarcController.getDefintion(params, token);
+  return locationLinks;
 });
 
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {

@@ -15,6 +15,8 @@ import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, VS_CODE_URI_BEGIN } from '../../utils';
 import { createDiagnostic, getEndPointsForFileName, getProject, sendNotification } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
+import { DefinitionResolver } from '../handlers/endpoint/definitionResolver';
+import { DefinitionParams, LocationLink } from 'vscode-languageserver/node';
 
 export class SiarcService {
   private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
@@ -23,6 +25,7 @@ export class SiarcService {
 
   private autoCompletionService: AutoCompletionService;
   private hoverInfoService: HoverInfoService;
+  private definitionResolver: DefinitionResolver;
   private jsonLanguageService: LanguageService;
 
   constructor(params: InitializeParams) {
@@ -64,6 +67,7 @@ export class SiarcService {
 
     this.autoCompletionService = new AutoCompletionService();
     this.hoverInfoService = new HoverInfoService();
+    this.definitionResolver = new DefinitionResolver();
   }
 
   public getInfo(hoverParams: HoverParams): Hover | undefined {
@@ -88,6 +92,10 @@ export class SiarcService {
         this.autoCompletionService.generateCompletionItems(project.serviceConfig);
       }
     });
+  }
+
+  public getDefintions(params: DefinitionParams, token: CancellationToken): LocationLink[] {
+    return this.definitionResolver.resolve(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
   /**

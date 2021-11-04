@@ -1,4 +1,13 @@
-import { InitializeParams, CompletionItem, CancellationToken, CompletionParams, Hover, HoverParams } from 'vscode-languageserver';
+import {
+  InitializeParams,
+  CompletionItem,
+  CancellationToken,
+  CompletionParams,
+  Hover,
+  HoverParams,
+  DefinitionParams,
+  LocationLink,
+} from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { SiarcService } from '../service';
 import { connection, documents } from '../../../server';
@@ -77,6 +86,13 @@ export class SiarcController {
       }
     }
     return undefined;
+  }
+
+  public getDefintion(params: DefinitionParams, token: CancellationToken): LocationLink[] {
+    if (this.allowValidation()) {
+      return this.siarcService.getDefintions(params, token);
+    }
+    return [];
   }
 
   private validateJson(document: TextDocument) {
