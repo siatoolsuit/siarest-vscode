@@ -1,3 +1,4 @@
+import exp = require('constants');
 import {
   ArrowFunction,
   Block,
@@ -48,6 +49,7 @@ import {
   tryParseJSONObject,
   extractHttpClientImport,
   findSyntaxKindInChildren,
+  getHttpClientExpression,
 } from '../../../../utils/helper';
 
 /**
@@ -819,26 +821,26 @@ function extractPathFromMethods(methodDecl: MethodDeclaration, httpClientVarName
           break;
 
         case SyntaxKind.VariableStatement:
+          const variableStatement = stat as VariableStatement;
+          let clientExpression = undefined;
+          if (variableStatement.declarationList) {
+            variableStatement.declarationList.declarations.forEach((declaration: VariableDeclaration) => {
+              if (declaration.initializer?.kind === SyntaxKind.CallExpression) {
+                clientExpression = getHttpClientExpression(declaration.initializer, httpClientVarName, sourceFile);
+              }
+            });
+          }
+          if (clientExpression) {
+            return clientExpression;
+          }
           break;
 
         case SyntaxKind.ReturnStatement:
           const returnStatement = stat as ReturnStatement;
           const expr = returnStatement.expression;
-          if (expr?.kind === SyntaxKind.CallExpression) {
-            const callExpr = returnStatement.expression as CallExpression;
-            if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
-              const propAccExpr = callExpr.expression as PropertyAccessExpression;
-              const { start, end, path } = extractPathAndMethodImplementationFromArguments(callExpr.arguments, sourceFile);
-              if (propAccExpr.expression.getText().endsWith(httpClientVarName) && httpMethods.includes(propAccExpr.name.text)) {
-                return {
-                  method: propAccExpr.name.getText().toUpperCase(),
-                  start: start,
-                  end: end,
-                  expr: callExpr,
-                  path: path,
-                };
-              }
-            }
+          if (expr) {
+            const clientExpression = getHttpClientExpression(expr, httpClientVarName, sourceFile);
+            return clientExpression;
           }
           break;
       }

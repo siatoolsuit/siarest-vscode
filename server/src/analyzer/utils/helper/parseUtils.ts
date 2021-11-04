@@ -17,8 +17,8 @@ import {
   VariableStatement,
   BinaryExpression,
 } from 'typescript';
-import { expressImportByName, httpLibsByName } from '..';
-import { ExpressPathAndFunction } from '../..';
+import { expressImportByName, httpLibsByName, httpMethods } from '..';
+import { ClientExpression, ExpressPathAndFunction } from '../..';
 
 export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
   let typedString = undefined;
@@ -222,4 +222,23 @@ export const tryParseJSONString = (jsonObject: object) => {
   }
 
   return false;
+};
+
+export const getHttpClientExpression = (expr: Expression, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined => {
+  if (expr?.kind === SyntaxKind.CallExpression) {
+    const callExpr = expr as CallExpression;
+    if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
+      const propAccExpr = callExpr.expression as PropertyAccessExpression;
+      const { start, end, path } = extractPathAndMethodImplementationFromArguments(callExpr.arguments, sourceFile);
+      if (propAccExpr.expression.getText().endsWith(httpClientVarName) && httpMethods.includes(propAccExpr.name.text)) {
+        return {
+          method: propAccExpr.name.getText().toUpperCase(),
+          start: start,
+          end: end,
+          expr: callExpr,
+          path: path,
+        };
+      }
+    }
+  }
 };
