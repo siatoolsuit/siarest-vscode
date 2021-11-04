@@ -11,7 +11,7 @@ import { EndpointExpression } from '../../types';
  */
 export const sendNotification = (connection: Connection, message: any) => {
   // TODO Won't fix atm does not do anything atm
-  connection.sendNotification(message);
+  // connection.sendNotification(message);
 };
 
 /**

@@ -75,6 +75,7 @@ export class DefinitionResolver {
         const endChar = matchedBackendEndpoint.clientExpression.end.character;
 
         targetRange = Range.create(startLine, startChar, endLine, endChar);
+        // TODO whole function needs to be in targetSelection Range => StaticExpressAnalyzer
         targetSelectionRange = Range.create(startLine, startChar, endLine, endChar);
         targetUri = matchedBackendEndpoint.uri;
 

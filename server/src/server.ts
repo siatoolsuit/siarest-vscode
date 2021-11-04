@@ -9,6 +9,8 @@ import {
   CompletionItem,
   Hover,
   LocationLink,
+  ReferenceParams,
+  Location,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';
@@ -69,6 +71,11 @@ connection.onDocumentLinkResolve((params, token) => {
 connection.onDefinition((params, token): LocationLink[] => {
   const locationLinks = siarcController.getDefintion(params, token);
   return locationLinks;
+});
+
+// TODO alles wo backend im frontend genutzt wird soll hier zurück gegeben werden USAGES!
+connection.onReferences((params: ReferenceParams, token: CancellationToken): Location[] => {
+  return [];
 });
 
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {

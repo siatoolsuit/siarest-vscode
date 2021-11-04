@@ -3,7 +3,7 @@ import { Diagnostic, DiagnosticSeverity, getLanguageService, JSONSchema, Languag
 import { CancellationToken } from 'vscode-jsonrpc';
 import { CompletionItem, CompletionParams, Hover, HoverParams, InitializeParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { ClientExpression, EndpointExpression, IResult } from '../..';
+import { ClientExpression } from '../..';
 import { ServiceConfig, validateConfigSemantic } from '../../config';
 import { analyze } from '../handlers';
 import { AutoCompletionService } from '../handlers/endpoint/autocompletion/AutoCompletionService';
@@ -13,7 +13,7 @@ import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, VS_CODE_URI_BEGIN } from '../../utils';
-import { createDiagnostic, getEndPointsForFileName, getProject, sendNotification } from '../../utils/helper';
+import { createDiagnostic, getProject, sendNotification } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
 import { DefinitionResolver } from '../handlers/endpoint/definitionResolver';
 import { DefinitionParams, LocationLink } from 'vscode-languageserver/node';
