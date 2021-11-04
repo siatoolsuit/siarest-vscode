@@ -75,7 +75,8 @@ connection.onDefinition((params, token): LocationLink[] => {
 
 // TODO alles wo backend im frontend genutzt wird soll hier zurück gegeben werden USAGES!
 connection.onReferences((params: ReferenceParams, token: CancellationToken): Location[] => {
-  return [];
+  const locations = siarcController.getLocations(params, token);
+  return locations;
 });
 
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {

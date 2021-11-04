@@ -1,8 +1,8 @@
-import { CancellationToken, DefinitionParams, LocationLink, Range } from 'vscode-languageserver/node';
+import { CancellationToken, DefinitionParams, Location, LocationLink, Range, ReferenceParams } from 'vscode-languageserver/node';
 import { ClientExpression, EndpointExpression, IProject } from '../../../..';
 import { getProject, isBetween } from '../../../../utils/helper';
 
-export class DefinitionResolver {
+export class CodeLocationResolver {
   public resolve(
     params: DefinitionParams,
     token: CancellationToken,
@@ -94,5 +94,89 @@ export class DefinitionResolver {
     }
 
     return locationLinks;
+  }
+
+  resolveReferences(
+    params: ReferenceParams,
+    token: CancellationToken,
+    projectsByProjectNames: Map<string, IProject>,
+    avaibaleEndpointsPerFile: Map<string, ClientExpression[]>,
+  ): Location[] {
+    if (token.isCancellationRequested) {
+      return [];
+    }
+
+    const position = params.position;
+    const uri = params.textDocument;
+    const locations: Location[] = [];
+
+    // Frontends
+    const projectsWithoutConfig: IProject[] = [];
+    projectsByProjectNames.forEach((project, projectRoot) => {
+      if (!project.serviceConfig) {
+        projectsWithoutConfig.push(project);
+      }
+    });
+
+    let matchedEnpoint!: EndpointExpression | ClientExpression;
+    let matchedEndpointUri: string | undefined;
+
+    avaibaleEndpointsPerFile.forEach((value, fileUri) => {
+      const found = value.find((endPointExpression) => {
+        if (
+          endPointExpression.start.line === position.line &&
+          isBetween(endPointExpression.start.character, endPointExpression.end.character, position.character)
+        ) {
+          return endPointExpression;
+        }
+      });
+
+      if (found) {
+        matchedEnpoint = found;
+        matchedEndpointUri = fileUri;
+      }
+    });
+
+    if (matchedEnpoint && matchedEndpointUri) {
+      const frontendUsages: { clientExpression: ClientExpression; uri: string }[] = [];
+
+      projectsWithoutConfig.forEach((project) => {
+        avaibaleEndpointsPerFile.forEach((endpoints, key) => {
+          if (key.includes(project.rootPath)) {
+            endpoints.forEach((endPoint) => {
+              frontendUsages.push({ clientExpression: endPoint, uri: key });
+            });
+          }
+        });
+      });
+
+      console.log(frontendUsages);
+
+      const matchedFrontendUsage = frontendUsages.find((endPoint) => {
+        let searchValue: string = matchedEnpoint?.path;
+        if (searchValue.startsWith('/')) {
+          searchValue = searchValue.substring(1);
+        }
+
+        const test = endPoint.clientExpression.path.replace(/[\'\`]/gi, '');
+        const splits = test.split(/[+\s]\s*/);
+
+        if (splits.includes(searchValue)) {
+          return endPoint;
+        }
+      });
+
+      if (matchedFrontendUsage) {
+        const startLine = matchedFrontendUsage.clientExpression.start.line;
+        const startChar = matchedFrontendUsage.clientExpression.start.character;
+        const endLine = matchedFrontendUsage.clientExpression.end.line;
+        const endChar = matchedFrontendUsage.clientExpression.end.character;
+
+        const range: Range = Range.create(startLine, startChar, endLine, endChar);
+        const location: Location = Location.create(matchedFrontendUsage?.uri, range);
+        locations.push(location);
+      }
+    }
+    return locations;
   }
 }

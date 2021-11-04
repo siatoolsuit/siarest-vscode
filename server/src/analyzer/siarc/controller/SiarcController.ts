@@ -7,7 +7,9 @@ import {
   HoverParams,
   DefinitionParams,
   LocationLink,
-} from 'vscode-languageserver';
+  ReferenceParams,
+  Location,
+} from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { SiarcService } from '../service';
 import { connection, documents } from '../../../server';
@@ -91,6 +93,13 @@ export class SiarcController {
   public getDefintion(params: DefinitionParams, token: CancellationToken): LocationLink[] {
     if (this.allowValidation()) {
       return this.siarcService.getDefintions(params, token);
+    }
+    return [];
+  }
+
+  public getLocations(params: ReferenceParams, token: CancellationToken): Location[] {
+    if (this.allowValidation()) {
+      return this.siarcService.getLocations(params, token);
     }
     return [];
   }

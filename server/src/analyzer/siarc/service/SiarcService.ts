@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import { Diagnostic, DiagnosticSeverity, getLanguageService, JSONSchema, LanguageService } from 'vscode-json-languageservice';
 import { CancellationToken } from 'vscode-jsonrpc';
-import { CompletionItem, CompletionParams, Hover, HoverParams, InitializeParams } from 'vscode-languageserver-protocol';
+import { CompletionItem, CompletionParams, Hover, HoverParams, InitializeParams, ReferenceParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ClientExpression } from '../..';
 import { ServiceConfig, validateConfigSemantic } from '../../config';
@@ -15,8 +15,8 @@ import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, VS_CODE_URI_BEGIN } from '../../utils';
 import { createDiagnostic, getProject, sendNotification } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
-import { DefinitionResolver } from '../handlers/endpoint/definitionResolver';
-import { DefinitionParams, LocationLink } from 'vscode-languageserver/node';
+import { CodeLocationResolver } from '../handlers/endpoint/codeLocationResolver';
+import { DefinitionParams, Location, LocationLink } from 'vscode-languageserver/node';
 
 export class SiarcService {
   private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
@@ -25,7 +25,7 @@ export class SiarcService {
 
   private autoCompletionService: AutoCompletionService;
   private hoverInfoService: HoverInfoService;
-  private definitionResolver: DefinitionResolver;
+  private codeLocationResolver: CodeLocationResolver;
   private jsonLanguageService: LanguageService;
 
   constructor(params: InitializeParams) {
@@ -67,7 +67,7 @@ export class SiarcService {
 
     this.autoCompletionService = new AutoCompletionService();
     this.hoverInfoService = new HoverInfoService();
-    this.definitionResolver = new DefinitionResolver();
+    this.codeLocationResolver = new CodeLocationResolver();
   }
 
   public getInfo(hoverParams: HoverParams): Hover | undefined {
@@ -95,7 +95,11 @@ export class SiarcService {
   }
 
   public getDefintions(params: DefinitionParams, token: CancellationToken): LocationLink[] {
-    return this.definitionResolver.resolve(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
+    return this.codeLocationResolver.resolve(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
+  }
+
+  public getLocations(params: ReferenceParams, token: CancellationToken): Location[] {
+    return this.codeLocationResolver.resolveReferences(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
   /**
@@ -108,7 +112,6 @@ export class SiarcService {
       const project = getProject(this.projectsByProjectNames, file.fileUri);
 
       if (project) {
-        // const results = analyze(file.tempFileUri, this.currentServiceName, this.currenServiceConfig, this.validateFrontend);
         const results = analyze(file.tempFileUri, project.serviceConfig?.name || '', project.serviceConfig, project.serviceConfig ? false : true);
 
         if (results.endPointsAvaiable) {
