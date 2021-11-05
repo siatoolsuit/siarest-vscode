@@ -105,7 +105,7 @@ function analyzeExpress(config: ServiceConfig | undefined, serviceName: string, 
             result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
           }
 
-          const { resVal, reqVal } = extractReqResFromFunction(endpointExprs.inlineFunction);
+          const { resVal, reqVal } = extractReqResFromFunction(endpointExprs.inlineFunction.inlineFunction);
           // Validate the return value of the inner function
           if (resVal) {
             const resConf = endpoint.response;
@@ -241,7 +241,7 @@ function extractExpressStatement(statement: Statement, expressVarName: String, s
  * @param inlineFunction an inlineFunction (..) => {...}
  * @returns tuple of { res, req }
  */
-function extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: Declaration | undefined } {
+function extractReqResFromFunction(inlineFunction?: ArrowFunction): { resVal: Expression | undefined; reqVal: Declaration | undefined } {
   const result: {
     resVal: Expression | undefined;
     reqVal: Declaration | undefined;

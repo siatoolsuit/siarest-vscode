@@ -1,6 +1,13 @@
 import { CancellationToken, DefinitionParams, Location, LocationLink, Position, Range, ReferenceParams } from 'vscode-languageserver/node';
 import { ClientExpression, EndpointExpression, EndpointMatch, IProject } from '../../../..';
-import { createRangeFromClienexpression, getEndpointsPerFile, getMatchedEndpoint, getProject, isBetween } from '../../../../utils/helper';
+import {
+  createFunctionRangeFromClienexpression,
+  createRangeFromClienexpression,
+  getEndpointsPerFile,
+  getMatchedEndpoint,
+  getProject,
+  isBetween,
+} from '../../../../utils/helper';
 
 export class CodeLocationResolver {
   public resolve(
@@ -48,22 +55,24 @@ export class CodeLocationResolver {
           let targetSelectionRange: Range | undefined = undefined;
           let targetUri: string | undefined = undefined;
 
-          targetRange = createRangeFromClienexpression(matchedBackendEndpoint.clientExpression);
+          const endpointExpression = matchedBackendEndpoint.clientExpression as EndpointExpression;
+
+          targetRange = createRangeFromClienexpression(endpointExpression);
           // TODO whole function needs to be in targetSelection Range => StaticExpressAnalyzer
-          targetSelectionRange = createRangeFromClienexpression(matchedBackendEndpoint.clientExpression);
+
+          targetSelectionRange = createFunctionRangeFromClienexpression(endpointExpression);
+
           targetUri = matchedBackendEndpoint.uri;
 
-          if (!targetRange || !targetSelectionRange || !targetUri) {
-            return []; // TODO
+          if (targetRange && targetSelectionRange && targetUri) {
+            const locationLink: LocationLink = {
+              targetRange: targetRange,
+              targetSelectionRange: targetSelectionRange,
+              targetUri: targetUri,
+            };
+
+            locationLinks.push(locationLink);
           }
-
-          const locationLink: LocationLink = {
-            targetRange: targetRange,
-            targetSelectionRange: targetSelectionRange,
-            targetUri: targetUri,
-          };
-
-          locationLinks.push(locationLink);
         }
       });
     }
