@@ -57,23 +57,11 @@ documents.onDidClose((event) => {
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-//TODO implement more features
-connection.onShutdown((event) => {});
-
-connection.onDocumentLinks((params, token) => {
-  return null;
-});
-
-connection.onDocumentLinkResolve((params, token) => {
-  return null;
-});
-
 connection.onDefinition((params, token): LocationLink[] => {
   const locationLinks = siarcController.getDefintion(params, token);
   return locationLinks;
 });
 
-// TODO alles wo backend im frontend genutzt wird soll hier zurück gegeben werden USAGES!
 connection.onReferences((params: ReferenceParams, token: CancellationToken): Location[] => {
   const locations = siarcController.getLocations(params, token);
   return locations;
@@ -82,10 +70,6 @@ connection.onReferences((params: ReferenceParams, token: CancellationToken): Loc
 connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
   const completionItems: CompletionItem[] = siarcController.getCompletionItems(params, token);
   return completionItems;
-});
-
-connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-  return item;
 });
 
 connection.onHover((event): Hover | undefined => {

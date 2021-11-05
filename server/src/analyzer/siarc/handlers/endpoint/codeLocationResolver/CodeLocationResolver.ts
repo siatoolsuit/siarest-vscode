@@ -1,5 +1,6 @@
 import { CancellationToken, DefinitionParams, Location, LocationLink, Position, Range, ReferenceParams } from 'vscode-languageserver/node';
 import { ClientExpression, EndpointExpression, EndpointMatch, IProject } from '../../../..';
+import { connection } from '../../../../../server';
 import {
   createFunctionRangeFromClienexpression,
   createRangeFromClienexpression,
@@ -7,6 +8,7 @@ import {
   getMatchedEndpoint,
   getProject,
   isBetween,
+  sendNotification,
 } from '../../../../utils/helper';
 
 export class CodeLocationResolver {
