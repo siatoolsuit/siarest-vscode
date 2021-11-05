@@ -160,6 +160,10 @@ export function getAllFilesInProjectSync(path: string) {
     path = path.substring(7);
   }
 
+  if (path.endsWith('/')) {
+    path = path.substring(0, path.length - 1);
+  }
+
   const allTypescriptFiles = sync(`${path}/**/*.ts`, { absolute: true, onlyFiles: true, ignore: ['**/node_modules/**', '**/build/**'] });
 
   allTypescriptFiles.sort((a, b) => {
