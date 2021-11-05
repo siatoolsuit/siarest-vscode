@@ -83,7 +83,7 @@ export function analyze(uri: string, serviceName: string, config: ServiceConfig 
     }
 
     const results: IResult = {};
-    const result: SemanticError[] = analyzeExpress(config, serviceName, endpointExpressions, checker);
+    const result: SemanticError[] = analyzeExpress(config, serviceName, endpointExpressions, checker, tsFile);
 
     results.semanticErrors = result;
     results.endPointsAvaiable = endpointExpressions;
@@ -91,7 +91,13 @@ export function analyze(uri: string, serviceName: string, config: ServiceConfig 
   }
 }
 
-function analyzeExpress(config: ServiceConfig | undefined, serviceName: string, endpointExpressions: EndpointExpression[], checker: TypeChecker) {
+function analyzeExpress(
+  config: ServiceConfig | undefined,
+  serviceName: string,
+  endpointExpressions: EndpointExpression[],
+  checker: TypeChecker,
+  tsFile: SourceFile,
+) {
   const result: SemanticError[] = [];
 
   if (config && serviceName) {
@@ -148,7 +154,7 @@ function analyzeExpress(config: ServiceConfig | undefined, serviceName: string, 
     }
   } else {
     // TODO end of file? Warning not error
-    result.push(createSemanticError(`Missing configuration for service ${serviceName} in .siarc.json.`, 0, 0));
+    result.push(createSemanticError(`Missing configuration for service ${serviceName} in .siarc.json.`, 0, tsFile.end));
   }
   return result;
 }
@@ -173,7 +179,6 @@ function extractExpressExpressions(sourceFile: SourceFile): {
   // parse from top to down
 
   const statements = sourceFile.statements;
-  // TODO replace with a list of e.g for express.Router etc
   let expressVarName;
   for (const statement of statements) {
     switch (statement.kind) {
@@ -328,7 +333,7 @@ function createSimpleTypeErrorFromIdentifier(endpoint: Endpoint, resVal: Express
 }
 
 /**
- * // TODO needs further implementation
+ * Entrypoint for creating errors/parsing/analyze
  * @param endpoint
  * @param resVal
  * @param checker
@@ -414,10 +419,6 @@ function createErrorMessage(
       }
     } else {
       const missingTypesInTS: Map<string, any> = findMissingTypes(siarcObject, actualObject);
-
-      // TODO better error message with endpoint
-      // TODO vlt Seb fragen?!
-      // const missingDeclarationInSiarc: Map<string, string> = new Map();
       const missingDeclarationInSiarc: Map<string, any> = findMissingTypes(actualObject, siarcObject);
 
       if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
@@ -448,10 +449,6 @@ function createErrorMessage(
  * @returns List of missing objects/types
  */
 function findMissingTypes(siarcObjects: any, objectsToCompare: any): Map<string, any> {
-  //TODO recursive machen
-
-  const arrayType = { isArray: true, type: 'UserDTO' };
-
   let nameToTypeMap: Map<string, any> = new Map();
   for (let firstType in siarcObjects) {
     let foundTypeInConfig: boolean = false;
@@ -523,7 +520,7 @@ function getTypeAtNodeLocation(resVal: Expression, checker: TypeChecker): { full
 }
 
 /**
- * // TODO
+ * Parses an type and extracts object information
  * @param type
  * @param checker
  * @returns
@@ -534,7 +531,6 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
     normalString: '',
   };
 
-  //TODO Lösung für error === any lösen
   let fullString = '{';
 
   const members = type.symbol?.members;
@@ -692,8 +688,6 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
             }
           }
 
-          // TODO direct obj parse ...
-
           if (!typedString) {
             typeNode = varDecl.type;
             if (typeNode) {
@@ -748,7 +742,6 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
   // parse from top to down
 
   const statements = tsFile.statements;
-  // TODO replace with a list of e.g for express.Router etc
   let httpClientVarName: string;
   for (const statement of statements) {
     switch (statement.kind) {

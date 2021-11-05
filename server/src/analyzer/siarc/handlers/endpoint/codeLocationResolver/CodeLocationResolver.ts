@@ -60,10 +60,7 @@ export class CodeLocationResolver {
           const endpointExpression = matchedBackendEndpoint.clientExpression as EndpointExpression;
 
           targetRange = createRangeFromClienexpression(endpointExpression);
-          // TODO whole function needs to be in targetSelection Range => StaticExpressAnalyzer
-
           targetSelectionRange = createFunctionRangeFromClienexpression(endpointExpression);
-
           targetUri = matchedBackendEndpoint.uri;
 
           if (targetRange && targetSelectionRange && targetUri) {
