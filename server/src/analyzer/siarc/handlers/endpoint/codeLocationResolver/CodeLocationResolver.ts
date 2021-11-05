@@ -94,13 +94,27 @@ export class CodeLocationResolver {
     const uri = params.textDocument.uri;
     const locations: Location[] = [];
 
+    const currentProject = getProject(projectsByProjectNames, uri);
+    const frontendsAllowedToUse = currentProject.serviceConfig?.frontends;
+
     // Frontends
     const projectsWithoutConfig: IProject[] = [];
-    projectsByProjectNames.forEach((project, projectRoot) => {
-      if (!project.serviceConfig) {
-        projectsWithoutConfig.push(project);
+
+    if (frontendsAllowedToUse) {
+      if (frontendsAllowedToUse.length > 0) {
+        projectsByProjectNames.forEach((project, projectRoot) => {
+          if (!project.serviceConfig && frontendsAllowedToUse.includes(JSON.parse(project.packageJson).name)) {
+            projectsWithoutConfig.push(project);
+          }
+        });
       }
-    });
+    } else {
+      projectsByProjectNames.forEach((project, projectRoot) => {
+        if (!project.serviceConfig) {
+          projectsWithoutConfig.push(project);
+        }
+      });
+    }
 
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
