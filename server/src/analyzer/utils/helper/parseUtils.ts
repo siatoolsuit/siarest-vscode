@@ -18,7 +18,7 @@ import {
   BinaryExpression,
 } from 'typescript';
 import { expressImportByName, httpLibsByName, httpMethods } from '..';
-import { ClientExpression, ExpressPathAndFunction, IProject } from '../..';
+import { ClientExpression, EndpointMatch, ExpressPathAndFunction, IProject } from '../..';
 
 export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
   let typedString = undefined;
@@ -244,7 +244,7 @@ export const getHttpClientExpression = (expr: Expression, httpClientVarName: str
 };
 
 export const getEndpointsPerFile = (project: IProject, avaibaleEndpointsPerFile: Map<string, ClientExpression[]>) => {
-  let allEndpoints: { clientExpression: ClientExpression; uri: string }[] = [];
+  let allEndpoints: EndpointMatch[] = [];
   avaibaleEndpointsPerFile.forEach((endpoints, fileUri) => {
     if (fileUri.includes(project.rootPath)) {
       endpoints.forEach((endPoint) => {

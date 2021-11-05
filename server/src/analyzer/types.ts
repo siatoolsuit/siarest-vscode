@@ -42,3 +42,8 @@ export interface IProject {
   };
   serviceConfig?: ServiceConfig;
 }
+
+export type EndpointMatch = {
+  clientExpression: ClientExpression;
+  uri: string;
+};

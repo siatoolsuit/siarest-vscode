@@ -1,5 +1,5 @@
 import { CancellationToken, DefinitionParams, Location, LocationLink, Position, Range, ReferenceParams } from 'vscode-languageserver/node';
-import { ClientExpression, EndpointExpression, IProject } from '../../../..';
+import { ClientExpression, EndpointExpression, EndpointMatch, IProject } from '../../../..';
 import { createRangeFromClienexpression, getEndpointsPerFile, getMatchedEndpoint, getProject, isBetween } from '../../../../utils/helper';
 
 export class CodeLocationResolver {
@@ -20,16 +20,17 @@ export class CodeLocationResolver {
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint && matchedEndpointUri) {
-      let allEndpoints: { clientExpression: ClientExpression; uri: string }[] = [];
+      let allEndpoints: EndpointMatch[] = [];
       projectsByName.forEach((project, projectRootUri) => {
         if (project.serviceConfig) {
           allEndpoints = allEndpoints.concat(getEndpointsPerFile(project, avaibaleEndpointsPerFile));
         }
       });
 
-      const matchedBackendEndpoint = allEndpoints.find((endPoint) => {
-        let searchValue: string = endPoint.clientExpression.path;
-        if (endPoint.clientExpression.path.startsWith('/')) {
+      const matchedBackendEndpoints: EndpointMatch[] = [];
+      allEndpoints.forEach((endpoint) => {
+        let searchValue: string = endpoint.clientExpression.path;
+        if (endpoint.clientExpression.path.startsWith('/')) {
           searchValue = searchValue.substring(1);
         }
 
@@ -37,32 +38,34 @@ export class CodeLocationResolver {
         const splits = cleanedEndpointPath.split(/[+\s]\s*/);
 
         if (splits.includes(searchValue)) {
-          return endPoint;
+          matchedBackendEndpoints.push(endpoint);
         }
       });
 
-      if (matchedBackendEndpoint) {
-        let targetRange: Range | undefined = undefined;
-        let targetSelectionRange: Range | undefined = undefined;
-        let targetUri: string | undefined = undefined;
+      matchedBackendEndpoints.forEach((matchedBackendEndpoint) => {
+        if (matchedBackendEndpoint) {
+          let targetRange: Range | undefined = undefined;
+          let targetSelectionRange: Range | undefined = undefined;
+          let targetUri: string | undefined = undefined;
 
-        targetRange = createRangeFromClienexpression(matchedBackendEndpoint.clientExpression);
-        // TODO whole function needs to be in targetSelection Range => StaticExpressAnalyzer
-        targetSelectionRange = createRangeFromClienexpression(matchedBackendEndpoint.clientExpression);
-        targetUri = matchedBackendEndpoint.uri;
+          targetRange = createRangeFromClienexpression(matchedBackendEndpoint.clientExpression);
+          // TODO whole function needs to be in targetSelection Range => StaticExpressAnalyzer
+          targetSelectionRange = createRangeFromClienexpression(matchedBackendEndpoint.clientExpression);
+          targetUri = matchedBackendEndpoint.uri;
 
-        if (!targetRange || !targetSelectionRange || !targetUri) {
-          return []; // TODO
+          if (!targetRange || !targetSelectionRange || !targetUri) {
+            return []; // TODO
+          }
+
+          const locationLink: LocationLink = {
+            targetRange: targetRange,
+            targetSelectionRange: targetSelectionRange,
+            targetUri: targetUri,
+          };
+
+          locationLinks.push(locationLink);
         }
-
-        const locationLink: LocationLink = {
-          targetRange: targetRange,
-          targetSelectionRange: targetSelectionRange,
-          targetUri: targetUri,
-        };
-
-        locationLinks.push(locationLink);
-      }
+      });
     }
 
     return locationLinks;
@@ -93,31 +96,35 @@ export class CodeLocationResolver {
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint && matchedEndpointUri) {
-      let frontendUsages: { clientExpression: ClientExpression; uri: string }[] = [];
+      let frontendUsages: EndpointMatch[] = [];
 
       projectsWithoutConfig.forEach((project) => {
         frontendUsages = frontendUsages.concat(getEndpointsPerFile(project, avaibaleEndpointsPerFile));
       });
 
-      const matchedFrontendUsage = frontendUsages.find((endPoint) => {
+      const matchedFrontendUsages: EndpointMatch[] = [];
+      frontendUsages.forEach((endpoint) => {
         let searchValue: string = matchedEnpoint?.path;
         if (searchValue.startsWith('/')) {
           searchValue = searchValue.substring(1);
         }
 
-        const cleanedEndpointPath = endPoint.clientExpression.path.replace(/[\'\`\/]/gi, '');
+        // TODO split for params?
+        const cleanedEndpointPath = endpoint.clientExpression.path.replace(/[\'\`\/]/gi, '');
         const splits = cleanedEndpointPath.split(/[+\s]\s*/);
 
         if (splits.includes(searchValue)) {
-          return endPoint;
+          matchedFrontendUsages.push(endpoint);
         }
       });
 
-      if (matchedFrontendUsage) {
-        const range = createRangeFromClienexpression(matchedFrontendUsage.clientExpression);
-        const location: Location = Location.create(matchedFrontendUsage?.uri, range);
-        locations.push(location);
-      }
+      matchedFrontendUsages.forEach((matchedFrontendUsage) => {
+        if (matchedFrontendUsage) {
+          const range = createRangeFromClienexpression(matchedFrontendUsage.clientExpression);
+          const location: Location = Location.create(matchedFrontendUsage?.uri, range);
+          locations.push(location);
+        }
+      });
     }
     return locations;
   }
