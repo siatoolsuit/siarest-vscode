@@ -38,6 +38,7 @@ export class SiarcService {
           const project: IProject = {
             rootPath: obj.rootPath,
             packageJson: obj.packageJson,
+            projectName: '',
           };
 
           if (obj.siarcTextDoc) {
@@ -56,7 +57,7 @@ export class SiarcService {
           }
 
           if (project.packageJson) {
-            this.loadPackageJson(project.packageJson);
+            this.loadPackageJson(project.packageJson, project);
             console.debug('Found and loaded package.json from Project: ' + project.rootPath);
           }
 
@@ -206,10 +207,18 @@ export class SiarcService {
     });
   }
 
-  public loadPackageJson(json: string) {
-    if (json) {
-      const pack = JSON.parse(json);
-      this.detectFrameworkOrLibrary(pack);
+  public loadPackageJson(packageJson: string, project?: IProject) {
+    if (project) {
+      if (project.packageJson) {
+        const pack = JSON.parse(project.packageJson);
+        project.projectName = pack.name;
+        this.detectFrameworkOrLibrary(pack);
+      }
+    } else {
+      if (packageJson) {
+        const pack = JSON.parse(packageJson);
+        this.detectFrameworkOrLibrary(pack);
+      }
     }
   }
 
@@ -262,7 +271,7 @@ export class SiarcService {
       }
 
       if (foundProject.packageJson) {
-        this.loadPackageJson(foundProject.packageJson);
+        this.loadPackageJson(foundProject.packageJson, foundProject);
         console.debug('loaded package.json for Project: ' + foundProject.rootPath);
       }
     }

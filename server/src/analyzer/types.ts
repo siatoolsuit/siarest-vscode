@@ -39,6 +39,7 @@ export interface ClientExpression {
 
 export interface IProject {
   rootPath: string;
+  projectName: string;
   packageJson: string;
   siarcTextDoc?: {
     content: string;
