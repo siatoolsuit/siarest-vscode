@@ -10,7 +10,7 @@ export interface ExpressPathAndFunction {
   path: string;
   start: LineAndCharacter;
   end: LineAndCharacter;
-  inlineFunction: any;
+  inlineFunction: IInlineFunction;
 }
 
 export interface IResult {
@@ -18,9 +18,15 @@ export interface IResult {
   endPointsAvaiable?: ClientExpression[];
 }
 
+export interface IInlineFunction {
+  inlineFunction: ArrowFunction | undefined;
+  start: LineAndCharacter;
+  end: LineAndCharacter;
+}
+
 export interface EndpointExpression extends ClientExpression {
   readonly expressEndpoint: boolean;
-  readonly inlineFunction: ArrowFunction;
+  readonly inlineFunction: IInlineFunction;
 }
 
 export interface ClientExpression {
@@ -33,6 +39,7 @@ export interface ClientExpression {
 
 export interface IProject {
   rootPath: string;
+  projectName: string;
   packageJson: string;
   siarcTextDoc?: {
     content: string;
@@ -42,3 +49,8 @@ export interface IProject {
   };
   serviceConfig?: ServiceConfig;
 }
+
+export type EndpointMatch = {
+  clientExpression: ClientExpression;
+  uri: string;
+};

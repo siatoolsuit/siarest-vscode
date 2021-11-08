@@ -98,3 +98,12 @@ export const createRangeFromClienexpression = (clientExpression: ClientExpressio
 
   return Range.create(startLine, startChar, endLine, endChar);
 };
+
+export const createFunctionRangeFromClienexpression = (endpointExpression: EndpointExpression) => {
+  const startLine = endpointExpression.start.line;
+  const startChar = endpointExpression.start.character;
+  const endLine = endpointExpression.inlineFunction.end.line;
+  const endChar = endpointExpression.inlineFunction.end.character;
+
+  return Range.create(startLine, startChar, endLine, endChar);
+};

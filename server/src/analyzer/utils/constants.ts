@@ -8,8 +8,8 @@ export const TYPE_JSON = {
   LANGUAGE_ID: 'json',
 };
 
-export const SIARC = `.siarc.json`;
-export const PACKAGE_JSON = `package.json`;
+export const SIARC = `.siarc`;
+export const PACKAGE_JSON = `package`;
 
 // EXPRESS import Statements
 export const expressImportByName: Map<String, String> = new Map([

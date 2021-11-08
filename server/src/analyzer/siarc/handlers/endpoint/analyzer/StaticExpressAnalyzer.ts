@@ -82,74 +82,77 @@ export function analyze(uri: string, serviceName: string, config: ServiceConfig 
       return {};
     }
 
-    const results: IResult = {};
-    const result: SemanticError[] = analyzeExpress(config, serviceName, endpointExpressions, checker);
+    let results: IResult = {};
 
-    results.semanticErrors = result;
-    results.endPointsAvaiable = endpointExpressions;
+    if (config && serviceName) {
+      if (config.name === serviceName) {
+        const result: SemanticError[] = analyzeExpress(config, serviceName, endpointExpressions, checker);
+        results.semanticErrors = result;
+        results.endPointsAvaiable = endpointExpressions;
+      } else {
+        results.semanticErrors = [createSemanticError(`Missing configuration for service ${serviceName} in .siarc.json.`, 0, tsFile.end)];
+        results.endPointsAvaiable = [];
+      }
+    }
     return results;
   }
 }
 
-function analyzeExpress(config: ServiceConfig | undefined, serviceName: string, endpointExpressions: EndpointExpression[], checker: TypeChecker) {
+function analyzeExpress(config: ServiceConfig, serviceName: string, endpointExpressions: EndpointExpression[], checker: TypeChecker) {
   const result: SemanticError[] = [];
 
-  if (config && serviceName) {
-    if (endpointExpressions.length > 0) {
-      for (const endpointExprs of endpointExpressions) {
-        const expr = endpointExprs.expr;
-        const endpoint = findEndpointForPath(endpointExprs.path, config.endpoints);
-        // Validates the defined endpoint with the service configuration
-        if (endpoint) {
-          if (endpoint.method !== endpointExprs.method) {
-            result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
-          }
+  if (endpointExpressions.length > 0) {
+    for (const endpointExprs of endpointExpressions) {
+      const expr = endpointExprs.expr;
+      const endpoint = findEndpointForPath(endpointExprs.path, config.endpoints);
+      // Validates the defined endpoint with the service configuration
+      if (endpoint) {
+        if (endpoint.method !== endpointExprs.method) {
+          result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
+        }
 
-          const { resVal, reqVal } = extractReqResFromFunction(endpointExprs.inlineFunction);
-          // Validate the return value of the inner function
-          if (resVal) {
-            const resConf = endpoint.response;
-            let semanticError: any;
-            switch (typeof resConf) {
-              case 'string':
-                // TODO get ref of a variable for example and validate it
-                if (resVal.kind === SyntaxKind.Identifier) {
-                  semanticError = createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
-                } else {
-                  semanticError = simpleTypeError(resConf, resVal);
-                }
+        const { resVal, reqVal } = extractReqResFromFunction(endpointExprs.inlineFunction.inlineFunction);
+        // Validate the return value of the inner function
+        if (resVal) {
+          const resConf = endpoint.response;
+          let semanticError: any;
+          switch (typeof resConf) {
+            case 'string':
+              // TODO get ref of a variable for example and validate it
+              if (resVal.kind === SyntaxKind.Identifier) {
+                semanticError = createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
+              } else {
+                semanticError = simpleTypeError(resConf, resVal);
+              }
 
-                if (semanticError) result.push(semanticError);
-                break;
-              case 'object':
-                semanticError = createComplexTypeErrorFromExpression(endpoint, resVal, checker);
-                if (semanticError) result.push(semanticError);
-                break;
-              default:
-                break;
-            }
-          } else {
-            result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
-          }
-
-          if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
-            const reqType = endpoint.request;
-            if (reqVal) {
-              const semanticError = createComplexTypeErrorFromDeclaration(endpoint, reqVal, checker);
               if (semanticError) result.push(semanticError);
-            } else {
-              result.push(createSemanticError(`Endpoint with method "${endpoint.method}" has a missing body handling.`, expr.getStart(), expr.end));
-            }
+              break;
+            case 'object':
+              semanticError = createComplexTypeErrorFromExpression(endpoint, resVal, checker);
+              if (semanticError) result.push(semanticError);
+              break;
+            default:
+              break;
           }
         } else {
-          result.push(createSemanticError('Endpoint is not defined for this service.', expr.getStart(), expr.end));
+          result.push(createSemanticError('Missing return value for endpoint.', expr.getStart(), expr.end));
         }
+
+        if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
+          const reqType = endpoint.request;
+          if (reqVal) {
+            const semanticError = createComplexTypeErrorFromDeclaration(endpoint, reqVal, checker);
+            if (semanticError) result.push(semanticError);
+          } else {
+            result.push(createSemanticError(`Endpoint with method "${endpoint.method}" has a missing body handling.`, expr.getStart(), expr.end));
+          }
+        }
+      } else {
+        result.push(createSemanticError('Endpoint is not defined for this service.', expr.getStart(), expr.end));
       }
     }
-  } else {
-    // TODO end of file? Warning not error
-    result.push(createSemanticError(`Missing configuration for service ${serviceName} in .siarc.json.`, 0, 0));
   }
+
   return result;
 }
 
@@ -173,7 +176,6 @@ function extractExpressExpressions(sourceFile: SourceFile): {
   // parse from top to down
 
   const statements = sourceFile.statements;
-  // TODO replace with a list of e.g for express.Router etc
   let expressVarName;
   for (const statement of statements) {
     switch (statement.kind) {
@@ -241,7 +243,7 @@ function extractExpressStatement(statement: Statement, expressVarName: String, s
  * @param inlineFunction an inlineFunction (..) => {...}
  * @returns tuple of { res, req }
  */
-function extractReqResFromFunction(inlineFunction: ArrowFunction): { resVal: Expression | undefined; reqVal: Declaration | undefined } {
+function extractReqResFromFunction(inlineFunction?: ArrowFunction): { resVal: Expression | undefined; reqVal: Declaration | undefined } {
   const result: {
     resVal: Expression | undefined;
     reqVal: Declaration | undefined;
@@ -328,7 +330,7 @@ function createSimpleTypeErrorFromIdentifier(endpoint: Endpoint, resVal: Express
 }
 
 /**
- * // TODO needs further implementation
+ * Entrypoint for creating errors/parsing/analyze
  * @param endpoint
  * @param resVal
  * @param checker
@@ -414,10 +416,6 @@ function createErrorMessage(
       }
     } else {
       const missingTypesInTS: Map<string, any> = findMissingTypes(siarcObject, actualObject);
-
-      // TODO better error message with endpoint
-      // TODO vlt Seb fragen?!
-      // const missingDeclarationInSiarc: Map<string, string> = new Map();
       const missingDeclarationInSiarc: Map<string, any> = findMissingTypes(actualObject, siarcObject);
 
       if (missingTypesInTS.size == 0 && missingDeclarationInSiarc.size == 0) {
@@ -448,10 +446,6 @@ function createErrorMessage(
  * @returns List of missing objects/types
  */
 function findMissingTypes(siarcObjects: any, objectsToCompare: any): Map<string, any> {
-  //TODO recursive machen
-
-  const arrayType = { isArray: true, type: 'UserDTO' };
-
   let nameToTypeMap: Map<string, any> = new Map();
   for (let firstType in siarcObjects) {
     let foundTypeInConfig: boolean = false;
@@ -523,7 +517,7 @@ function getTypeAtNodeLocation(resVal: Expression, checker: TypeChecker): { full
 }
 
 /**
- * // TODO
+ * Parses an type and extracts object information
  * @param type
  * @param checker
  * @returns
@@ -534,7 +528,6 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
     normalString: '',
   };
 
-  //TODO Lösung für error === any lösen
   let fullString = '{';
 
   const members = type.symbol?.members;
@@ -692,8 +685,6 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
             }
           }
 
-          // TODO direct obj parse ...
-
           if (!typedString) {
             typeNode = varDecl.type;
             if (typeNode) {
@@ -748,7 +739,6 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
   // parse from top to down
 
   const statements = tsFile.statements;
-  // TODO replace with a list of e.g for express.Router etc
   let httpClientVarName: string;
   for (const statement of statements) {
     switch (statement.kind) {

@@ -8,7 +8,7 @@ import { ServiceConfig, validateConfigSemantic } from '../../config';
 import { analyze } from '../handlers';
 import { AutoCompletionService } from '../handlers/endpoint/autocompletion/AutoCompletionService';
 import { HoverInfoService } from '../handlers/endpoint/hoverInfo/HoverInfoService';
-import { getOrCreateTempFile, IFile } from '../handlers/file';
+import { getAllFilesInProjectSync, getOrCreateTempFile, IFile } from '../handlers/file';
 import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
@@ -38,6 +38,7 @@ export class SiarcService {
           const project: IProject = {
             rootPath: obj.rootPath,
             packageJson: obj.packageJson,
+            projectName: '',
           };
 
           if (obj.siarcTextDoc) {
@@ -50,13 +51,13 @@ export class SiarcService {
             const siarc = project.siarcTextDoc;
             if (existsSync(siarc.uri)) {
               const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-              this.validateConfig(textDoc, project);
+              this.validateConfig(textDoc, project, true);
               console.debug('Found and loaded siarc from Project: ' + project.rootPath);
             }
           }
 
           if (project.packageJson) {
-            this.loadPackageJson(project.packageJson);
+            this.loadPackageJson(project.packageJson, project);
             console.debug('Found and loaded package.json from Project: ' + project.rootPath);
           }
 
@@ -112,7 +113,7 @@ export class SiarcService {
       const project = getProject(this.projectsByProjectNames, file.fileUri);
 
       if (project) {
-        const results = analyze(file.tempFileUri, project.serviceConfig?.name || '', project.serviceConfig, project.serviceConfig ? false : true);
+        const results = analyze(file.tempFileUri, project.projectName || '', project.serviceConfig, project.serviceConfig ? false : true);
 
         if (results.endPointsAvaiable) {
           console.debug('Found endpoints in file: ' + file.fileUri, results.endPointsAvaiable);
@@ -146,7 +147,7 @@ export class SiarcService {
     }, validationDelay);
   }
 
-  public async validateConfig(document: TextDocument, project?: IProject): Promise<void> {
+  public async validateConfig(document: TextDocument, project?: IProject, init: boolean = false): Promise<void> {
     const jsonDoc = this.jsonLanguageService.parseJSONDocument(document);
 
     const syntaxErrors = await this.jsonLanguageService.doValidation(
@@ -160,14 +161,29 @@ export class SiarcService {
     if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
       if (project) {
         project.serviceConfig = JSON.parse(document.getText())[0];
+        this.projectsByProjectNames.set(project.rootPath, project);
       }
 
       connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-      documents.all().forEach(async (doc: TextDocument) => {
+
+      if (!init) {
+        this.initFiles(getProject(this.projectsByProjectNames, document.uri).rootPath);
+      }
+    } else {
+      connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
+    }
+  }
+
+  public initFiles(pathUri: string) {
+    const path = pathUri;
+    if (path) {
+      const docs = getAllFilesInProjectSync(path);
+
+      docs.forEach(async (doc: TextDocument) => {
         if (doc.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
-          getOrCreateTempFile(document)
+          getOrCreateTempFile(doc)
             .then((file) => {
-              // this.triggerTypescriptValidation(document, file);
+              this.triggerTypescriptValidation(doc, file);
             })
             .catch((reason) => {
               sendNotification(connection, reason);
@@ -175,8 +191,6 @@ export class SiarcService {
             });
         }
       });
-    } else {
-      connection.sendDiagnostics({ uri: document.uri, diagnostics: semanticErrors });
     }
   }
 
@@ -206,10 +220,18 @@ export class SiarcService {
     });
   }
 
-  public loadPackageJson(json: string) {
-    if (json) {
-      const pack = JSON.parse(json);
-      this.detectFrameworkOrLibrary(pack);
+  public loadPackageJson(packageJson: string, project?: IProject) {
+    if (project) {
+      if (project.packageJson) {
+        const pack = JSON.parse(project.packageJson);
+        project.projectName = pack.name;
+        this.detectFrameworkOrLibrary(pack);
+      }
+    } else {
+      if (packageJson) {
+        const pack = JSON.parse(packageJson);
+        this.detectFrameworkOrLibrary(pack);
+      }
     }
   }
 
@@ -242,29 +264,29 @@ export class SiarcService {
     // }
   }
 
-  public setCurrentConfiguration(documentUri: string) {
-    let uri = documentUri;
+  // public setCurrentConfiguration(documentUri: string) {
+  //   let uri = documentUri;
 
-    if (uri.startsWith(VS_CODE_URI_BEGIN)) {
-      uri = uri.substring(7);
-    }
+  //   if (uri.startsWith(VS_CODE_URI_BEGIN)) {
+  //     uri = uri.substring(7);
+  //   }
 
-    const foundProject = getProject(this.projectsByProjectNames, documentUri);
+  //   const foundProject = getProject(this.projectsByProjectNames, documentUri);
 
-    if (foundProject) {
-      if (foundProject.siarcTextDoc) {
-        const siarc = foundProject.siarcTextDoc;
-        if (existsSync(siarc.uri)) {
-          const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-          this.validateConfig(textDoc, foundProject);
-          console.debug('loaded siarc for Project: ' + foundProject.rootPath);
-        }
-      }
+  //   if (foundProject) {
+  //     if (foundProject.siarcTextDoc) {
+  //       const siarc = foundProject.siarcTextDoc;
+  //       if (existsSync(siarc.uri)) {
+  //         const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
+  //         this.validateConfig(textDoc, foundProject);
+  //         console.debug('loaded siarc for Project: ' + foundProject.rootPath);
+  //       }
+  //     }
 
-      if (foundProject.packageJson) {
-        this.loadPackageJson(foundProject.packageJson);
-        console.debug('loaded package.json for Project: ' + foundProject.rootPath);
-      }
-    }
-  }
+  //     if (foundProject.packageJson) {
+  //       this.loadPackageJson(foundProject.packageJson, foundProject);
+  //       console.debug('loaded package.json for Project: ' + foundProject.rootPath);
+  //     }
+  //   }
+  // }
 }

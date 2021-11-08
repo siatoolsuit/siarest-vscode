@@ -47,7 +47,6 @@ export class SiarcController {
   }
 
   private checkForValidation(document: TextDocument, indexing: boolean = false) {
-    this.siarcService.setCurrentConfiguration(document.uri);
     switch (document.languageId) {
       case TYPE_TYPESCRIPT.LANGUAGE_ID: {
         getOrCreateTempFile(document)
@@ -82,7 +81,6 @@ export class SiarcController {
     if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
       if (this.allowValidation()) {
         if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
-          this.siarcService.setCurrentConfiguration(hoverParams.textDocument.uri);
           return this.siarcService.getInfo(hoverParams);
         }
       }
@@ -105,14 +103,10 @@ export class SiarcController {
   }
 
   private validateJson(document: TextDocument) {
-    if (document.uri.endsWith(SIARC)) {
+    if (document.uri.endsWith(SIARC + TYPE_JSON.SUFFIX)) {
       this.siarcService.triggerConfValidation(document);
-    } else if (document.uri.endsWith(PACKAGE_JSON)) {
+    } else if (document.uri.startsWith(PACKAGE_JSON) && document.uri.endsWith(TYPE_JSON.SUFFIX)) {
       this.siarcService.loadPackageJson(document.getText());
-      // Revalidate all typescript files
-      documents.all().forEach((doc: TextDocument) => {
-        this.checkForValidation(doc);
-      });
     }
   }
 

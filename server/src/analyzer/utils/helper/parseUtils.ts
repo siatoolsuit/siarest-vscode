@@ -16,9 +16,10 @@ import {
   TypeFlags,
   VariableStatement,
   BinaryExpression,
+  ArrowFunction,
 } from 'typescript';
 import { expressImportByName, httpLibsByName, httpMethods } from '..';
-import { ClientExpression, ExpressPathAndFunction, IProject } from '../..';
+import { ClientExpression, EndpointMatch, ExpressPathAndFunction, IProject } from '../..';
 
 export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
   let typedString = undefined;
@@ -65,7 +66,17 @@ export const parseLastExpression = (propAccExpr: PropertyAccessExpression): Prop
  */
 export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<Expression>, sourceFile: SourceFile): ExpressPathAndFunction => {
   const result: ExpressPathAndFunction = {
-    inlineFunction: '',
+    inlineFunction: {
+      inlineFunction: undefined,
+      start: {
+        character: 0,
+        line: 0,
+      },
+      end: {
+        character: 0,
+        line: 0,
+      },
+    },
     path: '',
     start: {
       character: 0,
@@ -88,7 +99,9 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
         }
         break;
       case SyntaxKind.ArrowFunction:
-        result.inlineFunction = node;
+        result.inlineFunction.inlineFunction = node as ArrowFunction;
+        result.inlineFunction.start = sourceFile.getLineAndCharacterOfPosition(node.getFullStart());
+        result.inlineFunction.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
         break;
 
       case SyntaxKind.BinaryExpression:
@@ -244,7 +257,7 @@ export const getHttpClientExpression = (expr: Expression, httpClientVarName: str
 };
 
 export const getEndpointsPerFile = (project: IProject, avaibaleEndpointsPerFile: Map<string, ClientExpression[]>) => {
-  let allEndpoints: { clientExpression: ClientExpression; uri: string }[] = [];
+  let allEndpoints: EndpointMatch[] = [];
   avaibaleEndpointsPerFile.forEach((endpoints, fileUri) => {
     if (fileUri.includes(project.rootPath)) {
       endpoints.forEach((endPoint) => {
