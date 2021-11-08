@@ -20,6 +20,7 @@ import {
 } from 'typescript';
 import { expressImportByName, httpLibsByName, httpMethods } from '..';
 import { ClientExpression, EndpointMatch, ExpressPathAndFunction, IProject } from '../..';
+import { Endpoint } from '../../config';
 
 export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
   let typedString = undefined;
@@ -105,13 +106,40 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
         break;
 
       case SyntaxKind.BinaryExpression:
-        result.path = (node as BinaryExpression).getText();
+        result.path = parseBinaryExpression(node as BinaryExpression);
         result.start = sourceFile.getLineAndCharacterOfPosition(node.getFullStart());
         result.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
         break;
       default:
         break;
     }
+  }
+  return result;
+};
+
+export const parseBinaryExpression = (binaryExpression: BinaryExpression): string => {
+  const left = binaryExpression.left;
+  const right = binaryExpression.right;
+  let result: string = '';
+
+  switch (left.kind) {
+    case SyntaxKind.BinaryExpression:
+      result += parseBinaryExpression(left as BinaryExpression);
+      break;
+    case SyntaxKind.StringLiteral:
+      let leftText = (left as StringLiteral).getFullText();
+      leftText = leftText.replace(/[\'\`\s]/gi, '');
+      result += leftText;
+      break;
+    case SyntaxKind.Identifier:
+    default:
+      break;
+  }
+
+  if (right.kind === SyntaxKind.StringLiteral) {
+    let rightText = (right as StringLiteral).getFullText();
+    rightText = rightText.replace(/[\'\`\s]/gi, '');
+    result += rightText;
   }
   return result;
 };
@@ -267,4 +295,26 @@ export const getEndpointsPerFile = (project: IProject, avaibaleEndpointsPerFile:
   });
 
   return allEndpoints;
+};
+
+export const parseURL = (searchValue: string, split: string = '/'): string[] => {
+  if (searchValue.startsWith('/')) {
+    searchValue = searchValue.substring(1);
+  }
+
+  let searchSplit: string[] = [];
+  do {
+    const pos = searchValue.indexOf(split);
+
+    if (pos > 0) {
+      searchSplit.push(searchValue.substring(0, pos + 1));
+      searchValue = searchValue.substring(pos + 1);
+      continue;
+    }
+
+    searchSplit.push(searchValue);
+    break;
+  } while (searchValue);
+
+  return searchSplit;
 };
