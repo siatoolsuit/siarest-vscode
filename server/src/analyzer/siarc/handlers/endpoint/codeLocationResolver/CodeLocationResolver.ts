@@ -8,6 +8,7 @@ import {
   getMatchedEndpoint,
   getProject,
   isBetween,
+  parseURL,
   sendNotification,
 } from '../../../../utils/helper';
 
@@ -37,16 +38,39 @@ export class CodeLocationResolver {
       });
 
       const matchedBackendEndpoints: EndpointMatch[] = [];
+      const cleanedEndpointPath = matchedEnpoint?.path.replace(/[\'\`\/]/gi, '');
+      // const splits = cleanedEndpointPath.split(/[+\s]\s*/);
+      const matchedEndpointSplit = parseURL(matchedEnpoint.path);
       allEndpoints.forEach((endpoint) => {
         let searchValue: string = endpoint.clientExpression.path;
+
         if (endpoint.clientExpression.path.startsWith('/')) {
           searchValue = searchValue.substring(1);
         }
 
-        const cleanedEndpointPath = matchedEnpoint?.path.replace(/[\'\`\/]/gi, '');
-        const splits = cleanedEndpointPath.split(/[+\s]\s*/);
+        const searchValueSplit = parseURL(searchValue);
 
-        if (splits.includes(searchValue)) {
+        let found: boolean = false;
+        matchedEndpointSplit.forEach((url, index) => {
+          if (index >= searchValueSplit.length) {
+            return;
+          }
+
+          const url2 = searchValueSplit[index];
+          if (url === url2) {
+            found = true;
+          } else if (url2.startsWith(':')) {
+            found = true;
+          } else {
+            found = false;
+          }
+
+          if (!found) {
+            return;
+          }
+        });
+
+        if (found) {
           matchedBackendEndpoints.push(endpoint);
         }
       });
@@ -124,18 +148,40 @@ export class CodeLocationResolver {
         frontendUsages = frontendUsages.concat(getEndpointsPerFile(project, avaibaleEndpointsPerFile));
       });
 
+      // TODO split for params?
+      // const cleanedEndpointPath = endpoint.clientExpression.path.replace(/[\'\`\/]/gi, '');
+      // const splits = cleanedEndpointPath.split(/[+\s]\s*/);
+      const matchedEnpointSplit = parseURL(matchedEnpoint.path.substring(1));
       const matchedFrontendUsages: EndpointMatch[] = [];
       frontendUsages.forEach((endpoint) => {
-        let searchValue: string = matchedEnpoint?.path;
+        let searchValue: string = endpoint.clientExpression.path;
         if (searchValue.startsWith('/')) {
           searchValue = searchValue.substring(1);
         }
 
-        // TODO split for params?
-        const cleanedEndpointPath = endpoint.clientExpression.path.replace(/[\'\`\/]/gi, '');
-        const splits = cleanedEndpointPath.split(/[+\s]\s*/);
+        const searchValueSplit = parseURL(searchValue);
 
-        if (splits.includes(searchValue)) {
+        let found: boolean = false;
+        matchedEnpointSplit.forEach((url, index) => {
+          if (index >= searchValueSplit.length) {
+            return;
+          }
+
+          const url2 = searchValueSplit[index];
+          if (url === url2) {
+            found = true;
+          } else if (url.startsWith(':')) {
+            found = true;
+          } else {
+            found = false;
+          }
+
+          if (!found) {
+            return;
+          }
+        });
+
+        if (found) {
           matchedFrontendUsages.push(endpoint);
         }
       });
