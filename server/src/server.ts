@@ -11,6 +11,10 @@ import {
   LocationLink,
   ReferenceParams,
   Location,
+  CodeActionParams,
+  CodeAction,
+  NotificationType,
+  NotificationType0,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';
@@ -24,6 +28,7 @@ export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocu
 let siarcController: SiarcController;
 
 connection.onInitialize(async (params: InitializeParams) => {
+  connection.console.info('Starting init of siarc server');
   const result: InitializeResult = initializeResult;
 
   siarcController = new SiarcController(params);
@@ -76,5 +81,12 @@ connection.onHover((event): Hover | undefined => {
   return siarcController.getHover(event);
 });
 
+connection.onCodeAction((params: CodeActionParams, token: CancellationToken): CodeAction[] => {
+  // TODO maybe add quickfix shit?
+
+  return [];
+});
+
 documents.listen(connection);
 connection.listen();
+connection.console.info(`Siarc server running in node ${process.version}`);

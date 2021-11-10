@@ -1,5 +1,5 @@
 import { ExtensionContext, workspace, window, WorkspaceEdit, Uri, Position, commands } from 'vscode';
-import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient/node';
+import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions, NotificationType0, RequestType } from 'vscode-languageclient/node';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -21,6 +21,13 @@ const serviceConfigTemplate = `[
   }
 ]
 `;
+
+interface InfoWindowsMessage {
+  message: string;
+}
+namespace InfoWindowRequest {
+  export const type = new RequestType<InfoWindowsMessage, void, void>('eslint/infoWindowRequest');
+}
 
 let client: LanguageClient;
 
@@ -121,10 +128,26 @@ export async function activate(context: ExtensionContext): Promise<void> {
       projects: projects,
       rootPath: workspace.workspaceFolders[0].uri.toString(),
     },
+    markdown: {
+      isTrusted: true,
+    },
+    progressOnInitialization: true,
   };
 
   client = new LanguageClient('Sia-Rest-Toolkit', serverOptions, clientOptions);
   client.start();
+
+  client
+    .onReady()
+    .then((test) => {
+      client.onRequest(InfoWindowRequest.type, (params) => {
+        window.showInformationMessage(params.message);
+      });
+    })
+    .catch((error) => {
+      // TODO error handling
+    })
+    .finally();
 }
 
 export function deactivate(): Thenable<void> | undefined {

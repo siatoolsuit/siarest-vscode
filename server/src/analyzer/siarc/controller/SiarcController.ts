@@ -15,7 +15,7 @@ import { SiarcService } from '../service';
 import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
 import { getAllFilesInProjectSync, getOrCreateTempFile } from '../handlers/file/FileHandler';
-import { sendNotification } from '../../utils/helper';
+import { sendRequest } from '../../utils/helper';
 
 export const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 export const validationDelay = 300;
@@ -37,6 +37,10 @@ export class SiarcController {
       docs.forEach((doc) => {
         this.checkForValidation(doc, true);
       });
+
+      sendRequest(connection, 'Finished analyzing all files');
+    } else {
+      // TODO error ?
     }
   }
 
@@ -55,7 +59,7 @@ export class SiarcController {
           })
           .catch((reason) => {
             console.log(reason);
-            sendNotification(connection, reason);
+            sendRequest(connection, reason);
           });
         break;
       }

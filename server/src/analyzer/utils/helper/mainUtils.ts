@@ -1,17 +1,19 @@
 import { Connection, Diagnostic, DiagnosticSeverity, Position, Range, _Connection } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { IProject } from '../..';
+import { InfoWindowRequest, InfoWindowsMessage, IProject } from '../..';
 import { Endpoint } from '../../config';
 import { ClientExpression, EndpointExpression } from '../../types';
 
 /**
- * Send a notification to vscode
+ * Send a request to vscode
  * @param connection
  * @param message
  */
-export const sendNotification = (connection: Connection, message: any) => {
+export const sendRequest = (connection: Connection, message: any) => {
   // TODO Won't fix atm does not do anything atm
   // connection.sendNotification(message);
+  const params: InfoWindowsMessage = { message: message };
+  connection.sendRequest(InfoWindowRequest.type, params);
 };
 
 /**

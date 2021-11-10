@@ -1,5 +1,14 @@
 import { ArrowFunction, CallExpression, LineAndCharacter } from 'typescript';
+import { RequestType } from 'vscode-languageserver/node';
 import { ServiceConfig } from './config';
+
+export interface InfoWindowsMessage {
+  message: string;
+}
+
+export namespace InfoWindowRequest {
+  export const type = new RequestType<InfoWindowsMessage, void, void>('eslint/infoWindowRequest');
+}
 
 export interface SemanticError {
   position: { start: number; end: number };

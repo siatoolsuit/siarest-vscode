@@ -9,7 +9,7 @@ import {
   getProject,
   isBetween,
   parseURL,
-  sendNotification,
+  sendRequest,
 } from '../../../../utils/helper';
 
 export class CodeLocationResolver {

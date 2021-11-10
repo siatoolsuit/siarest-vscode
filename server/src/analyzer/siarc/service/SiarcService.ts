@@ -13,7 +13,7 @@ import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT, VS_CODE_URI_BEGIN } from '../../utils';
-import { createDiagnostic, getProject, sendNotification } from '../../utils/helper';
+import { createDiagnostic, getProject, sendRequest } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
 import { CodeLocationResolver } from '../handlers/endpoint/codeLocationResolver';
 import { DefinitionParams, Location, LocationLink } from 'vscode-languageserver/node';
@@ -186,7 +186,7 @@ export class SiarcService {
               this.triggerTypescriptValidation(doc, file);
             })
             .catch((reason) => {
-              sendNotification(connection, reason);
+              sendRequest(connection, reason);
               return;
             });
         }
@@ -210,7 +210,7 @@ export class SiarcService {
     semanticErrors.forEach((error: SemanticError) => {
       diagnostics.push(createDiagnostic(document, error.message, error.position.start, error.position.end, DiagnosticSeverity.Error));
     });
-
+    sendRequest(connection, 'Finished validateing' + file.fileName);
     setImmediate(() => {
       // To be clear to send the correct diagnostics to the current document
       const currDoc = documents.get(document.uri);
