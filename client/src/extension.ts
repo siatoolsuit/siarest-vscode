@@ -93,7 +93,7 @@ async function findProjects() {
   return projects;
 }
 
-const initLanguageClient = async (context: ExtensionContext) => {
+const createLanguageClient = async (context: ExtensionContext) => {
   const projects = await findProjects();
   return new LanguageClient('Sia-Rest-Toolkit', getServerOptions(context), getClientOptions(projects));
 };
@@ -168,7 +168,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
       await client.stop();
       // Wait a little to free debugger port. Can not happen in production
       // So we should add a dev flag.
-      client = await initLanguageClient(context);
+      client = await createLanguageClient(context);
       const start = () => {
         client.start();
         client
@@ -187,7 +187,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
   // Try to load the package.json
 
-  client = await initLanguageClient(context);
+  client = await createLanguageClient(context);
   client.start();
 
   client

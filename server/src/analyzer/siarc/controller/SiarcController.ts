@@ -12,10 +12,9 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { SiarcService } from '../service';
-import { connection, documents } from '../../../server';
+import { connection } from '../../../server';
 import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
 import { getAllFilesInProjectSync, getOrCreateTempFile } from '../handlers/file/FileHandler';
-import { sendRequest } from '../../utils/helper';
 
 export const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 export const validationDelay = 300;
@@ -38,7 +37,7 @@ export class SiarcController {
         this.checkForValidation(doc, true);
       });
 
-      sendRequest(connection, 'Finished analyzing all files');
+      // sendRequest(connection, 'Finished analyzing all files');
     } else {
       // TODO error ?
     }
@@ -59,7 +58,6 @@ export class SiarcController {
           })
           .catch((reason) => {
             connection.console.error(reason);
-            sendRequest(connection, reason);
           });
         break;
       }

@@ -12,8 +12,8 @@ import { getAllFilesInProjectSync, getOrCreateTempFile, IFile } from '../handler
 import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
-import { TYPE_TYPESCRIPT, VS_CODE_URI_BEGIN } from '../../utils';
-import { createDiagnostic, getProject, sendRequest } from '../../utils/helper';
+import { TYPE_TYPESCRIPT } from '../../utils';
+import { createDiagnostic, getProject } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
 import { CodeLocationResolver } from '../handlers/endpoint/codeLocationResolver';
 import { DefinitionParams, Location, LocationLink } from 'vscode-languageserver/node';
@@ -186,7 +186,7 @@ export class SiarcService {
               this.triggerTypescriptValidation(doc, file);
             })
             .catch((reason) => {
-              sendRequest(connection, reason);
+              connection.console.error(reason);
               return;
             });
         }
