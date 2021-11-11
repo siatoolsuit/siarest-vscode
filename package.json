@@ -17,21 +17,41 @@
     "onLanguage:typescript",
     "onLanguage:json"
   ],
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Using ESLint is not possible in virtual workspaces."
+    },
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "The extension requires workspace trust because it loads configuration files and code from the workspace and executes it."
+    }
+  },
   "contributes": {
     "commands": [
       {
         "command": "sia-rest.createConfig",
-        "title": "sia: create config"
+        "title": "Create config",
+        "category": "Siarc"
       },
       {
         "command": "sia-rest.restart",
-        "title": "sia: restart"
+        "title": "Restart siarc service",
+        "category": "Siarc"
       }
     ],
     "jsonValidation": [
       {
         "fileMatch": ".siarc.json",
         "url": "./server/src/analyzer/config/config.schema.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "siarc",
+        "extensions": [
+          ".siarc.json"
+        ]
       }
     ]
   },
