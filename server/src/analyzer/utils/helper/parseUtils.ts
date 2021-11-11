@@ -20,6 +20,7 @@ import {
 } from 'typescript';
 import { expressImportByName, httpLibsByName, httpMethods } from '..';
 import { ClientExpression, EndpointMatch, ExpressPathAndFunction, IProject } from '../..';
+import { connection } from '../../../server';
 import { Endpoint } from '../../config';
 
 export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
@@ -245,9 +246,7 @@ export const tryParseJSONObject = (jsonString: string) => {
     if (object && typeof object === 'object') {
       return object;
     }
-  } catch (e) {
-    // console.log(e, jsonString);
-  }
+  } catch (e) {}
 
   return false;
 };
@@ -258,9 +257,7 @@ export const tryParseJSONString = (jsonObject: object) => {
     if (object && typeof object === 'string') {
       return object;
     }
-  } catch (e) {
-    // console.log(e, jsonObject);
-  }
+  } catch (e) {}
 
   return false;
 };

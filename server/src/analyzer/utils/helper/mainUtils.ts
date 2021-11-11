@@ -13,7 +13,9 @@ export const sendRequest = (connection: Connection, message: any) => {
   // TODO Won't fix atm does not do anything atm
   // connection.sendNotification(message);
   const params: InfoWindowsMessage = { message: message };
-  connection.sendRequest(InfoWindowRequest.type, params);
+  connection.sendRequest(InfoWindowRequest.type, params).catch((reason) => {
+    console.error(reason);
+  });
 };
 
 /**
