@@ -52,13 +52,13 @@ export class SiarcService {
             if (existsSync(siarc.uri)) {
               const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
               this.validateConfig(textDoc, project, true);
-              console.debug('Found and loaded siarc from Project: ' + project.rootPath);
+              connection.console.log('Found and loaded siarc from Project: ' + project.rootPath);
             }
           }
 
           if (project.packageJson) {
             this.loadPackageJson(project.packageJson, project);
-            console.debug('Found and loaded package.json from Project: ' + project.rootPath);
+            connection.console.log('Found and loaded package.json from Project: ' + project.rootPath);
           }
 
           this.projectsByProjectNames.set(project.rootPath, project);
@@ -116,7 +116,7 @@ export class SiarcService {
         const results = analyze(file.tempFileUri, project.projectName || '', project.serviceConfig, project.serviceConfig ? false : true);
 
         if (results.endPointsAvaiable) {
-          console.debug('Found endpoints in file: ' + file.fileUri, results.endPointsAvaiable);
+          connection.console.log('Found endpoints in file: ' + file.fileUri + ' endpoints: ' + results.endPointsAvaiable.length);
           this.avaibaleEndpoints.set(file.fileUri, results.endPointsAvaiable);
         }
 
@@ -207,10 +207,10 @@ export class SiarcService {
 
     const version = document.version;
     const semanticErrors = this.analyzeEndpoints(file);
+    // sendRequest(connection, 'Validate ' + file.fileUri);
     semanticErrors.forEach((error: SemanticError) => {
       diagnostics.push(createDiagnostic(document, error.message, error.position.start, error.position.end, DiagnosticSeverity.Error));
     });
-    sendRequest(connection, 'Finished validateing' + file.fileName);
     setImmediate(() => {
       // To be clear to send the correct diagnostics to the current document
       const currDoc = documents.get(document.uri);

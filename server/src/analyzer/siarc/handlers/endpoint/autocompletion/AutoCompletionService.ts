@@ -1,4 +1,5 @@
 import { CancellationToken, CompletionItem, CompletionParams, TextEdit } from 'vscode-languageserver/node';
+import { connection } from '../../../../../server';
 import { ServiceConfig, Endpoint } from '../../../../config';
 
 export class AutoCompletionService {
@@ -13,6 +14,7 @@ export class AutoCompletionService {
       let endpoint: Endpoint | undefined;
       currentConfigs.forEach((serviceConfig) => {
         endpoint = serviceConfig?.endpoints.find((endpoint) => {
+          6;
           if (endpoint.path === completionItem.filterText) {
             return endpoint;
           }
@@ -29,7 +31,7 @@ export class AutoCompletionService {
 
   public generateCompletionItems(currentConfig: ServiceConfig): CompletionItem[] {
     const completionItems: CompletionItem[] = [];
-    console.log('Generate completion ' + currentConfig.endpoints);
+    connection.console.log('Generate completion ' + currentConfig.endpoints);
     currentConfig?.endpoints.forEach((endpoint) => {
       const completionItem = this.createEndpointCompletionItem(endpoint, currentConfig);
       completionItems.push(completionItem);

@@ -6,6 +6,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createHash } from 'crypto';
 import { error } from 'console';
 import { sync } from 'fast-glob';
+import { connection } from '../../../../server';
 
 export interface IFile {
   fileName: string;
@@ -52,7 +53,7 @@ export async function cleanTempFiles(uri: DocumentUri): Promise<string> {
 
     unlink(fileUri, (err) => {
       if (err) {
-        console.warn(err);
+        connection.console.error(err.message);
         reject(err);
         return;
       } else {
@@ -90,7 +91,7 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
             return;
           }
 
-          console.debug(`Updated content of file: ${file.tempFileUri}`);
+          connection.console.log(`Updated content of file: ${file.tempFileUri}`);
           tempFiles.set(file.fileUri, file);
           resolve(file);
         })
@@ -109,7 +110,7 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
 
       writeFile(file.tempFileUri, textDoc.getText())
         .then(() => {
-          console.debug(`Created file: ${file.tempFileUri}`);
+          connection.console.log(`Created file: ${file.tempFileUri}`);
           tempFiles.set(file.fileUri, file);
           resolve(file);
         })

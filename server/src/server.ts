@@ -53,10 +53,10 @@ documents.onDidClose((event) => {
   if (event.document.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
     cleanTempFiles(event.document.uri)
       .then((fileUri) => {
-        console.debug(`Removed file at ${fileUri}`);
+        connection.console.log(`Removed file at ${fileUri}`);
       })
       .catch((error) => {
-        console.debug(error);
+        connection.console.error(error);
       });
   }
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });

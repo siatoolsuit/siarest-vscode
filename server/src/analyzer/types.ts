@@ -7,7 +7,7 @@ export interface InfoWindowsMessage {
 }
 
 export namespace InfoWindowRequest {
-  export const type = new RequestType<InfoWindowsMessage, void, void>('eslint/infoWindowRequest');
+  export const type = new RequestType<InfoWindowsMessage, void, void>('siarc/infoWindowRequest');
 }
 
 export interface SemanticError {

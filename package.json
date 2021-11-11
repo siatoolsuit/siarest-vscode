@@ -13,6 +13,7 @@
   },
   "activationEvents": [
     "onCommand:sia-rest.createConfig",
+    "onCommand:sia-rest.restart",
     "onLanguage:typescript",
     "onLanguage:json"
   ],
@@ -21,6 +22,10 @@
       {
         "command": "sia-rest.createConfig",
         "title": "sia: create config"
+      },
+      {
+        "command": "sia-rest.restart",
+        "title": "sia: restart"
       }
     ],
     "jsonValidation": [

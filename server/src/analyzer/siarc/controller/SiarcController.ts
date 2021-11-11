@@ -58,7 +58,7 @@ export class SiarcController {
             this.siarcService.triggerTypescriptValidation(document, file);
           })
           .catch((reason) => {
-            console.log(reason);
+            connection.console.error(reason);
             sendRequest(connection, reason);
           });
         break;
