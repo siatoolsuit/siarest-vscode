@@ -42,7 +42,22 @@ namespace InfoWindowRequest {
   export const type = new RequestType<InfoWindowsMessage, void, void>('siarc/infoWindowRequest');
 }
 
-async function findProjects() {
+namespace Types {
+  export interface Siarc {
+    uri: string;
+    languageId: string;
+    version: number;
+    content: string;
+  }
+
+  export interface Project {
+    packageJson: string | undefined;
+    rootPath: string;
+    siarcTextDoc?: Siarc;
+  }
+}
+
+async function findProjects(): Promise<Types.Project[]> {
   let packageJsons = await workspace.findFiles('**/package.json', '**​/node_modules/**');
   packageJsons = packageJsons.filter((val) => !val.path.includes('node_modules'));
   const siarcFiles = await workspace.findFiles('**/.siarc.json', '**​/node_modules/**');
@@ -76,12 +91,12 @@ async function findProjects() {
       packJson = undefined;
     }
 
-    let siaConf = undefined;
+    let siaConf: Types.Siarc = undefined;
     if (siarc) {
       siaConf = { uri: file.path, languageId: 'json', version: 1, content: siarc };
     }
 
-    const projectConfig = {
+    const projectConfig: Types.Project = {
       siarcTextDoc: siaConf,
       packageJson: packJson || undefined,
       rootPath: path,
@@ -95,6 +110,13 @@ async function findProjects() {
 
 const createLanguageClient = async (context: ExtensionContext) => {
   const projects = await findProjects();
+
+  projects.forEach((project) => {
+    if (project.siarcTextDoc) {
+      start = true;
+    }
+  });
+
   return new LanguageClient('Sia-Rest-Toolkit', getServerOptions(context), getClientOptions(projects));
 };
 
@@ -134,6 +156,7 @@ const getServerOptions = (context: ExtensionContext): ServerOptions => {
 };
 
 let client: LanguageClient;
+let start: boolean = false;
 
 export async function activate(context: ExtensionContext): Promise<void> {
   //  Only activate if a folder was opened
@@ -188,12 +211,16 @@ export async function activate(context: ExtensionContext): Promise<void> {
   // Try to load the package.json
 
   client = await createLanguageClient(context);
-  client.start();
 
-  client
-    .onReady()
-    .then(readyHandler)
-    .catch((error) => client.error(`On ready failed`, error));
+  if (start) {
+    client.start();
+    client
+      .onReady()
+      .then(readyHandler)
+      .catch((error) => client.error(`On ready failed`, error));
+  } else {
+    window.showErrorMessage("Siarc server couldn't start. Please ensure .siarc.json is present");
+  }
 }
 
 export function deactivate(): Thenable<void> | undefined {
