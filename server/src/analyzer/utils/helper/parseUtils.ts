@@ -251,6 +251,11 @@ export const tryParseJSONObject = (jsonString: string) => {
   return false;
 };
 
+/**
+ * @deprecated
+ * @param jsonObject
+ * @returns not working
+ */
 export const tryParseJSONString = (jsonObject: object) => {
   try {
     var object = JSON.stringify(jsonObject);
@@ -314,4 +319,45 @@ export const parseURL = (searchValue: string, split: string = '/'): string[] => 
   } while (searchValue);
 
   return searchSplit;
+};
+
+/**
+ * Returns a beautifyed json string
+ * @param JSON
+ * @returns String
+ */
+export const replaceArrayInJson = (record: Record<string, string>): string => {
+  const json = JSON.stringify(record);
+  const jsonObj = tryParseJSONObject(json);
+  const obj = replaceArrayType(jsonObj);
+  const beautifyedJsonString = JSON.stringify(obj, null, '\t');
+  if (beautifyedJsonString.startsWith('"') && beautifyedJsonString.endsWith('"')) {
+    return beautifyedJsonString.substring(1, beautifyedJsonString.length - 1);
+  }
+  return beautifyedJsonString;
+};
+
+/**
+ * Replaces any { isArray: true, type: '**'} with **[]
+ * @param jsonObject
+ * @returns object
+ */
+export const replaceArrayType = (jsonObject: any): any => {
+  if (jsonObject.isArray && jsonObject.type) {
+    jsonObject = jsonObject.type + '[]';
+    return jsonObject;
+  }
+
+  for (let firstType in jsonObject) {
+    jsonObject[firstType];
+    if (typeof jsonObject[firstType] === 'object') {
+      if (jsonObject[firstType].isArray && jsonObject[firstType].type) {
+        jsonObject[firstType] = jsonObject[firstType].type + '[]';
+      } else {
+        replaceArrayType(jsonObject[firstType]);
+      }
+    }
+  }
+
+  return jsonObject;
 };

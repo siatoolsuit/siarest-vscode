@@ -13,8 +13,6 @@ import {
   Location,
   CodeActionParams,
   CodeAction,
-  NotificationType,
-  NotificationType0,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';

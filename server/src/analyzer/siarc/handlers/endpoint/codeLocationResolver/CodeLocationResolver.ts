@@ -35,8 +35,6 @@ export class CodeLocationResolver {
       });
 
       const matchedBackendEndpoints: EndpointMatch[] = [];
-      const cleanedEndpointPath = matchedEnpoint?.path.replace(/[\'\`\/]/gi, '');
-      // const splits = cleanedEndpointPath.split(/[+\s]\s*/);
       const matchedEndpointSplit = parseURL(matchedEnpoint.path);
       allEndpoints.forEach((endpoint) => {
         let searchValue: string = endpoint.clientExpression.path;
