@@ -1,7 +1,8 @@
 import { Hover, HoverParams, MarkupContent, MarkupKind } from 'vscode-languageserver';
-import { getMatchedEndpoint, getProject, isBetween } from '../../../../utils/helper';
-import { ClientExpression, EndpointExpression } from '../../../../types';
+import { getMatchedEndpoint, getProject, parseURL, replaceArrayInJson } from '../../../../utils/helper';
+import { ClientExpression } from '../../../../types';
 import { IProject } from '../../../..';
+import { Endpoint, ServiceConfig } from '../../../../config';
 
 export class HoverInfoService {
   constructor() {}
@@ -22,32 +23,24 @@ export class HoverInfoService {
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint) {
-      const project = getProject(projectsByName, hoverParams.textDocument.uri);
+      const project = getProject(projectsByName, uri);
       let currentConfig = project.serviceConfig;
-      const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
-        if (endPoint.path === matchedEnpoint?.path && endPoint.method === matchedEnpoint?.method) {
-          return endPoint;
-        }
-      });
 
-      if (additionalInfo) {
-        if (currentConfig) {
-          const markdown: MarkupContent = {
-            kind: MarkupKind.Markdown,
-            value: [
-              '### Service ' + currentConfig?.name,
-              'Operation: ' + additionalInfo.method,
-              '```typescript',
-              '```',
-              currentConfig?.baseUri + matchedEnpoint.path,
-            ].join('\n'),
-          };
+      if (currentConfig) {
+        const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
+          if (endPoint.path === matchedEnpoint?.path && endPoint.method === matchedEnpoint?.method) {
+            return endPoint;
+          }
+        });
 
-          const hoverInfo: Hover = {
-            contents: markdown,
-          };
+        if (additionalInfo) {
+          if (currentConfig) {
+            const hoverInfo: Hover = {
+              contents: createHoverMarkdown(additionalInfo, currentConfig),
+            };
 
-          return hoverInfo;
+            return hoverInfo;
+          }
         }
       } /*FRONTED*/ else {
         let allEndpoints: { clientExpression: ClientExpression; uri: string }[] = [];
@@ -63,39 +56,64 @@ export class HoverInfoService {
           }
         });
 
-        const matchedBackendEndpoint = allEndpoints.find((endPoint) => {
-          let searchValue: string = endPoint.clientExpression.path;
-          if (endPoint.clientExpression.path.startsWith('/')) {
+        const matchedEndpointSplit: string[] = parseURL(matchedEnpoint.path);
+        const matchedBackendEndpoint = allEndpoints.find((endpoint) => {
+          let searchValue: string = endpoint.clientExpression.path;
+          if (searchValue.startsWith('/')) {
             searchValue = searchValue.substring(1);
           }
 
-          const test = matchedEnpoint?.path.replace(/[\'\`\/]/gi, '');
-          const splits = test.split(/[+\s]\s*/);
+          const searchValueSplit = parseURL(searchValue);
 
-          if (splits.includes(searchValue)) {
-            return endPoint;
+          // const test = matchedEnpoint?.path.replace(/[\'\`\/]/gi, '');
+          // const splits = test.split(/[+\s]\s*/);
+
+          let found: boolean = false;
+          matchedEndpointSplit.forEach((url, index) => {
+            if (index >= searchValueSplit.length) {
+              return;
+            }
+
+            const url2 = searchValueSplit[index];
+            if (url === url2) {
+              found = true;
+            } else if (url2.startsWith(':')) {
+              found = true;
+            } else {
+              found = false;
+            }
+
+            if (!found) {
+              return;
+            }
+          });
+
+          if (found) {
+            return endpoint;
           }
         });
 
         if (matchedBackendEndpoint) {
           const project = projectsByName.get(matchedBackendEndpoint?.uri);
           currentConfig = project?.serviceConfig;
-          const markdown: MarkupContent = {
-            kind: MarkupKind.Markdown,
-            value: [
-              '### Backend ' + currentConfig?.name,
-              'Operation: ' + matchedBackendEndpoint.clientExpression.method,
-              '```typescript',
-              '```',
-              currentConfig?.baseUri + matchedBackendEndpoint.clientExpression.path,
-            ].join('\n'),
-          };
+          if (currentConfig) {
+            const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
+              if (
+                endPoint.path === matchedBackendEndpoint?.clientExpression.path &&
+                endPoint.method === matchedBackendEndpoint?.clientExpression.method
+              ) {
+                return endPoint;
+              }
+            });
 
-          const hoverInfo: Hover = {
-            contents: markdown,
-          };
+            if (additionalInfo) {
+              const hoverInfo: Hover = {
+                contents: createHoverMarkdown(additionalInfo, currentConfig),
+              };
 
-          return hoverInfo;
+              return hoverInfo;
+            }
+          }
         }
       }
     } else {
@@ -103,3 +121,49 @@ export class HoverInfoService {
     }
   }
 }
+
+const createHoverMarkdown = (endpoint: Endpoint, serviceConfig: ServiceConfig): MarkupContent => {
+  let content: string[] = [];
+
+  const lineBreak = '  ';
+
+  content.push('### Backend ' + serviceConfig.name + lineBreak);
+  content.push('');
+  content.push('Method: ' + endpoint.method + lineBreak);
+  content.push(serviceConfig.baseUri + endpoint.path + lineBreak);
+
+  if (endpoint.response) {
+    content.push('**Result:** ' + lineBreak);
+    content.push('');
+    content.push('```typescript');
+
+    if (typeof endpoint.response === 'string') {
+      content.push(endpoint.response);
+    } else {
+      const jsonStringResult = replaceArrayInJson(endpoint.response);
+      content.push(jsonStringResult);
+    }
+
+    content.push('```');
+  }
+
+  if (endpoint.request) {
+    content.push('**Request:** ' + lineBreak);
+    content.push('');
+    content.push('```typescript');
+
+    if (typeof endpoint.request === 'string') {
+      content.push(endpoint.request);
+    } else {
+      const jsonStringResult = replaceArrayInJson(endpoint.request);
+      content.push(jsonStringResult);
+    }
+
+    content.push('```');
+  }
+
+  return {
+    kind: MarkupKind.Markdown,
+    value: content.join('\n'),
+  };
+};
