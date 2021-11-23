@@ -3,10 +3,15 @@ import { LanguageClient, ServerOptions, TransportKind, LanguageClientOptions, Re
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * Example template for siarc.json
+ * @constant
+ */
 const serviceConfigTemplate = `[
   {
     "name": "my-service",
     "baseUri": "http://localhost:3000/api",
+    "frontends": ["my-frontend"],
     "endpoints": [
       {
         "method": "POST",
@@ -21,8 +26,12 @@ const serviceConfigTemplate = `[
 ]
 `;
 
-// Copied from LSP libraries. We should have a flag in the client to know whether the
-// client runs in debugger mode.
+/**
+ * Copied from LSP libraries. We should have a flag in the client to know whether the
+ * client runs in debugger mode.
+ * @function
+ * @returns boolean
+ */
 function isInDebugMode(): boolean {
   const debugStartWith: string[] = ['--debug=', '--debug-brk=', '--inspect=', '--inspect-brk='];
   const debugEquals: string[] = ['--debug', '--debug-brk', '--inspect', '--inspect-brk'];
@@ -35,14 +44,26 @@ function isInDebugMode(): boolean {
   return false;
 }
 
+/**
+ * Datastructure for messages between client and server
+ * @interface
+ */
 interface InfoWindowsMessage {
   message: string;
 }
+
 namespace InfoWindowRequest {
+  /**
+   * Requesttype for communication between extension and vs code
+   */
   export const type = new RequestType<InfoWindowsMessage, void, void>('siarc/infoWindowRequest');
 }
 
 namespace Types {
+  /**
+   * Datastructure for siarc
+   * @interface
+   */
   export interface Siarc {
     uri: string;
     languageId: string;
@@ -50,6 +71,10 @@ namespace Types {
     content: string;
   }
 
+  /**
+   * Datastructure for projects open in vs code
+   * @interface
+   */
   export interface Project {
     packageJson: string | undefined;
     rootPath: string;
@@ -57,6 +82,12 @@ namespace Types {
   }
 }
 
+/**
+ * Finds npm/yarn projects in a mono repo.
+ * Creates a list of projects with additional informations
+ * More to come
+ * @returns List of @interface Project
+ */
 async function findProjects(): Promise<Types.Project[]> {
   let packageJsons = await workspace.findFiles('**/package.json', '**​/node_modules/**');
   packageJsons = packageJsons.filter((val) => !val.path.includes('node_modules'));
@@ -108,9 +139,17 @@ async function findProjects(): Promise<Types.Project[]> {
   return projects;
 }
 
+/**
+ * Helper function to create the actual LanguageClient
+ * @param context VS Codes ExtensionsContext initialized by VSCode
+ * @returns LanguageClient
+ */
 const createLanguageClient = async (context: ExtensionContext) => {
   const projects = await findProjects();
 
+  /**
+   * If atleast one project has a siarc config file
+   */
   projects.forEach((project) => {
     if (project.siarcTextDoc) {
       start = true;
@@ -120,6 +159,12 @@ const createLanguageClient = async (context: ExtensionContext) => {
   return new LanguageClient('Sia-Rest-Toolkit', getServerOptions(context), getClientOptions(projects));
 };
 
+/**
+ * Helper function to create a LanguageClientOption filled with additonal data for the server
+ * E.g contains a list of projects and the root path for the server.
+ * @param projects List of projects
+ * @returns LanguageClientOptions
+ */
 const getClientOptions = (projects: any[]): LanguageClientOptions => {
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
@@ -127,7 +172,7 @@ const getClientOptions = (projects: any[]): LanguageClientOptions => {
       { language: 'json', pattern: '**/.siarc.json' },
       { language: 'json', pattern: '**/package.json' },
     ],
-    // Send the initialized package.json and .siarc.json, only if they exists
+    // Send the initialized projects and the rootPath if a MonoRepository is used.
     initializationOptions: {
       projects: projects,
       rootPath: workspace.workspaceFolders ? workspace.workspaceFolders[0].uri.toString() : '',
@@ -141,6 +186,12 @@ const getClientOptions = (projects: any[]): LanguageClientOptions => {
   return clientOptions;
 };
 
+/**
+ * Creates ServerOptions. ServerOptions is used by the client to know
+ * how the client communicates with the LanguageServer
+ * @param context ExtensionContext from VsCode
+ * @returns ServerOptions
+ */
 const getServerOptions = (context: ExtensionContext): ServerOptions => {
   const serverModule = Uri.joinPath(context.extensionUri, 'server', 'dist', 'server.js').fsPath;
   const serverOptions: ServerOptions = {
@@ -155,23 +206,34 @@ const getServerOptions = (context: ExtensionContext): ServerOptions => {
   return serverOptions;
 };
 
-let client: LanguageClient;
-let start: boolean = false;
+var client: LanguageClient;
+var start: boolean = false;
 
+/**
+ * Activate function, that get's called by VsCode on Extension launch
+ * @param context ExtensionContext from VsCode
+ * @returns Promise
+ */
 export async function activate(context: ExtensionContext): Promise<void> {
   //  Only activate if a folder was opened
   if (!workspace.workspaceFolders || workspace.workspaceFolders.length === 0) {
     return;
   }
 
+  /**
+   * A Hanlder to show messages in the vscode ui
+   */
   const readyHandler = () => {
     client.onRequest(InfoWindowRequest.type, (params) => {
       window.showInformationMessage(params.message);
     });
   };
 
-  // Add the command to create the .siarc.json file
+  /**
+   * Adds different commands that can be used by the user from VsCode
+   */
   context.subscriptions.push(
+    // Add the command to create the .siarc.json file
     Commands.registerCommand('sia-rest.createConfig', async () => {
       // The user wants that the extension creates a dummy file
       const wsEdit = new WorkspaceEdit();
@@ -187,6 +249,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
         window.showInformationMessage('.siarc.json already exists');
       }
     }),
+    // Adds the command to restart the extension/server
     Commands.registerCommand('sia-rest.restart', async () => {
       await client.stop();
       // Wait a little to free debugger port. Can not happen in production
@@ -208,12 +271,15 @@ export async function activate(context: ExtensionContext): Promise<void> {
     }),
   );
 
-  // Try to load the package.json
-
+  /**
+   * Actual creation of the languageClient/Server
+   */
   client = await createLanguageClient(context);
 
   if (start) {
+    //Actual start of the server
     client.start();
+    // If the server is ready add handlers ...
     client
       .onReady()
       .then(readyHandler)
@@ -223,6 +289,10 @@ export async function activate(context: ExtensionContext): Promise<void> {
   }
 }
 
+/**
+ * Deactivate the server if the extensions gets disabled
+ * @returns
+ */
 export function deactivate(): Thenable<void> | undefined {
   if (!client) {
     return undefined;
