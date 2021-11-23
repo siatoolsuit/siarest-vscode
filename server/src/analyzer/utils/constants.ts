@@ -1,3 +1,7 @@
+/**
+ * This file contains just some constants used throughout the project.
+ */
+
 export const TYPE_TYPESCRIPT = {
   SUFFIX: '.ts',
   LANGUAGE_ID: 'typescript',
