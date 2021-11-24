@@ -20,9 +20,13 @@ import {
 } from 'typescript';
 import { expressImportByName, httpLibsByName, httpMethods } from '..';
 import { ClientExpression, EndpointMatch, ExpressPathAndFunction, IProject } from '../..';
-import { connection } from '../../../server';
-import { Endpoint } from '../../config';
 
+/**
+ * Finds the last syntax element in a absract syntax tree.
+ * @param typeNode Typenode contains a type (string, number, object, ...)
+ * @param syntaxKind Kind to find
+ * @returns returns
+ */
 export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): string | undefined => {
   let typedString = undefined;
   if (typeNode) {
@@ -35,6 +39,12 @@ export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefi
   return typedString;
 };
 
+/**
+ * Returns an element inside the typenode.
+ * @param typeNode
+ * @param syntaxKind Kind to find inside typenode
+ * @returns
+ */
 export const findSyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): any => {
   let res = undefined;
   if (typeNode) {
@@ -48,7 +58,7 @@ export const findSyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxK
 };
 
 /**
- * Parse first chained expressions recursive
+ * Parse first chained expressions recursive.
  * @param propAccExpr Last Expression e.g res.status(404).body().send()
  * @returns res
  */
@@ -62,7 +72,7 @@ export const parseLastExpression = (propAccExpr: PropertyAccessExpression): Prop
 };
 
 /**
- * Extracts the express api endpoint with several information
+ * Extracts the express api endpoint with several information.
  * @param args Arguments for
  * @returns Returns an object with information about content, inline function, start and end of the called api endpoint
  */
@@ -90,8 +100,8 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
     },
   };
 
+  // Each node of an abstract syntax tree.
   for (const node of args) {
-    // TODO parse with variables?? get(x) or get('x' + y)
     switch (node.kind) {
       case SyntaxKind.StringLiteral:
         if (args.indexOf(node) === 0) {
@@ -118,6 +128,12 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
   return result;
 };
 
+/**
+ * Parses an binary expressions string and removes all String markers ('")
+ * Recursive function.
+ * @param binaryExpression Something like a + b  or a + (b + c)
+ * @returns
+ */
 export const parseBinaryExpression = (binaryExpression: BinaryExpression): string => {
   const left = binaryExpression.left;
   const right = binaryExpression.right;
@@ -146,9 +162,9 @@ export const parseBinaryExpression = (binaryExpression: BinaryExpression): strin
 };
 
 /**
- * Extracts express or Router from an importStatement
+ * Extracts express or Router from an importStatement.
  * @param statement
- * @returns
+ * @returns Import declaration of express or router
  */
 export const extractExpressImport = (statement: Statement): ImportDeclaration | undefined => {
   const importDecl = statement as ImportDeclaration;
@@ -172,6 +188,11 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
   }
 };
 
+/**
+ * Extracts Httpclient from angular from an importStatement.
+ * @param statement
+ * @returns Import declaration of HttpClient
+ */
 export const extractHttpClientImport = (statement: Statement): ImportDeclaration | undefined => {
   const importDecl = statement as ImportDeclaration;
   const importClause = importDecl.importClause;
@@ -217,7 +238,13 @@ export const extractExpressVariable = (statement: Statement): String | undefined
   }
 };
 
-export const getSimpleTypeFromType = (type: Type, checker: TypeChecker): string => {
+/**
+ * Return a simple type from different typeflags.
+ * @param type Type of a var
+ * @param checker TypeChecker from typescript
+ * @returns
+ */
+export const getSimpleTypeFromType = (type: Type): string => {
   switch (type.getFlags()) {
     case TypeFlags.String:
     case TypeFlags.StringLike:
@@ -240,6 +267,11 @@ export const getSimpleTypeFromType = (type: Type, checker: TypeChecker): string 
   }
 };
 
+/**
+ * Try/catch to parse string to a json object.
+ * @param jsonString
+ * @returns The parsed object or false if an error was thrown.
+ */
 export const tryParseJSONObject = (jsonString: string) => {
   try {
     var object = JSON.parse(jsonString);
@@ -267,6 +299,13 @@ export const tryParseJSONString = (jsonObject: object) => {
   return false;
 };
 
+/**
+ * Checks if an expression contains the parsed httClient object and returns his position.
+ * @param expr Expression to parse
+ * @param httpClientVarName variable name of the object
+ * @param sourceFile
+ * @returns Undefined if nothing is found or a Clientexpression
+ */
 export const getHttpClientExpression = (expr: Expression, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined => {
   if (expr?.kind === SyntaxKind.CallExpression) {
     const callExpr = expr as CallExpression;
@@ -286,6 +325,12 @@ export const getHttpClientExpression = (expr: Expression, httpClientVarName: str
   }
 };
 
+/**
+ * Helper function to get all endpoitns for a project.
+ * @param project Project
+ * @param avaibaleEndpointsPerFile Map with files and its endpoints.
+ * @returns all endpoints of a project
+ */
 export const getEndpointsPerFile = (project: IProject, avaibaleEndpointsPerFile: Map<string, ClientExpression[]>) => {
   let allEndpoints: EndpointMatch[] = [];
   avaibaleEndpointsPerFile.forEach((endpoints, fileUri) => {
@@ -299,6 +344,12 @@ export const getEndpointsPerFile = (project: IProject, avaibaleEndpointsPerFile:
   return allEndpoints;
 };
 
+/**
+ * Splits an url by split.
+ * @param searchValue String to split
+ * @param split split value
+ * @returns String value for searching
+ */
 export const parseURL = (searchValue: string, split: string = '/'): string[] => {
   if (searchValue.startsWith('/')) {
     searchValue = searchValue.substring(1);
@@ -339,6 +390,8 @@ export const replaceArrayInJson = (record: Record<string, string>): string => {
 
 /**
  * Replaces any { isArray: true, type: '**'} with **[]
+ * Parses an json object. If { isArray: true, type: '**'} is found replaces it with an
+ * expression for an array eg { isArray:true, type: 'int'} = int[]
  * @param jsonObject
  * @returns object
  */

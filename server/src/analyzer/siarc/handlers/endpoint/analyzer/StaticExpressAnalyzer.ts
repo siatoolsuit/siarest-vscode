@@ -680,7 +680,7 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
           } else {
             const type = checker?.getTypeAtLocation(varDecl);
             if (type) {
-              typedString = getSimpleTypeFromType(type, checker);
+              typedString = getSimpleTypeFromType(type);
             }
           }
 
