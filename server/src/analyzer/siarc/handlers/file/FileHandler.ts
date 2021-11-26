@@ -156,7 +156,12 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   return res;
 }
 
-export function getAllFilesInProjectSync(path: string) {
+/**
+ * Searches all files inside a location and returns all typescript files.
+ * @param path Path
+ * @returns a list
+ */
+export function getAllFilesInProjectSync(path: string): TextDocument[] {
   if (path.startsWith('file://')) {
     path = path.substring(7);
   }
