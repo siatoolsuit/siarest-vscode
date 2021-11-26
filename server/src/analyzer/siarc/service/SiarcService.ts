@@ -18,6 +18,10 @@ import { pendingValidations, validationDelay } from '../controller';
 import { CodeLocationResolver } from '../handlers/endpoint/codeLocationResolver';
 import { DefinitionParams, Location, LocationLink } from 'vscode-languageserver/node';
 
+/**
+ * SiarcService provides functions for the server to get information
+ * @class SiarcService
+ */
 export class SiarcService {
   private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
 
@@ -28,12 +32,19 @@ export class SiarcService {
   private codeLocationResolver: CodeLocationResolver;
   private jsonLanguageService: LanguageService;
 
+  /**
+   * Init of the service.
+   * Gets first called if the server ist started.
+   */
   constructor(params: InitializeParams) {
     this.jsonLanguageService = getLanguageService({ clientCapabilities: params.capabilities });
     const initOptions = params.initializationOptions;
 
     if (initOptions) {
       if (initOptions.projects) {
+        /**
+         * Init each project and searches for npm/yarn projects and saves it.
+         */
         initOptions.projects.forEach((obj: any) => {
           const project: IProject = {
             rootPath: obj.rootPath,
@@ -71,10 +82,21 @@ export class SiarcService {
     this.codeLocationResolver = new CodeLocationResolver();
   }
 
+  /**
+   * Calles the hoverInfo service to get more information.
+   * @param hoverParams
+   * @returns Information about the curren tcursor position.
+   */
   public getInfo(hoverParams: HoverParams): Hover | undefined {
     return this.hoverInfoService.getInfo(hoverParams, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
+  /**
+   * Calls the autoCompletionService to provide the server with infos about autocompletions.
+   * @param params
+   * @param token
+   * @returns
+   */
   public provideCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
     this.generateCompletionItems();
 
@@ -87,6 +109,9 @@ export class SiarcService {
     return this.autoCompletionService.provideCompletionItems(params, token, serviceConfigs);
   }
 
+  /**
+   * Generates completions items for alle siarc.jsons
+   */
   public generateCompletionItems() {
     this.projectsByProjectNames.forEach((project, key) => {
       if (project.serviceConfig) {
@@ -95,16 +120,28 @@ export class SiarcService {
     });
   }
 
+  /**
+   * Calls the CodeLocaltionResolver to provide vscode with information about definitions tot he called item.
+   * @param params
+   * @param token
+   * @returns
+   */
   public getDefintions(params: DefinitionParams, token: CancellationToken): LocationLink[] {
     return this.codeLocationResolver.resolve(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
+  /**
+   * Calls the CodeLocaltionResolver to provide vscode with information about locations tot he called item.
+   * @param params
+   * @param token
+   * @returns
+   */
   public getLocations(params: ReferenceParams, token: CancellationToken): Location[] {
     return this.codeLocationResolver.resolveReferences(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
   /**
-   *
+   * Analyze the given typescript file.
    * @param file Typescript file
    * @returns List of SemanticErrors
    */
@@ -131,6 +168,10 @@ export class SiarcService {
     }
   }
 
+  /**
+   * Deletes the pending validation for a file/uri
+   * @param uri
+   */
   public cleanPendingValidations(uri: string): void {
     const request = pendingValidations[uri];
     if (request) {
@@ -139,6 +180,11 @@ export class SiarcService {
     }
   }
 
+  /**
+   * Triggers the config validation.
+   * Deletes the old pending validation. And start the new one with a small timeout.
+   * @param document
+   */
   public triggerConfValidation(document: TextDocument): void {
     this.cleanPendingValidations(document.uri);
     pendingValidations[document.uri] = setTimeout(async () => {
@@ -147,6 +193,12 @@ export class SiarcService {
     }, validationDelay);
   }
 
+  /**
+   * Validates the config file. (siarc.json)
+   * @param document a typescript document
+   * @param project projec to the document
+   * @param file file in our representation
+   */
   public async validateConfig(document: TextDocument, project?: IProject, init: boolean = false): Promise<void> {
     const jsonDoc = this.jsonLanguageService.parseJSONDocument(document);
 
@@ -174,6 +226,10 @@ export class SiarcService {
     }
   }
 
+  /**
+   * Init all files and analyzes them.
+   * @param pathUri
+   */
   public initFiles(pathUri: string) {
     const path = pathUri;
     if (path) {
@@ -194,6 +250,11 @@ export class SiarcService {
     }
   }
 
+  /**
+   * Triggers the typescript validation.
+   * @param document a typescript document
+   * @param file file in our representation
+   */
   public triggerTypescriptValidation(document: TextDocument, file: IFile): void {
     this.cleanPendingValidations(file.fileUri);
     pendingValidations[file.fileUri] = setTimeout(() => {
@@ -202,6 +263,12 @@ export class SiarcService {
     }, validationDelay);
   }
 
+  /**
+   * Analyses a typescript file and pushes errors to vscode.
+   * Deletes the old pending validation. And start the new one with a small timeout.
+   * @param document a typescript document
+   * @param file file in our representation
+   */
   public validateTypescript(document: TextDocument, file: IFile): void {
     const diagnostics: Diagnostic[] = [];
 
@@ -220,73 +287,21 @@ export class SiarcService {
     });
   }
 
+  /**
+   * Loads and inits the packagejson for each project
+   * @param packageJson
+   * @param project
+   */
   public loadPackageJson(packageJson: string, project?: IProject) {
     if (project) {
       if (project.packageJson) {
         const pack = JSON.parse(project.packageJson);
         project.projectName = pack.name;
-        this.detectFrameworkOrLibrary(pack);
       }
     } else {
       if (packageJson) {
         const pack = JSON.parse(packageJson);
-        this.detectFrameworkOrLibrary(pack);
       }
     }
   }
-
-  /**
-   * detectFrameworkOrLibrary
-   * @param packJ packageJson
-   */
-  private detectFrameworkOrLibrary(packJ: any): void {
-    // Extract the list of all compile time dependencies and look for supported frameworks and libraries
-    const deps = packJ.dependencies;
-    // TODO maybe need for further events
-    // for (const dep of Object.keys(deps)) {
-    //   if (dep.includes('express')) {
-    //     // Try to extract the configuration for this service by name
-    //     let currentServiceConfig;
-    //     this.projectsByProjectNames.forEach((project) => {
-    //       if (project.serviceConfig?.name === this.currentServiceName) {
-    //         this.currenServiceConfig = project.serviceConfig;
-    //       }
-    //     });
-    //     // currentServiceConfig = this.validConfig.find((config) => {
-    //     //   if (config.name === this.currentServiceName) return config;
-    //     // });
-    //     // this.currenServiceConfig = currentServiceConfig;
-    //     this.validateFrontend = false;
-    //     break;
-    //   } else if (dep.includes('@angular/core')) {
-    //     this.validateFrontend = true;
-    //   }
-    // }
-  }
-
-  // public setCurrentConfiguration(documentUri: string) {
-  //   let uri = documentUri;
-
-  //   if (uri.startsWith(VS_CODE_URI_BEGIN)) {
-  //     uri = uri.substring(7);
-  //   }
-
-  //   const foundProject = getProject(this.projectsByProjectNames, documentUri);
-
-  //   if (foundProject) {
-  //     if (foundProject.siarcTextDoc) {
-  //       const siarc = foundProject.siarcTextDoc;
-  //       if (existsSync(siarc.uri)) {
-  //         const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-  //         this.validateConfig(textDoc, foundProject);
-  //         console.debug('loaded siarc for Project: ' + foundProject.rootPath);
-  //       }
-  //     }
-
-  //     if (foundProject.packageJson) {
-  //       this.loadPackageJson(foundProject.packageJson, foundProject);
-  //       console.debug('loaded package.json for Project: ' + foundProject.rootPath);
-  //     }
-  //   }
-  // }
 }
