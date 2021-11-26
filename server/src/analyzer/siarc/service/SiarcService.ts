@@ -6,8 +6,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ClientExpression } from '../..';
 import { ServiceConfig, validateConfigSemantic } from '../../config';
 import { analyze } from '../handlers';
-import { AutoCompletionService } from '../handlers/endpoint/autocompletion/AutoCompletionService';
-import { HoverInfoService } from '../handlers/endpoint/hoverInfo/HoverInfoService';
+import { AutoCompletionService } from './AutoCompletionService';
 import { getAllFilesInProjectSync, getOrCreateTempFile, IFile } from '../handlers/file';
 import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
@@ -17,6 +16,7 @@ import { createDiagnostic, getProject } from '../../utils/helper';
 import { pendingValidations, validationDelay } from '../controller';
 import { CodeLocationResolver } from '../handlers/endpoint/codeLocationResolver';
 import { DefinitionParams, Location, LocationLink } from 'vscode-languageserver/node';
+import { HoverInfoService } from './HoverInfoService';
 
 /**
  * SiarcService provides functions for the server to get information

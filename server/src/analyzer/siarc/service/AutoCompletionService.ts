@@ -1,6 +1,6 @@
 import { CancellationToken, CompletionItem, CompletionParams, TextEdit } from 'vscode-languageserver/node';
-import { connection } from '../../../../../server';
-import { ServiceConfig, Endpoint } from '../../../../config';
+import { connection } from '../../../server';
+import { ServiceConfig, Endpoint } from '../../config';
 
 export class AutoCompletionService {
   completionItems: CompletionItem[] = [];

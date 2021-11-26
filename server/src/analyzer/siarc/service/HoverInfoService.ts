@@ -1,8 +1,7 @@
 import { Hover, HoverParams, MarkupContent, MarkupKind } from 'vscode-languageserver';
-import { getMatchedEndpoint, getProject, parseURL, replaceArrayInJson } from '../../../../utils/helper';
-import { ClientExpression } from '../../../../types';
-import { IProject } from '../../../..';
-import { Endpoint, ServiceConfig } from '../../../../config';
+import { IProject, ClientExpression } from '../..';
+import { Endpoint, ServiceConfig } from '../../config';
+import { getMatchedEndpoint, getProject, parseURL, replaceArrayInJson } from '../../utils/helper';
 
 export class HoverInfoService {
   constructor() {}
