@@ -1,8 +1,9 @@
-import { Connection, Diagnostic, DiagnosticSeverity, Position, Range, _Connection } from 'vscode-languageserver/node';
+import { Connection, Diagnostic, DiagnosticSeverity, MarkupContent, MarkupKind, Position, Range, _Connection } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { InfoWindowRequest, InfoWindowsMessage, IProject } from '../..';
-import { Endpoint } from '../../config';
+import { Endpoint, ServiceConfig } from '../../config';
 import { ClientExpression, EndpointExpression } from '../../types';
+import { replaceArrayInJson } from '.';
 
 /**
  * Send a request to vscode.
@@ -110,6 +111,11 @@ export const getMatchedEndpoint = (avaibaleEndpointsPerFile: Map<string, ClientE
   let matchedEnpoint!: EndpointExpression | ClientExpression;
   let matchedEndpointUri: string | undefined;
 
+  /**
+   * Checks if the position is between the defined endpoint in a file.
+   * And checks if the uri/apiEndpoint is the same.
+   * And returns the found element.
+   */
   avaibaleEndpointsPerFile.forEach((value, fileUri) => {
     const found = value.find((endPointExpression) => {
       if (
@@ -155,4 +161,50 @@ export const createFunctionRangeFromClienexpression = (endpointExpression: Endpo
   const endChar = endpointExpression.inlineFunction.end.character;
 
   return Range.create(startLine, startChar, endLine, endChar);
+};
+
+export const createHoverMarkdown = (endpoint: Endpoint, serviceConfig: ServiceConfig): MarkupContent => {
+  let content: string[] = [];
+
+  const lineBreak = '  ';
+
+  content.push('### Backend ' + serviceConfig.name + lineBreak);
+  content.push('');
+  content.push('Method: ' + endpoint.method + lineBreak);
+  content.push(serviceConfig.baseUri + endpoint.path + lineBreak);
+
+  if (endpoint.response) {
+    content.push('**Result:** ' + lineBreak);
+    content.push('');
+    content.push('```typescript');
+
+    if (typeof endpoint.response === 'string') {
+      content.push(endpoint.response);
+    } else {
+      const jsonStringResult = replaceArrayInJson(endpoint.response);
+      content.push(jsonStringResult);
+    }
+
+    content.push('```');
+  }
+
+  if (endpoint.request) {
+    content.push('**Request:** ' + lineBreak);
+    content.push('');
+    content.push('```typescript');
+
+    if (typeof endpoint.request === 'string') {
+      content.push(endpoint.request);
+    } else {
+      const jsonStringResult = replaceArrayInJson(endpoint.request);
+      content.push(jsonStringResult);
+    }
+
+    content.push('```');
+  }
+
+  return {
+    kind: MarkupKind.Markdown,
+    value: content.join('\n'),
+  };
 };

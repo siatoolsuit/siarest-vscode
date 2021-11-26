@@ -1,11 +1,15 @@
-import { Hover, HoverParams, MarkupContent, MarkupKind } from 'vscode-languageserver';
+import { Hover, HoverParams } from 'vscode-languageserver';
 import { IProject, ClientExpression } from '../..';
-import { Endpoint, ServiceConfig } from '../../config';
-import { getMatchedEndpoint, getProject, parseURL, replaceArrayInJson } from '../../utils/helper';
+import { createHoverMarkdown, getMatchedEndpoint, getProject, parseURL } from '../../utils/helper';
 
 export class HoverInfoService {
-  constructor() {}
-
+  /**
+   * Returns a specific info about the current endpoint.
+   * @param hoverParams Hoverparms contains infos about the hover that occured.
+   * @param projectsByName All projects.
+   * @param avaibaleEndpointsPerFile List of defined endpoints per file.
+   * @returns
+   */
   getInfo(
     hoverParams: HoverParams,
     projectsByName: Map<string, IProject>,
@@ -25,6 +29,10 @@ export class HoverInfoService {
       const project = getProject(projectsByName, uri);
       let currentConfig = project.serviceConfig;
 
+      /**
+       * If the current file is inside an backend search in the specifi projects config.
+       * Otherwise search all backends and find the api call.
+       */
       if (currentConfig) {
         const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
           if (endPoint.path === matchedEnpoint?.path && endPoint.method === matchedEnpoint?.method) {
@@ -41,7 +49,10 @@ export class HoverInfoService {
             return hoverInfo;
           }
         }
-      } /*FRONTED*/ else {
+      } else {
+        /**
+         * Collects allEndpoints over all projects.
+         */
         let allEndpoints: { clientExpression: ClientExpression; uri: string }[] = [];
         projectsByName.forEach((project, projectKey) => {
           if (project.serviceConfig) {
@@ -56,6 +67,9 @@ export class HoverInfoService {
         });
 
         const matchedEndpointSplit: string[] = parseURL(matchedEnpoint.path);
+        /**
+         * Returns the first occurance of the specific endpoint.
+         */
         const matchedBackendEndpoint = allEndpoints.find((endpoint) => {
           let searchValue: string = endpoint.clientExpression.path;
           if (searchValue.startsWith('/')) {
@@ -68,6 +82,9 @@ export class HoverInfoService {
           // const splits = test.split(/[+\s]\s*/);
 
           let found: boolean = false;
+          /**
+           * Splits and url/api endpoint and compare it against endpoint uri
+           */
           matchedEndpointSplit.forEach((url, index) => {
             if (index >= searchValueSplit.length) {
               return;
@@ -92,6 +109,9 @@ export class HoverInfoService {
           }
         });
 
+        /**
+         * If an endpoint was found in aboves comparison create an hoverinfo.
+         */
         if (matchedBackendEndpoint) {
           const project = projectsByName.get(matchedBackendEndpoint?.uri);
           currentConfig = project?.serviceConfig;
@@ -115,54 +135,6 @@ export class HoverInfoService {
           }
         }
       }
-    } else {
-      return;
     }
   }
 }
-
-const createHoverMarkdown = (endpoint: Endpoint, serviceConfig: ServiceConfig): MarkupContent => {
-  let content: string[] = [];
-
-  const lineBreak = '  ';
-
-  content.push('### Backend ' + serviceConfig.name + lineBreak);
-  content.push('');
-  content.push('Method: ' + endpoint.method + lineBreak);
-  content.push(serviceConfig.baseUri + endpoint.path + lineBreak);
-
-  if (endpoint.response) {
-    content.push('**Result:** ' + lineBreak);
-    content.push('');
-    content.push('```typescript');
-
-    if (typeof endpoint.response === 'string') {
-      content.push(endpoint.response);
-    } else {
-      const jsonStringResult = replaceArrayInJson(endpoint.response);
-      content.push(jsonStringResult);
-    }
-
-    content.push('```');
-  }
-
-  if (endpoint.request) {
-    content.push('**Request:** ' + lineBreak);
-    content.push('');
-    content.push('```typescript');
-
-    if (typeof endpoint.request === 'string') {
-      content.push(endpoint.request);
-    } else {
-      const jsonStringResult = replaceArrayInJson(endpoint.request);
-      content.push(jsonStringResult);
-    }
-
-    content.push('```');
-  }
-
-  return {
-    kind: MarkupKind.Markdown,
-    value: content.join('\n'),
-  };
-};
