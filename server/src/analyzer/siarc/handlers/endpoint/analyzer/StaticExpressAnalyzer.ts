@@ -173,7 +173,7 @@ function extractExpressExpressions(sourceFile: SourceFile): {
   };
 
   // parse from top to down
-
+  // gets all statements from the sourceFile/abstract syntax tree;
   const statements = sourceFile.statements;
   let expressVarName;
   for (const statement of statements) {
@@ -238,7 +238,7 @@ function extractExpressStatement(statement: Statement, expressVarName: String, s
 }
 
 /**
- * Analyzes and inlinefunction form epxress (res, req) => {...}
+ * Analyzes and inlinefunction from epxress (res, req) => {...}
  * @param inlineFunction an inlineFunction (..) => {...}
  * @returns tuple of { res, req }
  */
@@ -726,6 +726,11 @@ function parseTypeLiteral(typeLiteral: TypeLiteralNode, checker: TypeChecker): s
   return typedLiteralAsJson;
 }
 
+/**
+ *
+ * @param tsFile analysed file from typechecker
+ * @returns An object containing the httpImport and the Endpoint calls
+ */
 function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration | undefined; endpointExpressions: ClientExpression[] } {
   const result: {
     httpImport: ImportDeclaration | undefined;
@@ -737,10 +742,12 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
 
   // parse from top to down
 
+  //gets all statements from the absract syntax tree
   const statements = tsFile.statements;
   let httpClientVarName: string;
   for (const statement of statements) {
     switch (statement.kind) {
+      // Extracts information about the httpClient import.
       case SyntaxKind.ImportDeclaration:
         const importStatement = extractHttpClientImport(statement);
         if (importStatement) {
@@ -750,19 +757,19 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
 
       case SyntaxKind.VariableStatement:
         // FIND in constructor
-
         break;
 
       case SyntaxKind.ClassDeclaration:
+        // Gets all statments from the class
         const classStatement = statement as ClassDeclaration;
         classStatement.members.forEach((member) => {
           switch (member.kind) {
             case SyntaxKind.Constructor:
               const constructorMember = member as ConstructorDeclaration;
+              // Search all statments for the constructor and find the httpClient variable.
               constructorMember.parameters.forEach((parameter) => {
                 const parameterDeclaration = parameter as ParameterDeclaration;
                 if (parameterDeclaration.type) {
-                  // TYPENODE
                   const foundIdentifier = findSyntaxKindInChildren(parameterDeclaration.type, SyntaxKind.Identifier) as Identifier;
                   if (foundIdentifier) {
                     if (foundIdentifier.text === httpLibsByName.get('HttpClient')) {
@@ -773,8 +780,10 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
               });
               break;
 
+            // Search each function if the httpClient Variable is used and extracts information about the call.
             case SyntaxKind.MethodDeclaration:
               const methodDecl = member as MethodDeclaration;
+              // Extracts information aboutz the httpClient usage. (API Endpoint call)
               const x = extractPathFromMethods(methodDecl, httpClientVarName, tsFile);
               if (x) {
                 result.endpointExpressions.push(x);
@@ -794,6 +803,13 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
   return result;
 }
 
+/**
+ * Extracts information about the httpClient usage inside of a function/method.
+ * @param methodDecl Method to check
+ * @param httpClientVarName HttpClient variable name.
+ * @param sourceFile
+ * @returns
+ */
 function extractPathFromMethods(methodDecl: MethodDeclaration, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined {
   if (methodDecl.body) {
     const funcBody = methodDecl.body;
@@ -809,6 +825,7 @@ function extractPathFromMethods(methodDecl: MethodDeclaration, httpClientVarName
         case SyntaxKind.ExpressionStatement:
           break;
 
+        // e.g const result = httpClient.get(...);
         case SyntaxKind.VariableStatement:
           const variableStatement = stat as VariableStatement;
           let clientExpression = undefined;
@@ -824,6 +841,7 @@ function extractPathFromMethods(methodDecl: MethodDeclaration, httpClientVarName
           }
           break;
 
+        // e.g return httpClient.get(...);
         case SyntaxKind.ReturnStatement:
           const returnStatement = stat as ReturnStatement;
           const expr = returnStatement.expression;

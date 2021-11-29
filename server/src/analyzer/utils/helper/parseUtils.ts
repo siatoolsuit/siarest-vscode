@@ -47,6 +47,7 @@ export const findTypeStringBySyntaxKindInChildren = (typeNode: TypeNode | undefi
  */
 export const findSyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxKind: SyntaxKind): any => {
   let res = undefined;
+  // Searches for a child with the specified SyntaxKind.
   if (typeNode) {
     typeNode.forEachChild((child) => {
       if (child.kind === syntaxKind) {
@@ -169,6 +170,7 @@ export const parseBinaryExpression = (binaryExpression: BinaryExpression): strin
 export const extractExpressImport = (statement: Statement): ImportDeclaration | undefined => {
   const importDecl = statement as ImportDeclaration;
   const importClause = importDecl.importClause;
+  // Checks if an importClauses contains a express import or Router form express
   if (importClause) {
     if (importClause.name) {
       if (importClause.name.escapedText === expressImportByName.get('express')) {
@@ -189,7 +191,7 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
 };
 
 /**
- * Extracts Httpclient from angular from an importStatement.
+ * Extracts Httpclient from angular for an importStatement.
  * @param statement
  * @returns Import declaration of HttpClient
  */
