@@ -83,6 +83,11 @@ export function analyze(uri: string, serviceName: string, config: ServiceConfig 
 
     let results: IResult = {};
 
+    /**
+     *  If a config is present for the backend start to analyzer.
+     *  Else return that this Backendproject has no config file.
+     */
+
     if (config && serviceName) {
       if (config.name === serviceName) {
         const result: SemanticError[] = analyzeExpress(config, serviceName, endpointExpressions, checker);
@@ -97,6 +102,16 @@ export function analyze(uri: string, serviceName: string, config: ServiceConfig 
   }
 }
 
+/**
+ * Analyzes a file with expressJS endpoints.
+ * Get: Checks if endpoints returns the correct type.
+ * Post: Get & Checks if the req object uses the correct type.
+ * @param config siarc config
+ * @param serviceName Servicename from package.json
+ * @param endpointExpressions List of endpoints in this file.
+ * @param checker The typescript typechecker.
+ * @returns List of errors
+ */
 function analyzeExpress(config: ServiceConfig, serviceName: string, endpointExpressions: EndpointExpression[], checker: TypeChecker) {
   const result: SemanticError[] = [];
 
@@ -110,6 +125,8 @@ function analyzeExpress(config: ServiceConfig, serviceName: string, endpointExpr
           result.push(createSemanticError(`Wrong HTTP method use ${endpoint.method} instead.`, expr.getStart(), expr.end));
         }
 
+        // Extracts the x from res.send(x) as a identifier. And the x from const x = req.body().
+        // For further usage.
         const { resVal, reqVal } = extractReqResFromFunction(endpointExprs.inlineFunction.inlineFunction);
         // Validate the return value of the inner function
         if (resVal) {
@@ -117,7 +134,8 @@ function analyzeExpress(config: ServiceConfig, serviceName: string, endpointExpr
           let semanticError: any;
           switch (typeof resConf) {
             case 'string':
-              // TODO get ref of a variable for example and validate it
+              // checks if the resVal.kind is a identifier. E.g const x: number
+              // Else create simple type error. Direct usage of a string/number/boolean.
               if (resVal.kind === SyntaxKind.Identifier) {
                 semanticError = createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
               } else {
@@ -127,6 +145,7 @@ function analyzeExpress(config: ServiceConfig, serviceName: string, endpointExpr
               if (semanticError) result.push(semanticError);
               break;
             case 'object':
+              // Checks if the resVal.kind is an object.
               semanticError = createComplexTypeErrorFromExpression(endpoint, resVal, checker);
               if (semanticError) result.push(semanticError);
               break;
@@ -178,6 +197,7 @@ function extractExpressExpressions(sourceFile: SourceFile): {
   let expressVarName;
   for (const statement of statements) {
     switch (statement.kind) {
+      //Extracts the epressJs import statement
       case SyntaxKind.ImportDeclaration:
         const importStatement = extractExpressImport(statement);
         if (importStatement) {
@@ -185,6 +205,7 @@ function extractExpressExpressions(sourceFile: SourceFile): {
         }
         break;
 
+      // Extracts the expressVariables name.
       case SyntaxKind.VariableStatement:
         const expressVar = extractExpressVariable(statement);
         if (expressVar) {
@@ -192,6 +213,7 @@ function extractExpressExpressions(sourceFile: SourceFile): {
         }
         break;
 
+      // Extracts the statement inside an api endpoint from expressJS with several information (@interface EndpointExpression).
       case SyntaxKind.ExpressionStatement:
         if (expressVarName) {
           const endPointExpressions = extractExpressStatement(statement, expressVarName, sourceFile);
@@ -309,6 +331,13 @@ function extractReqResFromFunction(inlineFunction?: ArrowFunction): { resVal: Ex
   return result;
 }
 
+/**
+ *
+ * @param endpoint Endpoint from configuration.
+ * @param resVal
+ * @param checker Typechecker.
+ * @returns
+ */
 function createSimpleTypeErrorFromIdentifier(endpoint: Endpoint, resVal: Expression, checker: TypeChecker): any {
   const resType = endpoint.response;
   let result: { fullString: any; normalString: any } = {
@@ -317,7 +346,9 @@ function createSimpleTypeErrorFromIdentifier(endpoint: Endpoint, resVal: Express
   };
 
   if (resVal.kind === SyntaxKind.Identifier) {
+    // get the Symbol of the val.
     const symbol = checker.getSymbolAtLocation(resVal);
+    // typeString is a json containg the variable name and its type for later comparison.
     const typeString = getTypeAsStringOfSymbol(symbol, checker).typedString;
     result.fullString = typeString;
     result.normalString = typeString;
@@ -325,7 +356,7 @@ function createSimpleTypeErrorFromIdentifier(endpoint: Endpoint, resVal: Express
     return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
   }
 
-  return createErrorMessage(endpoint, result, resType, resVal);
+  return createErrorMessage(result, resType, resVal);
 }
 
 /**
@@ -352,7 +383,7 @@ function createComplexTypeErrorFromExpression(endpoint: Endpoint, resVal: Expres
     return createSemanticError(`Wrong type.\nExpected:\n${JSON.stringify(resType)}\nActual:\n${resVal.getText()}`, resVal.getStart(), resVal.end);
   }
 
-  return createErrorMessage(endpoint, result, resType, resVal);
+  return createErrorMessage(result, resType, resVal);
 }
 
 function createComplexTypeErrorFromDeclaration(endpoint: Endpoint, reqVal: Declaration, checker: TypeChecker) {
@@ -395,23 +426,26 @@ function createComplexTypeErrorFromDeclaration(endpoint: Endpoint, reqVal: Decla
       break;
   }
 
-  return createErrorMessage(endpoint, result, reqType, reqVal);
+  return createErrorMessage(result, reqType, reqVal);
 }
 
-function createErrorMessage(
-  endpoint: Endpoint,
-  result: { fullString: any; normalString: any },
-  resType: any,
-  resVal: Expression | any,
-): SemanticError | undefined {
+/**
+ * Creates an error message.
+ * @param result Json Object
+ * @param type Type of the endpoint from configuration
+ * @param resReqVal Expression of the parsed function
+ * @returns SemanticError
+ */
+function createErrorMessage(result: { fullString: any; normalString: any }, type: any, resReqVal: Expression | any): SemanticError | undefined {
   if (result.fullString) {
     const actualObject = tryParseJSONObject(result.fullString);
-    const siarcObject = tryParseJSONObject(JSON.stringify(resType));
+    const siarcObject = tryParseJSONObject(JSON.stringify(type));
     let errorString = '';
 
+    // Could not parse any of the objects.
     if (siarcObject === false && actualObject === false) {
-      if (result.fullString !== resType) {
-        errorString += `${result.fullString} needs to be ${resType}`;
+      if (result.fullString !== type) {
+        errorString += `${result.fullString} needs to be ${type}`;
       }
     } else {
       const missingTypesInTS: Map<string, any> = findMissingTypes(siarcObject, actualObject);
@@ -431,7 +465,7 @@ function createErrorMessage(
     }
 
     if (errorString !== '') {
-      return createSemanticError(errorString, resVal.getStart(), resVal.end);
+      return createSemanticError(errorString, resReqVal.getStart(), resReqVal.end);
     }
   }
 
@@ -439,7 +473,7 @@ function createErrorMessage(
 }
 
 /**
- * Compares two JSON objects and returns missing objects/types
+ * Compares two JSON objects and returns missing objects/types.
  * @param siarcObjects objects
  * @param objectsToCompare objects to compare to
  * @returns List of missing objects/types
@@ -516,10 +550,11 @@ function getTypeAtNodeLocation(resVal: Expression, checker: TypeChecker): { full
 }
 
 /**
- * Parses an type and extracts object information
+ * Parses an type and extracts object information.
+ * Typechecker can only parse simple types.
  * @param type
  * @param checker
- * @returns
+ * @returns Json containing the parsed object.
  */
 function parseObject(type: Type, checker: TypeChecker): { fullString: string; normalString: string } {
   const result: { fullString: string; normalString: string } = {
@@ -577,6 +612,12 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
   return result;
 }
 
+/**
+ *
+ * @param type Type of the object
+ * @param checker
+ * @returns
+ */
 function parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
   const symbolsOfType: Symbol[] = type.getProperties();
 

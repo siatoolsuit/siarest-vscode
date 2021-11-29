@@ -20,7 +20,7 @@ export const sendRequest = (connection: Connection, message: any) => {
 };
 
 /**
- * Checks if the API path is defined.
+ * Checks if the API path is present in the list.
  * @param path API path
  * @returns
  */

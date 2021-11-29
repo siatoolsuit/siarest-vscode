@@ -74,6 +74,10 @@ export const parseLastExpression = (propAccExpr: PropertyAccessExpression): Prop
 
 /**
  * Extracts the express api endpoint with several information.
+ * e.g.
+ * router.get("user/list", (res, req) => {
+ *    res.send("this");
+ * });
  * @param args Arguments for
  * @returns Returns an object with information about content, inline function, start and end of the called api endpoint
  */
@@ -224,6 +228,7 @@ export const extractHttpClientImport = (statement: Statement): ImportDeclaration
  */
 export const extractExpressVariable = (statement: Statement): String | undefined => {
   const varDecls = statement as VariableStatement;
+  // Searches in statements if a ExpressJS variable is used.
   for (const varDecl of varDecls.declarationList.declarations) {
     if (varDecl.initializer && varDecl.initializer.kind === SyntaxKind.CallExpression) {
       const initExp = varDecl.initializer as CallExpression;
