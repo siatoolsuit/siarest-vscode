@@ -373,8 +373,11 @@ function createComplexTypeErrorFromExpression(endpoint: Endpoint, resVal: Expres
     normalString: undefined,
   };
 
+  // E.g something like const x: string;
   if (resVal.kind === SyntaxKind.Identifier) {
     result = getTypeAtNodeLocation(resVal, checker);
+
+    // E.g something like const a = { x: 5, b: 5 };
   } else if (resVal.kind === SyntaxKind.ObjectLiteralExpression) {
     const type = checker.getTypeAtLocation(resVal);
     // Normalize type strings and compare them
@@ -522,17 +525,26 @@ function findMissingTypes(siarcObjects: any, objectsToCompare: any): Map<string,
   return nameToTypeMap;
 }
 
+/**
+ * Parses the type at a location.
+ * @param resVal Expression to parse
+ * @param checker typscript's typechecker
+ * @returns JSON
+ */
 function getTypeAtNodeLocation(resVal: Expression, checker: TypeChecker): { fullString: string; normalString: string } {
   const result: { fullString: string; normalString: string } = {
     fullString: '',
     normalString: '',
   };
 
+  // Just get the symbol
   const symbol = checker.getSymbolAtLocation(resVal);
+  // Get the type of the symbol
   const typedString = getTypeAsStringOfSymbol(symbol, checker);
 
   let fullString = '';
 
+  // Put the result together as a json
   if (typedString.isArray) {
     fullString += `${typedString.typedString},`;
     fullString = removeLastSymbol(fullString, ',');
@@ -564,8 +576,10 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
 
   let fullString = '{';
 
+  // Members are each var in an assignemnt eg x = { x: string, y: number, b: boolean} x,y and b are members
   const members = type.symbol?.members;
   if (members && members.size > 0) {
+    // Get each members type and build a json from it.
     members.forEach((value, key) => {
       if (value.valueDeclaration) {
         const type = checker.getTypeAtLocation(value.valueDeclaration);
@@ -573,6 +587,7 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
         let typedString = '';
 
         switch (type.flags) {
+          // Something like { x: { y : number, a: string }}
           case TypeFlags.Object:
             typedString = parsePropertiesRecursive(type, checker);
             fullString += `"${key.toString()}":${typedString},`;
@@ -584,6 +599,7 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
             typedString = checker.typeToString(type);
             fullString += `"${key.toString()}":"${typedString}",`;
             break;
+          // TODO whats happens here?
           case TypeFlags.Any:
             const variableDeclaration = value.getDeclarations()?.[0] as VariableDeclaration;
             if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
@@ -693,10 +709,11 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
 
   let typedString: string | undefined;
   if (symbol) {
+    // declartions are x = 5; Returns the 5 or more if multiple declarations are present.
     const declarations = symbol.getDeclarations();
     if (declarations) {
       const firstDecl = declarations[0];
-
+      // TODO DOKU
       let typeNode;
       switch (firstDecl.kind) {
         case SyntaxKind.VariableDeclaration:
