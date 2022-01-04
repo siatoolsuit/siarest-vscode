@@ -41,6 +41,8 @@ export function getFile(uri: string | undefined): IFile | undefined {
  */
 export async function cleanTempFiles(uri: DocumentUri): Promise<string> {
   return new Promise<string>((resolve, reject) => {
+    uri = URI.parse(uri).path;
+
     if (tempFiles.has(uri) == false) {
       reject(`Couldn't find ${uri}`);
       return;
