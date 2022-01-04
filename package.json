@@ -44,11 +44,15 @@
       {
         "fileMatch": ".siarc.json",
         "url": "./server/src/analyzer/config/config.schema.json"
+      },
+      {
+        "fileMatch": "siarc.json",
+        "url": "./server/src/analyzer/config/config.schema.json"
       }
     ],
     "languages": [
       {
-        "id": "siarc",
+        "id": "json",
         "extensions": [
           ".siarc.json"
         ]
@@ -63,7 +67,7 @@
     "clean": "rm -rf ./server/dist && rm -rf ./client/dist",
     "watch": "tsc -b -w",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-    "package": "vsce package"
+    "package": "npx vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^8.2.2",

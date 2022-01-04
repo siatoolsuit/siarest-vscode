@@ -171,7 +171,7 @@ const getClientOptions = (projects: any[]): LanguageClientOptions => {
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
       { language: 'typescript', scheme: 'file' },
-      { language: 'json', pattern: '**/.siarc.json' },
+      { language: 'json', pattern: '**/.siarc.json', scheme: 'file' },
       { language: 'json', pattern: '**/package.json' },
     ],
     // Send the initialized projects and the rootPath if a MonoRepository is used.
