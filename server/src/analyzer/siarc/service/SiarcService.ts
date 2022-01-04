@@ -56,9 +56,10 @@ export class SiarcService {
             project.siarcTextDoc = obj.siarcTextDoc;
           }
 
-          // console.debug('Project: ', project.rootPath);
+          console.debug('Project: ', project.rootPath);
 
           if (project.siarcTextDoc) {
+            console.log(project.siarcTextDoc.uri);
             const siarc = project.siarcTextDoc;
             if (existsSync(siarc.uri)) {
               const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);

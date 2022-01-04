@@ -110,21 +110,23 @@ async function findProjects(): Promise<Types.Project[]> {
 
     if (siarcFile) {
       try {
-        siarc = fs.readFileSync(siarcFile.path).toString();
+        //siarc = fs.readFileSync(siarcFile.path).toString();
+        siarc = fs.readFileSync(siarcFile.fsPath).toString();
       } catch (error) {
         siarc = undefined;
       }
     }
 
     try {
-      packJson = fs.readFileSync(file.path).toString();
+      //packJson = fs.readFileSync(file.path).toString();
+      packJson = fs.readFileSync(file.fsPath).toString();
     } catch (error) {
       packJson = undefined;
     }
 
     let siaConf: Types.Siarc = undefined;
     if (siarc) {
-      siaConf = { uri: file.path, languageId: 'json', version: 1, content: siarc };
+      siaConf = { uri: siarcFile.fsPath, languageId: 'json', version: 1, content: siarc };
     }
 
     const projectConfig: Types.Project = {
@@ -175,15 +177,23 @@ const getClientOptions = (projects: any[]): LanguageClientOptions => {
     // Send the initialized projects and the rootPath if a MonoRepository is used.
     initializationOptions: {
       projects: projects,
-      rootPath: workspace.workspaceFolders ? workspace.workspaceFolders[0].uri.toString() : '',
+      rootPath: getRootPath(),
     },
     markdown: {
       isTrusted: true,
     },
     progressOnInitialization: true,
   };
-
   return clientOptions;
+};
+
+const getRootPath = (): string => {
+  if (process.platform === 'win32') {
+    const path = workspace.workspaceFolders ? workspace.workspaceFolders[0].uri.path : '';
+    return path.substring(1);
+  } else {
+    return workspace.workspaceFolders ? workspace.workspaceFolders[0].uri.toString() : '';
+  }
 };
 
 /**

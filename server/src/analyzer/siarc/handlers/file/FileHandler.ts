@@ -136,7 +136,7 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   };
 
   let pathSeperator = '/';
-  if (process.platform === 'win32') pathSeperator = '\\';
+  if (process.platform === 'win32') pathSeperator = '/';
 
   const fileName = uri.slice(uri.lastIndexOf(SLASH) + 1, uri.length);
   const split: string[] = fileName.split(POINT);

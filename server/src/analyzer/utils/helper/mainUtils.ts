@@ -91,12 +91,15 @@ export const getEndPointsForFileName = (fileName: string, map: Map<any, any>): E
  */
 export const getProject = (projectsByProjectNames: Map<string, IProject>, fileUri: string): IProject => {
   let project!: IProject;
+
+  fileUri = fileUri.replace(/file:\/*[\w\d\%]*\//gm, '');
+
   projectsByProjectNames.forEach((value, key) => {
-    if (fileUri.includes(key)) {
+    if (fileUri.includes(key.replace(/\/c:\//gm, ''))) {
       project = value;
     }
   });
-
+  // TODO replace file:///c%3A/ with '' und /c:/ mit '' für suche
   return project;
 };
 
