@@ -19,6 +19,9 @@ import { getAllFilesInProjectSync, getOrCreateTempFile } from '../handlers/file/
 export const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
 export const validationDelay = 300;
 
+/**
+ * Controller for analyzing typescript that calls the siarcService.
+ */
 export class SiarcController {
   siarcService: SiarcService;
 
@@ -28,6 +31,10 @@ export class SiarcController {
     this.initFiles(params.initializationOptions.rootPath);
   }
 
+  /**
+   * Loads all files in a project and analyze typescript files.
+   * @param pathUri
+   */
   public initFiles(pathUri: string) {
     const path = pathUri;
     if (path) {
@@ -43,12 +50,21 @@ export class SiarcController {
     }
   }
 
+  /**
+   * Checks if the validation is allowed.
+   * @param document
+   */
   public validate(document: TextDocument) {
     if (this.allowValidation()) {
       this.checkForValidation(document);
     }
   }
 
+  /**
+   * Checks which file type and calls the method for the type.
+   * @param document
+   * @param indexing
+   */
   private checkForValidation(document: TextDocument, indexing: boolean = false) {
     switch (document.languageId) {
       case TYPE_TYPESCRIPT.LANGUAGE_ID: {
@@ -70,6 +86,12 @@ export class SiarcController {
     }
   }
 
+  /**
+   * Get's completion items if a typescript file is calling the autocompletion.
+   * @param params
+   * @param token
+   * @returns
+   */
   public getCompletionItems(params: CompletionParams, token: CancellationToken): CompletionItem[] {
     if (params.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
       if (this.allowValidation()) {
@@ -79,6 +101,11 @@ export class SiarcController {
     return [];
   }
 
+  /**
+   * Gets a hover item if a typescript file is calling this.
+   * @param hoverParams
+   * @returns
+   */
   public getHover(hoverParams: HoverParams): Hover | undefined {
     if (hoverParams.textDocument.uri.endsWith(TYPE_TYPESCRIPT.SUFFIX)) {
       if (this.allowValidation()) {
@@ -90,6 +117,12 @@ export class SiarcController {
     return undefined;
   }
 
+  /**
+   * Get's definitions for the server request.
+   * @param params
+   * @param token
+   * @returns
+   */
   public getDefintion(params: DefinitionParams, token: CancellationToken): LocationLink[] {
     if (this.allowValidation()) {
       return this.siarcService.getDefintions(params, token);
@@ -97,6 +130,12 @@ export class SiarcController {
     return [];
   }
 
+  /**
+   * Get's locations of references for the server request.
+   * @param params
+   * @param token
+   * @returns
+   */
   public getLocations(params: ReferenceParams, token: CancellationToken): Location[] {
     if (this.allowValidation()) {
       return this.siarcService.getLocations(params, token);
@@ -104,6 +143,10 @@ export class SiarcController {
     return [];
   }
 
+  /**
+   * Validates json files. Either a package.json or siarc.json
+   * @param document
+   */
   private validateJson(document: TextDocument) {
     if (document.uri.endsWith(SIARC + TYPE_JSON.SUFFIX)) {
       this.siarcService.triggerConfValidation(document);
@@ -112,6 +155,10 @@ export class SiarcController {
     }
   }
 
+  /**
+   * Checks if siarcservice is set.
+   * @returns
+   */
   private allowValidation(): boolean {
     if (this.siarcService) {
       return true;
@@ -119,6 +166,10 @@ export class SiarcController {
     return false;
   }
 
+  /**
+   * Cleans the pending validations for an uri.
+   * @param uri
+   */
   public cleanPendingValidations(uri: string) {
     this.siarcService.cleanPendingValidations(uri);
   }

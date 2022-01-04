@@ -22,7 +22,7 @@ export const simpleTypeError = (resConf: string, resVal: Expression): SemanticEr
 };
 
 /**
- *
+ * Helper method for creating a semantic error
  * @param message String that contains the error message
  * @param start Error start position
  * @param end Error end position

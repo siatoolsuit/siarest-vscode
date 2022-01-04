@@ -7,6 +7,7 @@ import { createHash } from 'crypto';
 import { error } from 'console';
 import { sync } from 'fast-glob';
 import { connection } from '../../../../server';
+import { URI } from 'vscode-uri';
 
 export interface IFile {
   fileName: string;
@@ -74,10 +75,11 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
       reject('Textdoc is empty');
     }
 
-    let res = getFileNameAndUri(textDoc.uri);
+    const uri = URI.parse(textDoc.uri);
+    let res = getFileNameAndUri(uri.path);
 
-    if (tempFiles.has(textDoc.uri)) {
-      let file = tempFiles.get(textDoc.uri);
+    if (tempFiles.has(uri.path)) {
+      let file = tempFiles.get(uri.path);
 
       if (!file?.tempFileUri) {
         reject('Temp File Uri is Empty.');
@@ -99,11 +101,11 @@ export async function getOrCreateTempFile(textDoc: TextDocument): Promise<IFile>
           reject("Couldn't update temp file");
         });
     } else {
-      const splits = textDoc.uri.split('/');
+      const splits = uri.path.split('/');
 
       var file: IFile = {
         fileName: splits[splits.length - 1],
-        fileUri: textDoc.uri,
+        fileUri: uri.path,
         tempFileName: res.tempFileName,
         tempFileUri: res.tempFileUri,
       };
@@ -156,7 +158,12 @@ function getFileNameAndUri(uri: DocumentUri): { tempFileName: string; tempFileUr
   return res;
 }
 
-export function getAllFilesInProjectSync(path: string) {
+/**
+ * Searches all files inside a location and returns all typescript files.
+ * @param path Path
+ * @returns a list
+ */
+export function getAllFilesInProjectSync(path: string): TextDocument[] {
   if (path.startsWith('file://')) {
     path = path.substring(7);
   }
@@ -176,7 +183,7 @@ export function getAllFilesInProjectSync(path: string) {
   const textDocs: TextDocument[] = [];
   allTypescriptFiles.forEach((uri) => {
     const content = readFileSync(uri).toString();
-    textDocs.push(TextDocument.create(`file://${uri}`, 'typescript', 1, content || ''));
+    textDocs.push(TextDocument.create(URI.file(uri).path, 'typescript', 1, content || ''));
   });
 
   return textDocs;
