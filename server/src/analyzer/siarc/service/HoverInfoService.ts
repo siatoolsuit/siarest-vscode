@@ -1,6 +1,7 @@
 import { Hover, HoverParams } from 'vscode-languageserver';
 import { IProject, ClientExpression } from '../..';
 import { createHoverMarkdown, getMatchedEndpoint, getProject, parseURL } from '../../utils/helper';
+import { URI } from 'vscode-uri';
 
 export class HoverInfoService {
   /**
@@ -21,7 +22,7 @@ export class HoverInfoService {
     // SIARC backend
 
     const position = hoverParams.position;
-    const uri = hoverParams.textDocument.uri;
+    const uri = URI.parse(hoverParams.textDocument.uri).path;
 
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 

@@ -8,6 +8,7 @@ import {
   getProject,
   parseURL,
 } from '../../../../utils/helper';
+import { URI } from 'vscode-uri';
 
 export class CodeLocationResolver {
   public resolve(
@@ -21,7 +22,7 @@ export class CodeLocationResolver {
     }
 
     const position = params.position;
-    const uri = params.textDocument.uri;
+    const uri = URI.parse(params.textDocument.uri).path;
     const locationLinks: LocationLink[] = [];
 
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
@@ -86,7 +87,7 @@ export class CodeLocationResolver {
             const locationLink: LocationLink = {
               targetRange: targetRange,
               targetSelectionRange: targetSelectionRange,
-              targetUri: targetUri,
+              targetUri: targetUri.replace(/file:\/*/gm, ''),
             };
 
             locationLinks.push(locationLink);
@@ -109,7 +110,7 @@ export class CodeLocationResolver {
     }
 
     const position = params.position;
-    const uri = params.textDocument.uri;
+    const uri = URI.parse(params.textDocument.uri).path;
     const locations: Location[] = [];
 
     const currentProject = getProject(projectsByProjectNames, uri);
