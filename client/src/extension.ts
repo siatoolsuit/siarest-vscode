@@ -187,6 +187,10 @@ const getClientOptions = (projects: any[]): LanguageClientOptions => {
   return clientOptions;
 };
 
+/**
+ * Not working with multiple different root dirs atm.
+ * @returns Path of the root opened in Vscode
+ */
 const getRootPath = (): string => {
   if (process.platform === 'win32') {
     const path = workspace.workspaceFolders ? workspace.workspaceFolders[0].uri.path : '';
