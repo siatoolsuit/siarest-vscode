@@ -16,9 +16,6 @@ import { connection } from '../../../server';
 import { TYPE_TYPESCRIPT, TYPE_JSON, SIARC, PACKAGE_JSON } from '../../utils';
 import { getAllFilesInProjectSync, getOrCreateTempFile } from '../handlers/file/FileHandler';
 
-export const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
-export const validationDelay = 300;
-
 /**
  * Controller for analyzing typescript that calls the siarcService.
  */
@@ -27,7 +24,6 @@ export class SiarcController {
 
   constructor(params: InitializeParams) {
     this.siarcService = new SiarcService(params);
-
     this.initFiles(params.initializationOptions.rootPath);
   }
 

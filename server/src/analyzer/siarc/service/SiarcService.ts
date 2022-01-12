@@ -13,10 +13,12 @@ import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
 import { TYPE_TYPESCRIPT } from '../../utils';
 import { createDiagnostic, getProject } from '../../utils/helper';
-import { pendingValidations, validationDelay } from '../controller';
 import { CodeLocationResolver } from '../handlers/endpoint/codeLocationResolver';
 import { DefinitionParams, Location, LocationLink } from 'vscode-languageserver/node';
 import { HoverInfoService } from './HoverInfoService';
+
+export const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
+export const validationDelay = 300;
 
 /**
  * SiarcService provides functions for the server to get information
