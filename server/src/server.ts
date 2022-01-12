@@ -13,6 +13,8 @@ import {
   Location,
   CodeActionParams,
   CodeAction,
+  _Connection,
+  TextDocumentChangeEvent,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';
@@ -23,7 +25,7 @@ import { initializeResult } from './config';
 /**
  * Const that resablmed the connection between client and server
  */
-export const connection = createConnection(ProposedFeatures.all);
+export const connection: _Connection = createConnection(ProposedFeatures.all);
 /**
  * contains a list of documents that are open in the editor
  */
@@ -47,10 +49,9 @@ connection.onInitialize(async (params: InitializeParams) => {
 /**
  * If a file is opened inside the editor this gets called.
  */
-documents.onDidOpen((event) => {
+documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
   siarcController.validate(event.document);
 });
-
 /**
  * If a file is saved by editor this gets called.
  */
