@@ -37,12 +37,8 @@ export class SiarcController {
       const docs = getAllFilesInProjectSync(path);
 
       docs.forEach((doc) => {
-        this.checkForValidation(doc, true);
+        this.validate(doc);
       });
-
-      // sendRequest(connection, 'Finished analyzing all files');
-    } else {
-      // TODO error ?
     }
   }
 
@@ -74,7 +70,7 @@ export class SiarcController {
         break;
       }
       case TYPE_JSON.LANGUAGE_ID: {
-        this.validateJson(document);
+        this.siarcService.validateJson(document);
         break;
       }
       default: {
@@ -137,18 +133,6 @@ export class SiarcController {
       return this.siarcService.getLocations(params, token);
     }
     return [];
-  }
-
-  /**
-   * Validates json files. Either a package.json or siarc.json
-   * @param document
-   */
-  private validateJson(document: TextDocument) {
-    if (document.uri.endsWith(SIARC + TYPE_JSON.SUFFIX)) {
-      this.siarcService.triggerConfValidation(document);
-    } else if (document.uri.startsWith(PACKAGE_JSON) && document.uri.endsWith(TYPE_JSON.SUFFIX)) {
-      this.siarcService.loadPackageJson(document.getText());
-    }
   }
 
   /**

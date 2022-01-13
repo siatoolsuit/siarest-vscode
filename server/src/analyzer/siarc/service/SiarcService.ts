@@ -11,7 +11,7 @@ import { getAllFilesInProjectSync, getOrCreateTempFile, IFile } from '../handler
 import { IProject, SemanticError } from '../../types';
 import * as siaSchema from '../../config/config.schema.json';
 import { connection, documents } from '../../../server';
-import { TYPE_TYPESCRIPT } from '../../utils';
+import { PACKAGE_JSON, SIARC, TYPE_JSON, TYPE_TYPESCRIPT } from '../../utils';
 import { createDiagnostic, getProject } from '../../utils/helper';
 import { CodeLocationResolver } from '../handlers/endpoint/codeLocationResolver';
 import { DefinitionParams, Location, LocationLink } from 'vscode-languageserver/node';
@@ -305,6 +305,18 @@ export class SiarcService {
       if (packageJson) {
         const pack = JSON.parse(packageJson);
       }
+    }
+  }
+
+  /**
+   * Validates json files. Either a package.json or siarc.json
+   * @param document
+   */
+  public validateJson(document: TextDocument) {
+    if (document.uri.endsWith(SIARC + TYPE_JSON.SUFFIX)) {
+      this.triggerConfValidation(document);
+    } else if (document.uri.startsWith(PACKAGE_JSON) && document.uri.endsWith(TYPE_JSON.SUFFIX)) {
+      this.loadPackageJson(document.getText());
     }
   }
 }
