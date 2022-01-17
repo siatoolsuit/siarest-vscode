@@ -25,7 +25,7 @@ export const validationDelay = 300;
  * @class SiarcService
  */
 export class SiarcService {
-  private projectsByProjectNames: Map<string, IProject> = new Map<string, IProject>();
+  private projectsByProjectNames: Map<string, IProject> = new Map();
 
   private avaibaleEndpoints: Map<string, ClientExpression[]> = new Map();
 
