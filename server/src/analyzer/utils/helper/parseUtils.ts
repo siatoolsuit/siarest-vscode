@@ -60,8 +60,8 @@ export const findSyntaxKindInChildren = (typeNode: TypeNode | undefined, syntaxK
 
 /**
  * Parse first chained expressions recursive.
- * @param propAccExpr Last Expression e.g res.status(404).body().send()
- * @returns res
+ * @param propAccExpr Last Expression e.g res.status(404).body().send() => res
+ * @returns
  */
 export const parseLastExpression = (propAccExpr: PropertyAccessExpression): PropertyAccessExpression | undefined => {
   if (propAccExpr.expression) {
@@ -108,6 +108,7 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
   // Each node of an abstract syntax tree.
   for (const node of args) {
     switch (node.kind) {
+      // Check if String literal e.g. 'api/user/users'
       case SyntaxKind.StringLiteral:
         if (args.indexOf(node) === 0) {
           result.path = (node as StringLiteral).text;
@@ -121,7 +122,9 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
         result.inlineFunction.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
         break;
 
+      // Check if String literal is a binaryexpression e.g. basepath + 'api/user/users'
       case SyntaxKind.BinaryExpression:
+        // parse the binary expression
         result.path = parseBinaryExpression(node as BinaryExpression);
         result.start = sourceFile.getLineAndCharacterOfPosition(node.getFullStart());
         result.end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
@@ -135,6 +138,7 @@ export const extractPathAndMethodImplementationFromArguments = (args: NodeArray<
 
 /**
  * Parses an binary expressions string and removes all String markers ('")
+ * E.g name + "abc" + "cde" = abccde
  * Recursive function.
  * @param binaryExpression Something like a + b  or a + (b + c)
  * @returns
@@ -177,10 +181,13 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
   // Checks if an importClauses contains a express import or Router form express
   if (importClause) {
     if (importClause.name) {
+      // direct import of the whole package e.g import express from 'express';
       if (importClause.name.escapedText === expressImportByName.get('express')) {
         return importDecl;
       }
     } else if (importClause.namedBindings) {
+      // checks multiple imports in a statement
+      // e.g import { Request, Response, Router } from 'express';
       const imports = importClause.namedBindings as NamedImports;
       const elements = imports.elements;
       if (imports.elements && imports.elements?.length > 0) {
@@ -200,17 +207,22 @@ export const extractExpressImport = (statement: Statement): ImportDeclaration | 
  * @returns Import declaration of HttpClient
  */
 export const extractHttpClientImport = (statement: Statement): ImportDeclaration | undefined => {
+  // Get the whole import statement
   const importDecl = statement as ImportDeclaration;
+  // Get what gets importet
   const importClause = importDecl.importClause;
   if (importClause) {
+    // Check if something like this import x from '...';
     if (importClause.name) {
       if (importClause.name.escapedText === httpLibsByName.get('HttpClient')) {
         return importDecl;
       }
+      // Get all bindings e.g import {HttpClient, HttpBackend} from '...';
     } else if (importClause.namedBindings) {
       const imports = importClause.namedBindings as NamedImports;
       const elements = imports.elements;
       if (imports.elements && imports.elements?.length > 0) {
+        // Check each every inside {HttpClient, HttpBackend}
         for (const element of elements) {
           if (element.name.escapedText === httpLibsByName.get('HttpClient')) {
             return importDecl;
@@ -314,11 +326,15 @@ export const tryParseJSONString = (jsonObject: object) => {
  * @returns Undefined if nothing is found or a Clientexpression
  */
 export const getHttpClientExpression = (expr: Expression, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined => {
+  // is the expression a function/const call? e.g httpclient.get(...);
   if (expr?.kind === SyntaxKind.CallExpression) {
     const callExpr = expr as CallExpression;
+    // get the function call e.g get(...)
     if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
       const propAccExpr = callExpr.expression as PropertyAccessExpression;
+      // get the start, end and the expression inside of get(...)
       const { start, end, path } = extractPathAndMethodImplementationFromArguments(callExpr.arguments, sourceFile);
+      // check if the call uses our parsed out httpClient. And check if one of the correct methods for HTTP is used.
       if (propAccExpr.expression.getText().endsWith(httpClientVarName) && httpMethods.includes(propAccExpr.name.text)) {
         return {
           method: propAccExpr.name.getText().toUpperCase(),

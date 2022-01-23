@@ -11,5 +11,3 @@ export interface ServiceConfig {
   frontends: string[];
   endpoints: Endpoint[];
 }
-
-export interface Frontend {}

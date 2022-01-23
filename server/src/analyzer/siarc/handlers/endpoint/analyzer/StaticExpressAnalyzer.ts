@@ -135,10 +135,10 @@ function analyzeExpress(config: ServiceConfig, serviceName: string, endpointExpr
           switch (typeof resConf) {
             case 'string':
               // checks if the resVal.kind is a identifier. E.g const x: number
-              // Else create simple type error. Direct usage of a string/number/boolean.
               if (resVal.kind === SyntaxKind.Identifier) {
                 semanticError = createSimpleTypeErrorFromIdentifier(endpoint, resVal, checker);
               } else {
+                // Else create simple type error. Direct usage of a string/number/boolean.
                 semanticError = simpleTypeError(resConf, resVal);
               }
 
@@ -192,6 +192,7 @@ function extractExpressExpressions(sourceFile: SourceFile): {
   };
 
   // parse from top to down
+  // Since express is a plain ts/js approach. Variables need to be declared before they are used in the code below
   // gets all statements from the sourceFile/abstract syntax tree;
   const statements = sourceFile.statements;
   let expressVarName;
@@ -293,13 +294,17 @@ function extractReqResFromFunction(inlineFunction?: ArrowFunction): { resVal: Ex
   for (const stat of statList) {
     switch (stat.kind) {
       case SyntaxKind.ExpressionStatement:
+        // If expression cast it
         const exprStat = stat as ExpressionStatement;
+        // check if the expression is a call e.g x.print(...)
         if (exprStat.expression.kind === SyntaxKind.CallExpression) {
+          // If callexpression cast it
           const callExpr = exprStat.expression as CallExpression;
           if (callExpr.expression.kind === SyntaxKind.PropertyAccessExpression) {
             // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
             // the last call of chained PropertyAccessExpression
             const propAccExpr = callExpr.expression as PropertyAccessExpression;
+            // Check if the last call is send() or json() 
             if (sendMethods.includes(propAccExpr.name.text)) {
               const lastPropAcc: PropertyAccessExpression | undefined = parseLastExpression(propAccExpr);
               if (lastPropAcc && lastPropAcc.getText() === resVarNAme) {
@@ -803,6 +808,7 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
   //gets all statements from the absract syntax tree
   const statements = tsFile.statements;
   let httpClientVarName: string;
+  // Loop over every entry in the file
   for (const statement of statements) {
     switch (statement.kind) {
       // Extracts information about the httpClient import.
@@ -870,14 +876,17 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
  */
 function extractPathFromMethods(methodDecl: MethodDeclaration, httpClientVarName: string, sourceFile: SourceFile): ClientExpression | undefined {
   if (methodDecl.body) {
+    // Get body of the function
     const funcBody = methodDecl.body;
     let statList: NodeArray<Statement> = factory.createNodeArray();
+    // Add the contents of the function in a extra list.
     switch (funcBody.kind) {
       case SyntaxKind.Block:
         statList = (funcBody as Block).statements;
         break;
     }
 
+    // Loop over every statement inside the function
     for (const stat of statList) {
       switch (stat.kind) {
         case SyntaxKind.ExpressionStatement:
@@ -888,7 +897,9 @@ function extractPathFromMethods(methodDecl: MethodDeclaration, httpClientVarName
           const variableStatement = stat as VariableStatement;
           let clientExpression = undefined;
           if (variableStatement.declarationList) {
+            // Loop over every declaration
             variableStatement.declarationList.declarations.forEach((declaration: VariableDeclaration) => {
+              // Check if the statement has an initialiser e.g ... = httpClient.get(...);
               if (declaration.initializer?.kind === SyntaxKind.CallExpression) {
                 clientExpression = getHttpClientExpression(declaration.initializer, httpClientVarName, sourceFile);
               }

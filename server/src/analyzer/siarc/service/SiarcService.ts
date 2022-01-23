@@ -25,8 +25,10 @@ export const validationDelay = 300;
  * @class SiarcService
  */
 export class SiarcService {
+  // Contains all project saved by his name
   private projectsByProjectNames: Map<string, IProject> = new Map();
 
+  // Contains the avaiable endpoints per filename
   private avaibaleEndpoints: Map<string, ClientExpression[]> = new Map();
 
   private autoCompletionService: AutoCompletionService;
