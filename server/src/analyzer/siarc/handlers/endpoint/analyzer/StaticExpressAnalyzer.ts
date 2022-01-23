@@ -304,7 +304,7 @@ function extractReqResFromFunction(inlineFunction?: ArrowFunction): { resVal: Ex
             // Check if the current expression is a express send declaration like res.send(...) or res.json(...)
             // the last call of chained PropertyAccessExpression
             const propAccExpr = callExpr.expression as PropertyAccessExpression;
-            // Check if the last call is send() or json() 
+            // Check if the last call is send() or json()
             if (sendMethods.includes(propAccExpr.name.text)) {
               const lastPropAcc: PropertyAccessExpression | undefined = parseLastExpression(propAccExpr);
               if (lastPropAcc && lastPropAcc.getText() === resVarNAme) {
@@ -378,7 +378,7 @@ function createComplexTypeErrorFromExpression(endpoint: Endpoint, resVal: Expres
     normalString: undefined,
   };
 
-  // E.g something like const x: string;
+  // E.g something like const user: User;
   if (resVal.kind === SyntaxKind.Identifier) {
     result = getTypeAtNodeLocation(resVal, checker);
 
@@ -634,49 +634,26 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
 }
 
 /**
- *
+ * Since a properties can be nested parse them recursive and build a json
  * @param type Type of the object
  * @param checker
  * @returns
  */
 function parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
+  // get all symbols of a type for e.g { userDTOs: UserDTO[]; numb: { test: string; users: UserDTO[] } }
+  // returns a list with 2 entries. userDTOs and numb
   const symbolsOfType: Symbol[] = type.getProperties();
 
   let jsonString: string = '{';
 
   symbolsOfType.forEach((symbol) => {
-    if (symbol.valueDeclaration?.kind === SyntaxKind.PropertyAssignment) {
-      const propertyAssignment = symbol.valueDeclaration as PropertyAssignment;
-      const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
+    let resultString = '';
 
-      let resultString = '';
+    switch (symbol.valueDeclaration?.kind) {
+      case SyntaxKind.PropertyAssignment:
+        const propertyAssignment = symbol.valueDeclaration as PropertyAssignment;
+        const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
 
-      switch (typeOfProp.getFlags()) {
-        case TypeFlags.Object:
-          resultString += `"${symbol.name}":${parsePropertiesRecursive(typeOfProp, checker)}`;
-          break;
-        case TypeFlags.Any:
-          const string = getTypeAsStringOfSymbol(symbol, checker).typedString;
-          resultString += `"${symbol.name}":"${string}"`;
-          break;
-        case TypeFlags.String:
-        case TypeFlags.Number:
-        case TypeFlags.Boolean:
-          resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
-        default:
-          break;
-      }
-
-      jsonString += resultString + ',';
-    } else if (symbol.valueDeclaration?.kind === SyntaxKind.PropertySignature) {
-      const propertyAssignment = symbol.valueDeclaration as PropertySignature;
-      const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
-
-      let resultString = '';
-
-      if (propertyAssignment.type?.kind === SyntaxKind.ArrayType) {
-        resultString += `"${symbol.name}":${getTypeAsStringOfSymbol(symbol, checker).typedString}`;
-      } else {
         switch (typeOfProp.getFlags()) {
           case TypeFlags.Object:
             resultString += `"${symbol.name}":${parsePropertiesRecursive(typeOfProp, checker)}`;
@@ -692,9 +669,37 @@ function parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
           default:
             break;
         }
-      }
 
-      jsonString += resultString + ',';
+        jsonString += resultString + ',';
+        break;
+      case SyntaxKind.PropertySignature:
+        const propertySignature = symbol.valueDeclaration as PropertySignature;
+        const typeOfPropSign = checker.getTypeAtLocation(propertySignature);
+
+        if (propertySignature.type?.kind === SyntaxKind.ArrayType) {
+          resultString += `"${symbol.name}":${getTypeAsStringOfSymbol(symbol, checker).typedString}`;
+        } else {
+          switch (typeOfPropSign.getFlags()) {
+            case TypeFlags.Object:
+              resultString += `"${symbol.name}":${parsePropertiesRecursive(typeOfPropSign, checker)}`;
+              break;
+            case TypeFlags.Any:
+              const string = getTypeAsStringOfSymbol(symbol, checker).typedString;
+              resultString += `"${symbol.name}":"${string}"`;
+              break;
+            case TypeFlags.String:
+            case TypeFlags.Number:
+            case TypeFlags.Boolean:
+              resultString += `"${symbol.name}":"${checker.typeToString(typeOfPropSign)}"`;
+            default:
+              break;
+          }
+        }
+
+        jsonString += resultString + ',';
+        break;
+      default:
+        break;
     }
   });
 
@@ -717,59 +722,76 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
     // declartions are x = 5; Returns the 5 or more if multiple declarations are present.
     const declarations = symbol.getDeclarations();
     if (declarations) {
+      // Get the first declartion
       const firstDecl = declarations[0];
-      // TODO DOKU
       let typeNode;
       switch (firstDecl.kind) {
         case SyntaxKind.VariableDeclaration:
+          // Cast to a variable delcarationlet something like userDTOs: UserDTO[];
           const varDecl = firstDecl as VariableDeclaration;
+          // e.g varDecl.type is not defined for primitive type
           if (varDecl.type) {
             typeNode = varDecl.type;
+            // check the different types of the varaibale declaration
             if (typeNode.kind === SyntaxKind.ArrayType) {
               const arrayType = typeNode as ArrayTypeNode;
               typeNode = arrayType.elementType;
+              // get the identifier of the array
               typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
-
+              // build an json object, because array cant be repesented with the typescript as simple as primitive types
               const array = { isArray: true, type: typedString };
               result.typedString = JSON.stringify(array);
               result.isArray = true;
               return result;
             } else if (typeNode.kind == SyntaxKind.TypeLiteral) {
+              // Type literal is thge type of a object e.g const obj : { name: string }
+              // { name: string } this is the type literal
               typedString = parseTypeLiteral(typeNode as TypeLiteralNode, checker);
               result.isArray = true;
             } else {
+              // Try to find a identifier if nothing matched before
               typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
             }
           } else {
+            // mostly simple types like string, number, boolean, ...
             const type = checker?.getTypeAtLocation(varDecl);
             if (type) {
+              // parse the simple type
               typedString = getSimpleTypeFromType(type);
             }
           }
 
+          // if still could not be parsed a last try
           if (!typedString) {
             typeNode = varDecl.type;
             if (typeNode) {
               typedString = checker.typeToString(checker.getTypeAtLocation(typeNode));
             }
           }
-
           result.typedString = typedString;
           return result;
         case SyntaxKind.PropertyAssignment:
+          // e.g const x = { name: 'Peter' }
+          // PropertyAssignemnt is name : 'Peter'
           const propsAssignment = firstDecl as PropertyAssignment;
           const symbolRec = checker?.getSymbolAtLocation(propsAssignment.initializer);
+          // Since the assignment could be a object use the this method again
+          // e.g x = { name: { firstName: 'Peter', lastName: 'Test' }}
           result = getTypeAsStringOfSymbol(symbolRec, checker);
           return result;
         case SyntaxKind.PropertySignature:
+          // PropertySignature is the type of a property inside a object.
+          // e.g x: { name: string } = { name: 'Peter' } so is the PropertySignature name : string
           typeNode = (firstDecl as PropertySignature).type;
           typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
           if (typeNode?.kind === SyntaxKind.ArrayType) {
             const arrayType = typeNode as ArrayTypeNode;
             typeNode = arrayType.elementType;
+            // get die identifier of the array e.g UserDTO[] returns UserDTO
             typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
-
+            // save the result i a own darastructur since you can't define a array in typescript syntax inside of a json
             const array = { isArray: true, type: typedString };
+            // Parse a string out of the object for easier access
             result.typedString = JSON.stringify(array);
             result.isArray = true;
             return result;
@@ -782,9 +804,15 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
   return result;
 }
 
+/**
+ *
+ * @param typeLiteral Type literal e.g x : { name: string }
+ * @param checker
+ * @returns json string from typeLiteral
+ */
 function parseTypeLiteral(typeLiteral: TypeLiteralNode, checker: TypeChecker): string | undefined {
   const type = checker.getTypeAtLocation(typeLiteral);
-  const typedLiteralAsJson = parsePropertiesRecursive(type, checker); // this works
+  const typedLiteralAsJson = parsePropertiesRecursive(type, checker);
 
   return typedLiteralAsJson;
 }

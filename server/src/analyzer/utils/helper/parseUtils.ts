@@ -22,7 +22,7 @@ import { expressImportByName, httpLibsByName, httpMethods } from '..';
 import { ClientExpression, EndpointMatch, ExpressPathAndFunction, IProject } from '../..';
 
 /**
- * Finds the last syntax element in a absract syntax tree.
+ * Finds the last @param syntaxKind element in a absract syntax tree.
  * @param typeNode Typenode contains a type (string, number, object, ...)
  * @param syntaxKind Kind to find
  * @returns returns
