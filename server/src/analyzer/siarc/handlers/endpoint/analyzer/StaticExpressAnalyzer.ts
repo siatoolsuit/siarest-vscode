@@ -634,16 +634,15 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
 }
 
 /**
- * Since a properties can be nested parse them recursive and build a json
+ * Since properties can be nested parse them recursive and build a json
  * @param type Type of the object
  * @param checker
  * @returns
  */
 function parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
-  // get all symbols of a type for e.g { userDTOs: UserDTO[]; numb: { test: string; users: UserDTO[] } }
-  // returns a list with 2 entries. userDTOs and numb
+  // Get all symbols of a type for e.g { userDTOs: UserDTO[]; numb: { test: string; users: UserDTO[] } }
+  // Returns a list with 2 entries for the example above. userDTOs and numb
   const symbolsOfType: Symbol[] = type.getProperties();
-
   let jsonString: string = '{';
 
   symbolsOfType.forEach((symbol) => {
@@ -651,51 +650,64 @@ function parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
 
     switch (symbol.valueDeclaration?.kind) {
       case SyntaxKind.PropertyAssignment:
+        // e.g const x = { name: 'Peter' }
+        // PropertyAssignemnt is name : 'Peter'
         const propertyAssignment = symbol.valueDeclaration as PropertyAssignment;
         const typeOfProp = checker.getTypeAtLocation(propertyAssignment);
 
         switch (typeOfProp.getFlags()) {
           case TypeFlags.Object:
+            // The objcet flag is used if a nestes property is used e.g { numb: { test: '5'; users: users } }
+            // Build a json string
             resultString += `"${symbol.name}":${parsePropertiesRecursive(typeOfProp, checker)}`;
             break;
           case TypeFlags.Any:
+            // The any flag is used for interfaces, own classes etc
             const string = getTypeAsStringOfSymbol(symbol, checker).typedString;
+            // Build a json string
             resultString += `"${symbol.name}":"${string}"`;
             break;
           case TypeFlags.String:
           case TypeFlags.Number:
           case TypeFlags.Boolean:
+            // Just primitive types
+
             resultString += `"${symbol.name}":"${checker.typeToString(typeOfProp)}"`;
           default:
             break;
         }
-
+        // Append to the actual result string
         jsonString += resultString + ',';
         break;
       case SyntaxKind.PropertySignature:
+        // Propertysignature is the definition of properties e.g x: { name: string }
         const propertySignature = symbol.valueDeclaration as PropertySignature;
         const typeOfPropSign = checker.getTypeAtLocation(propertySignature);
-
+        // If the signature is an array type is need else use getFlags()
         if (propertySignature.type?.kind === SyntaxKind.ArrayType) {
           resultString += `"${symbol.name}":${getTypeAsStringOfSymbol(symbol, checker).typedString}`;
         } else {
           switch (typeOfPropSign.getFlags()) {
             case TypeFlags.Object:
+              // The objcet flag is used if a nestes property is used e.g { numb: { test: string ; users: Users } }
+              // Recusive call for parsing the inside of the assignment
               resultString += `"${symbol.name}":${parsePropertiesRecursive(typeOfPropSign, checker)}`;
               break;
             case TypeFlags.Any:
+              // The any flag is used for interfaces, own classes etc.
               const string = getTypeAsStringOfSymbol(symbol, checker).typedString;
               resultString += `"${symbol.name}":"${string}"`;
               break;
             case TypeFlags.String:
             case TypeFlags.Number:
             case TypeFlags.Boolean:
+              // Get the primitive type
               resultString += `"${symbol.name}":"${checker.typeToString(typeOfPropSign)}"`;
             default:
               break;
           }
         }
-
+        // Append to the actual result string
         jsonString += resultString + ',';
         break;
       default:
@@ -703,8 +715,8 @@ function parsePropertiesRecursive(type: Type, checker: TypeChecker): string {
     }
   });
 
+  // Remove the last ',' since we always append a ','
   jsonString = removeLastSymbol(jsonString, ',');
-
   jsonString += '}';
   return jsonString;
 }
@@ -719,7 +731,7 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
 
   let typedString: string | undefined;
   if (symbol) {
-    // declartions are x = 5; Returns the 5 or more if multiple declarations are present.
+    // Declartions are x = 5; Returns the 5 or more if multiple declarations are present.
     const declarations = symbol.getDeclarations();
     if (declarations) {
       // Get the first declartion
@@ -732,13 +744,13 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
           // e.g varDecl.type is not defined for primitive type
           if (varDecl.type) {
             typeNode = varDecl.type;
-            // check the different types of the varaibale declaration
+            // Check the different types of the varaibale declaration
             if (typeNode.kind === SyntaxKind.ArrayType) {
               const arrayType = typeNode as ArrayTypeNode;
               typeNode = arrayType.elementType;
-              // get the identifier of the array
+              // Get the identifier of the array
               typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
-              // build an json object, because array cant be repesented with the typescript as simple as primitive types
+              // Build an json object, because array cant be repesented with the typescript as simple as primitive types
               const array = { isArray: true, type: typedString };
               result.typedString = JSON.stringify(array);
               result.isArray = true;
@@ -753,15 +765,15 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
               typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
             }
           } else {
-            // mostly simple types like string, number, boolean, ...
+            // Mostly simple types like string, number, boolean, ...
             const type = checker?.getTypeAtLocation(varDecl);
             if (type) {
-              // parse the simple type
+              // Parse the simple type
               typedString = getSimpleTypeFromType(type);
             }
           }
 
-          // if still could not be parsed a last try
+          // If still could not be parsed a last try
           if (!typedString) {
             typeNode = varDecl.type;
             if (typeNode) {
@@ -787,9 +799,9 @@ function getTypeAsStringOfSymbol(symbol: Symbol | undefined, checker: TypeChecke
           if (typeNode?.kind === SyntaxKind.ArrayType) {
             const arrayType = typeNode as ArrayTypeNode;
             typeNode = arrayType.elementType;
-            // get die identifier of the array e.g UserDTO[] returns UserDTO
+            // Get die identifier of the array e.g UserDTO[] returns UserDTO
             typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
-            // save the result i a own darastructur since you can't define a array in typescript syntax inside of a json
+            // Save the result i a own darastructur since you can't define a array in typescript syntax inside of a json
             const array = { isArray: true, type: typedString };
             // Parse a string out of the object for easier access
             result.typedString = JSON.stringify(array);
@@ -831,9 +843,9 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
     endpointExpressions: [],
   };
 
-  // parse from top to down
+  // Parse from top to down
 
-  //gets all statements from the absract syntax tree
+  // Gets all statements from the absract syntax tree
   const statements = tsFile.statements;
   let httpClientVarName: string;
   // Loop over every entry in the file
@@ -846,11 +858,6 @@ function extractHttpClient(tsFile: SourceFile): { httpImport: ImportDeclaration 
           result.httpImport = importStatement;
         }
         break;
-
-      case SyntaxKind.VariableStatement:
-        // FIND in constructor
-        break;
-
       case SyntaxKind.ClassDeclaration:
         // Gets all statments from the class
         const classStatement = statement as ClassDeclaration;
