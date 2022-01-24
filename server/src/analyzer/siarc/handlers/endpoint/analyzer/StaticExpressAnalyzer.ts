@@ -415,16 +415,23 @@ function createComplexTypeErrorFromDeclaration(endpoint: Endpoint, reqVal: Decla
       break;
 
     case SyntaxKind.TypeReference:
+      // just a plain refence of a class, interface, object, ... 
+      // eg: x: User;
+      // get the identifier, because it is holding the type of the delcaration
       const identifier = findTypeStringBySyntaxKindInChildren(varDecl.type, SyntaxKind.Identifier);
       result.fullString = identifier;
       result.normalString = identifier;
       break;
 
     case SyntaxKind.ArrayType:
+      // just a plain refence of a class, interface, object, ... as an array
+      // eg: x: User[];
       type = varDecl.type as ArrayTypeNode;
+      // get the identifier from type.elemntType, because it is holding the type of the delcaration
       const typeNode = type.elementType;
       const typedString = findTypeStringBySyntaxKindInChildren(typeNode, SyntaxKind.Identifier);
 
+      // build our own array in json
       const array = { isArray: true, type: typedString };
       const fullString = JSON.stringify(array);
 
@@ -588,9 +595,7 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
     members.forEach((value, key) => {
       if (value.valueDeclaration) {
         const type = checker.getTypeAtLocation(value.valueDeclaration);
-
         let typedString = '';
-
         switch (type.flags) {
           // Something like { x: { y : number, a: string }}
           case TypeFlags.Object:
@@ -601,11 +606,13 @@ function parseObject(type: Type, checker: TypeChecker): { fullString: string; no
           case TypeFlags.Number:
           case TypeFlags.String:
           case TypeFlags.Boolean:
+            // Only primitive types
             typedString = checker.typeToString(type);
             fullString += `"${key.toString()}":"${typedString}",`;
             break;
-          // TODO whats happens here?
           case TypeFlags.Any:
+            // The typeflag any is used for interface, classes, types , ...
+            // Get the declaration of the initialisation
             const variableDeclaration = value.getDeclarations()?.[0] as VariableDeclaration;
             if (variableDeclaration.initializer?.kind == SyntaxKind.Identifier) {
               const initializer = variableDeclaration.initializer as Identifier;
