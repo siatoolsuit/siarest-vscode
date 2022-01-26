@@ -191,9 +191,13 @@ export class SiarcService {
    * @param document
    */
   public triggerConfValidation(document: TextDocument): void {
+    // clear old pending validations
     this.cleanPendingValidations(document.uri);
+    // set a timeout for the new validation
     pendingValidations[document.uri] = setTimeout(async () => {
+      // delete dthe old validation for this file
       delete pendingValidations[document.uri];
+      // start validation
       await this.validateConfig(document, getProject(this.projectsByProjectNames, document.uri));
     }, validationDelay);
   }
@@ -261,9 +265,12 @@ export class SiarcService {
    * @param file file in our representation
    */
   public triggerTypescriptValidation(document: TextDocument, file: IFile): void {
+    // clear old validations
     this.cleanPendingValidations(file.fileUri);
+    // set a timeout for the new validation
     pendingValidations[file.fileUri] = setTimeout(() => {
       delete pendingValidations[file.fileUri];
+      // start the validation
       this.validateTypescript(document, file);
     }, validationDelay);
   }
@@ -275,18 +282,25 @@ export class SiarcService {
    * @param file file in our representation
    */
   public validateTypescript(document: TextDocument, file: IFile): void {
+    // List for the analysed errors
     const diagnostics: Diagnostic[] = [];
 
     const version = document.version;
+    // start analyzing the file
     const semanticErrors = this.analyzeEndpoints(file);
     // sendRequest(connection, 'Validate ' + file.fileUri);
     semanticErrors.forEach((error: SemanticError) => {
+      // create a error in the format visual studio code can understand
+      // add the error to the list
       diagnostics.push(createDiagnostic(document, error.message, error.position.start, error.position.end, DiagnosticSeverity.Error));
     });
+
+    // async call for sending the errors to visual studio code
     setImmediate(() => {
       // To be clear to send the correct diagnostics to the current document
       const currDoc = documents.get(document.uri);
       if (currDoc && currDoc.version === version) {
+        // send the errors to visualstudio code with the original uri
         connection.sendDiagnostics({ uri: document.uri, diagnostics, version: currDoc.version });
       }
     });

@@ -19,37 +19,37 @@ export class HoverInfoService {
     if (!avaibaleEndpointsPerFile) return;
     if (avaibaleEndpointsPerFile.size < 1) return;
 
-    // SIARC backend
-
+    // Position where the hover event occured
     const position = hoverParams.position;
+    // uri of the file where the event happend
     const uri = URI.parse(hoverParams.textDocument.uri).path;
 
+    // find the endpoints by the uri and the position
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
+    // if the endpoint was found
     if (matchedEnpoint) {
+      //  get the project of the file
       const project = getProject(projectsByName, uri);
       let currentConfig = project.serviceConfig;
 
-      /**
-       * If the current file is inside an backend search in the specifi projects config.
-       * Otherwise search all backends and find the api call.
-       */
+      // If the current file is inside an backend search in the specific projects config.
       if (currentConfig) {
         const additionalInfo = currentConfig?.endpoints.find((endPoint) => {
           if (endPoint.path === matchedEnpoint?.path && endPoint.method === matchedEnpoint?.method) {
             return endPoint;
           }
         });
-
+        // if the information about the endpoint was found in the .siarc.json
         if (additionalInfo) {
-          if (currentConfig) {
-            const hoverInfo: Hover = {
-              contents: createHoverMarkdown(additionalInfo, currentConfig),
-            };
+          // create a Hover object with the information
+          const hoverInfo: Hover = {
+            contents: createHoverMarkdown(additionalInfo, currentConfig),
+          };
 
-            return hoverInfo;
-          }
+          return hoverInfo;
         }
+        // Else search all backends and find the api call.
       } else {
         /**
          * Collects allEndpoints over all projects.
@@ -83,9 +83,8 @@ export class HoverInfoService {
           // const splits = test.split(/[+\s]\s*/);
 
           let found: boolean = false;
-          /**
-           * Splits and url/api endpoint and compare it against endpoint uri
-           */
+
+          // Splits a url/api endpoint and compare it against endpoint uri
           matchedEndpointSplit.forEach((url, index) => {
             if (index >= searchValueSplit.length) {
               return;
@@ -110,10 +109,10 @@ export class HoverInfoService {
           }
         });
 
-        /**
-         * If an endpoint was found in aboves comparison create an hoverinfo.
-         */
+
+        // If an endpoint was found in aboves comparison create an hoverinfo.
         if (matchedBackendEndpoint) {
+          // find the project from where the endpoint is actually configured
           const project = projectsByName.get(matchedBackendEndpoint?.uri);
           currentConfig = project?.serviceConfig;
           if (currentConfig) {

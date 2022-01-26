@@ -166,6 +166,12 @@ export const createFunctionRangeFromClienexpression = (endpointExpression: Endpo
   return Range.create(startLine, startChar, endLine, endChar);
 };
 
+/**
+ * Creates a markdown string containg infos about the endpoints method, respone and request object
+ * @param endpoint The matched endpoint from the hoverevent the .siarc.json
+ * @param serviceConfig the wholte config file
+ * @returns
+ */
 export const createHoverMarkdown = (endpoint: Endpoint, serviceConfig: ServiceConfig): MarkupContent => {
   let content: string[] = [];
 
