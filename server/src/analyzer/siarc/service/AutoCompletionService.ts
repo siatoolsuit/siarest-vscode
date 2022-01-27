@@ -30,6 +30,7 @@ export class AutoCompletionService {
       }
     });
 
+    // return the entries
     return this.completionItems;
   }
 
@@ -41,6 +42,7 @@ export class AutoCompletionService {
   public generateCompletionItems(currentConfig: ServiceConfig): CompletionItem[] {
     const completionItems: CompletionItem[] = [];
     connection.console.log('Generate completion ' + currentConfig.endpoints);
+    // for each endpoint create an entry and add them to all entries
     currentConfig?.endpoints.forEach((endpoint) => {
       const completionItem = this.createEndpointCompletionItem(endpoint, currentConfig);
       completionItems.push(completionItem);
@@ -57,7 +59,7 @@ export class AutoCompletionService {
    * @returns A completionitem
    */
   private createEndpointCompletionItem(endpoint: Endpoint, currentConfig: ServiceConfig): CompletionItem {
-    const label: string = endpoint.path.toUpperCase();
+    const label: string = endpoint.path.toString();
 
     let completionItem = CompletionItem.create(label);
 
