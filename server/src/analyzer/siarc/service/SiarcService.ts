@@ -132,7 +132,7 @@ export class SiarcService {
    * @returns
    */
   public getDefintions(params: DefinitionParams, token: CancellationToken): LocationLink[] {
-    return this.codeLocationResolver.resolve(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
+    return this.codeLocationResolver.findDefinitions(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
   /**
@@ -141,8 +141,8 @@ export class SiarcService {
    * @param token
    * @returns
    */
-  public getLocations(params: ReferenceParams, token: CancellationToken): Location[] {
-    return this.codeLocationResolver.resolveReferences(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
+  public getReferences(params: ReferenceParams, token: CancellationToken): Location[] {
+    return this.codeLocationResolver.findReferences(params, token, this.projectsByProjectNames, this.avaibaleEndpoints);
   }
 
   /**

@@ -11,7 +11,7 @@ import {
 import { URI } from 'vscode-uri';
 
 export class CodeLocationResolver {
-  public resolve(
+  public findDefinitions(
     params: DefinitionParams,
     token: CancellationToken,
     projectsByName: Map<string, IProject>,
@@ -21,14 +21,18 @@ export class CodeLocationResolver {
       return [];
     }
 
+    // position of the reference event
     const position = params.position;
+    // in which file the event happend
     const uri = URI.parse(params.textDocument.uri).path;
+    // array for definitions found
     const locationLinks: LocationLink[] = [];
-
+    // get the endpoints where the event was thrown
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint && matchedEndpointUri) {
       let allEndpoints: EndpointMatch[] = [];
+      // get all endpoints for all projects
       projectsByName.forEach((project, projectRootUri) => {
         if (project.serviceConfig) {
           allEndpoints = allEndpoints.concat(getEndpointsPerFile(project, avaibaleEndpointsPerFile));
@@ -36,17 +40,20 @@ export class CodeLocationResolver {
       });
 
       const matchedBackendEndpoints: EndpointMatch[] = [];
+      // split the path of the endpoint by /
       const matchedEndpointSplit = parseURL(matchedEnpoint.path);
       allEndpoints.forEach((endpoint) => {
         let searchValue: string = endpoint.clientExpression.path;
-
+        // remove the first slash
         if (endpoint.clientExpression.path.startsWith('/')) {
           searchValue = searchValue.substring(1);
         }
 
+        // split the path of the endpoint by /
         const searchValueSplit = parseURL(searchValue);
 
         let found: boolean = false;
+        // compare the found endpoint with the endpoint of the event
         matchedEndpointSplit.forEach((url, index) => {
           if (index >= searchValueSplit.length) {
             return;
@@ -56,11 +63,13 @@ export class CodeLocationResolver {
           if (url === url2) {
             found = true;
           } else if (url2.startsWith(':')) {
+            // check if a url parameter was used
             found = true;
           } else {
             found = false;
           }
 
+          // if the first did not match return
           if (!found) {
             return;
           }
@@ -71,6 +80,7 @@ export class CodeLocationResolver {
         }
       });
 
+      // for each matched endpoint create a LocationLink for Visual Studio Code
       matchedBackendEndpoints.forEach((matchedBackendEndpoint) => {
         if (matchedBackendEndpoint) {
           let targetRange: Range | undefined = undefined;
@@ -79,8 +89,10 @@ export class CodeLocationResolver {
 
           const endpointExpression = matchedBackendEndpoint.clientExpression as EndpointExpression;
 
+          // targetRange and selectionRange hightlight the code for the range
           targetRange = createRangeFromClienexpression(endpointExpression);
           targetSelectionRange = createFunctionRangeFromClienexpression(endpointExpression);
+          // location of the found definition
           targetUri = matchedBackendEndpoint.uri;
 
           if (targetRange && targetSelectionRange && targetUri) {
@@ -99,7 +111,7 @@ export class CodeLocationResolver {
     return locationLinks;
   }
 
-  resolveReferences(
+  findReferences(
     params: ReferenceParams,
     token: CancellationToken,
     projectsByProjectNames: Map<string, IProject>,
@@ -109,8 +121,11 @@ export class CodeLocationResolver {
       return [];
     }
 
+    // position of the reference event
     const position = params.position;
+    // in which file the event happend
     const uri = URI.parse(params.textDocument.uri).path;
+    // array for references found
     const locations: Location[] = [];
 
     const currentProject = getProject(projectsByProjectNames, uri);
@@ -119,6 +134,7 @@ export class CodeLocationResolver {
     // Frontends
     const projectsWithoutConfig: IProject[] = [];
 
+    // find all frontends
     if (frontendsAllowedToUse) {
       if (frontendsAllowedToUse.length > 0) {
         projectsByProjectNames.forEach((project, projectRoot) => {
@@ -135,18 +151,18 @@ export class CodeLocationResolver {
       });
     }
 
+    // get the endpoints where the event was thrown
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint && matchedEndpointUri) {
       let frontendUsages: EndpointMatch[] = [];
 
+      // collect all frontend endpoint ussages from analyzed endpoints
       projectsWithoutConfig.forEach((project) => {
         frontendUsages = frontendUsages.concat(getEndpointsPerFile(project, avaibaleEndpointsPerFile));
       });
 
-      // TODO split for params?
-      // const cleanedEndpointPath = endpoint.clientExpression.path.replace(/[\'\`\/]/gi, '');
-      // const splits = cleanedEndpointPath.split(/[+\s]\s*/);
+      // split the path of the endpoint by /
       const matchedEnpointSplit = parseURL(matchedEnpoint.path.substring(1));
       const matchedFrontendUsages: EndpointMatch[] = [];
       frontendUsages.forEach((endpoint) => {
@@ -155,9 +171,11 @@ export class CodeLocationResolver {
           searchValue = searchValue.substring(1);
         }
 
+        // split the path of the endpoint by /
         const searchValueSplit = parseURL(searchValue);
 
         let found: boolean = false;
+        // compare the found endpoint with the endpoint of the event
         matchedEnpointSplit.forEach((url, index) => {
           if (index >= searchValueSplit.length) {
             return;
@@ -167,11 +185,13 @@ export class CodeLocationResolver {
           if (url === url2) {
             found = true;
           } else if (url.startsWith(':')) {
+            // check if a url parameter was used
             found = true;
           } else {
             found = false;
           }
 
+          // if the first did not match return
           if (!found) {
             return;
           }
@@ -182,6 +202,7 @@ export class CodeLocationResolver {
         }
       });
 
+      // for each match create a location for vs code
       matchedFrontendUsages.forEach((matchedFrontendUsage) => {
         if (matchedFrontendUsage) {
           const range = createRangeFromClienexpression(matchedFrontendUsage.clientExpression);

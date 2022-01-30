@@ -98,7 +98,7 @@ connection.onDefinition((params, token): LocationLink[] => {
  * @returns References of the request
  */
 connection.onReferences((params: ReferenceParams, token: CancellationToken): Location[] => {
-  const locations = siarcController.getLocations(params, token);
+  const locations = siarcController.getReferences(params, token);
   return locations;
 });
 

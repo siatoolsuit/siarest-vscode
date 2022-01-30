@@ -128,9 +128,9 @@ export class SiarcController {
    * @param token
    * @returns
    */
-  public getLocations(params: ReferenceParams, token: CancellationToken): Location[] {
+  public getReferences(params: ReferenceParams, token: CancellationToken): Location[] {
     if (this.allowValidation()) {
-      return this.siarcService.getLocations(params, token);
+      return this.siarcService.getReferences(params, token);
     }
     return [];
   }
