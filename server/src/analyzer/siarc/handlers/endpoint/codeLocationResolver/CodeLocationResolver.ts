@@ -29,7 +29,7 @@ export class CodeLocationResolver {
       return [];
     }
 
-    // Position of the reference event
+    // Position of the definiton event
     const position = params.position;
     // In which file the event happend
     const uri = URI.parse(params.textDocument.uri).path;
