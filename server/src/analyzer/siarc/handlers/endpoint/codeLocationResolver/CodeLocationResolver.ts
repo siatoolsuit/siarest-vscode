@@ -11,6 +11,14 @@ import {
 import { URI } from 'vscode-uri';
 
 export class CodeLocationResolver {
+  /**
+   * Compares the event location with the analysed files and provides a link to them
+   * @param params Params that get provided by the event
+   * @param token A token, which can interrupt the request
+   * @param projectsByName List of all projects indexed
+   * @param avaibaleEndpointsPerFile List of analyzed files
+   * @returns A list of found definitions
+   */
   public findDefinitions(
     params: DefinitionParams,
     token: CancellationToken,
@@ -21,18 +29,18 @@ export class CodeLocationResolver {
       return [];
     }
 
-    // position of the reference event
+    // Position of the reference event
     const position = params.position;
-    // in which file the event happend
+    // In which file the event happend
     const uri = URI.parse(params.textDocument.uri).path;
-    // array for definitions found
+    // Array for definitions found
     const locationLinks: LocationLink[] = [];
-    // get the endpoints where the event was thrown
+    // Get the endpoints where the event was thrown
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint && matchedEndpointUri) {
       let allEndpoints: EndpointMatch[] = [];
-      // get all endpoints for all projects
+      // Get all endpoints for all projects
       projectsByName.forEach((project, projectRootUri) => {
         if (project.serviceConfig) {
           allEndpoints = allEndpoints.concat(getEndpointsPerFile(project, avaibaleEndpointsPerFile));
@@ -40,20 +48,20 @@ export class CodeLocationResolver {
       });
 
       const matchedBackendEndpoints: EndpointMatch[] = [];
-      // split the path of the endpoint by /
+      // Split the path of the endpoint by /
       const matchedEndpointSplit = parseURL(matchedEnpoint.path);
       allEndpoints.forEach((endpoint) => {
         let searchValue: string = endpoint.clientExpression.path;
-        // remove the first slash
+        // Remove the first slash
         if (endpoint.clientExpression.path.startsWith('/')) {
           searchValue = searchValue.substring(1);
         }
 
-        // split the path of the endpoint by /
+        // Split the path of the endpoint by /
         const searchValueSplit = parseURL(searchValue);
 
         let found: boolean = false;
-        // compare the found endpoint with the endpoint of the event
+        // Compare the found endpoint with the endpoint of the event
         matchedEndpointSplit.forEach((url, index) => {
           if (index >= searchValueSplit.length) {
             return;
@@ -63,13 +71,13 @@ export class CodeLocationResolver {
           if (url === url2) {
             found = true;
           } else if (url2.startsWith(':')) {
-            // check if a url parameter was used
+            // Check if a url parameter was used
             found = true;
           } else {
             found = false;
           }
 
-          // if the first did not match return
+          // If the first did not match return
           if (!found) {
             return;
           }
@@ -80,7 +88,7 @@ export class CodeLocationResolver {
         }
       });
 
-      // for each matched endpoint create a LocationLink for Visual Studio Code
+      // For each matched endpoint create a LocationLink for Visual Studio Code
       matchedBackendEndpoints.forEach((matchedBackendEndpoint) => {
         if (matchedBackendEndpoint) {
           let targetRange: Range | undefined = undefined;
@@ -89,10 +97,10 @@ export class CodeLocationResolver {
 
           const endpointExpression = matchedBackendEndpoint.clientExpression as EndpointExpression;
 
-          // targetRange and selectionRange hightlight the code for the range
+          // TargetRange and selectionRange hightlight the code for the range
           targetRange = createRangeFromClienexpression(endpointExpression);
           targetSelectionRange = createFunctionRangeFromClienexpression(endpointExpression);
-          // location of the found definition
+          // Location of the found definition
           targetUri = matchedBackendEndpoint.uri;
 
           if (targetRange && targetSelectionRange && targetUri) {
@@ -111,7 +119,15 @@ export class CodeLocationResolver {
     return locationLinks;
   }
 
-  findReferences(
+  /**
+   * Compares the event location with the analysed files and provides a link to the references.
+   * @param params Events provided by the event
+   * @param token A cancelation token to stop the event request
+   * @param projectsByName List of all projects indexed
+   * @param avaibaleEndpointsPerFile List of analyzed files
+   * @returns Returns a list of found referneces
+   */
+  public findReferences(
     params: ReferenceParams,
     token: CancellationToken,
     projectsByProjectNames: Map<string, IProject>,
@@ -121,11 +137,11 @@ export class CodeLocationResolver {
       return [];
     }
 
-    // position of the reference event
+    // Position of the reference event
     const position = params.position;
-    // in which file the event happend
+    // In which file the event happend
     const uri = URI.parse(params.textDocument.uri).path;
-    // array for references found
+    // Array for references found
     const locations: Location[] = [];
 
     const currentProject = getProject(projectsByProjectNames, uri);
@@ -134,7 +150,7 @@ export class CodeLocationResolver {
     // Frontends
     const projectsWithoutConfig: IProject[] = [];
 
-    // find all frontends
+    // Find all frontends
     if (frontendsAllowedToUse) {
       if (frontendsAllowedToUse.length > 0) {
         projectsByProjectNames.forEach((project, projectRoot) => {
@@ -151,18 +167,18 @@ export class CodeLocationResolver {
       });
     }
 
-    // get the endpoints where the event was thrown
+    // Get the endpoints where the event was thrown
     const { matchedEnpoint, matchedEndpointUri } = getMatchedEndpoint(avaibaleEndpointsPerFile, position, uri);
 
     if (matchedEnpoint && matchedEndpointUri) {
       let frontendUsages: EndpointMatch[] = [];
 
-      // collect all frontend endpoint ussages from analyzed endpoints
+      // Collect all frontend endpoint ussages from analyzed endpoints
       projectsWithoutConfig.forEach((project) => {
         frontendUsages = frontendUsages.concat(getEndpointsPerFile(project, avaibaleEndpointsPerFile));
       });
 
-      // split the path of the endpoint by /
+      // Split the path of the endpoint by /
       const matchedEnpointSplit = parseURL(matchedEnpoint.path.substring(1));
       const matchedFrontendUsages: EndpointMatch[] = [];
       frontendUsages.forEach((endpoint) => {
@@ -171,11 +187,11 @@ export class CodeLocationResolver {
           searchValue = searchValue.substring(1);
         }
 
-        // split the path of the endpoint by /
+        // Split the path of the endpoint by /
         const searchValueSplit = parseURL(searchValue);
 
         let found: boolean = false;
-        // compare the found endpoint with the endpoint of the event
+        // Compare the found endpoint with the endpoint of the event
         matchedEnpointSplit.forEach((url, index) => {
           if (index >= searchValueSplit.length) {
             return;
@@ -185,13 +201,13 @@ export class CodeLocationResolver {
           if (url === url2) {
             found = true;
           } else if (url.startsWith(':')) {
-            // check if a url parameter was used
+            // Check if a url parameter was used
             found = true;
           } else {
             found = false;
           }
 
-          // if the first did not match return
+          // If the first did not match return
           if (!found) {
             return;
           }
@@ -202,7 +218,7 @@ export class CodeLocationResolver {
         }
       });
 
-      // for each match create a location for vs code
+      // For each match create a location for vs code
       matchedFrontendUsages.forEach((matchedFrontendUsage) => {
         if (matchedFrontendUsage) {
           const range = createRangeFromClienexpression(matchedFrontendUsage.clientExpression);
