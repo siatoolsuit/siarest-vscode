@@ -16,9 +16,9 @@ After the download, open Visual Studio Code go to the Extension Tab on the left 
 ![Install VSIX](https://i.imgur.com/F8uLHCw.png)
 
 ### Easy Method
-Just Clone this Repo Local
+Just Clone this repo locally.
 
-Open the root directory with Visual Studio Code and right click on the extension file `rest-verification-0.2.0.vsix`.
+Then open the root directory with Visual Studio Code and right click on the extension file `rest-verification-0.2.0.vsix`.
 
 Then hit `Install Extension VSIX` and it should install the extension.  
 
