@@ -46,9 +46,9 @@ $ npm install
 
 After installation you can open the root of this repository inside of Visual Studio Code and navigate to the Debug Tab.
 
-In the Debug Tab select either Launch Client (for opening a second instance of Visual Studio Code with the extension)
-or select client + server to be capable to debug this extension.
+In the Debug Tab select either Launch Client or select client + server to be capable to debug this extension.
 
+Both options start a second instance if Visual Studio Code with the extension in debugging mode.
 Then hit the play button.
 
 ![Debug](https://i.imgur.com/AEv8Pfx.png)
