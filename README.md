@@ -18,7 +18,9 @@ After the download, open Visual Studio Code go to the Extension Tab on the left 
 ### Easy Method
 Just Clone this Repo Local
 
-Open the root directory with Visual Studio Code and right click on the extension file `rest-verification-0.2.0.vsix` and hit `Install Extension VSIX`  
+Open the root directory with Visual Studio Code and right click on the extension file `rest-verification-0.2.0.vsix`.
+
+Then hit `Install Extension VSIX` and it should install the extension.  
 
 ## Features
   * Typechecking for endpoints Request/Result types (Express)
