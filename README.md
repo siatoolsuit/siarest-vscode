@@ -1,5 +1,7 @@
 # Software Interface Analyser Toolsuit
-Visual Studio Code Extension for analyzing API Endpoints created by [Express](https://github.com/expressjs/express)
+Visual Studio Code Extension for analyzing API Endpoints created by [Express](https://github.com/expressjs/express).
+
+If you search for a project that is ready for testing out this extension use this [Express & Angular App](https://github.com/Deezmax/BusinessTrip).
 
 ## Requirements
 Visual Studio Code 1.22.0 or higher is required
@@ -12,8 +14,6 @@ To install this extension, you need to download this [Extension File](rest-verif
 After the download, open Visual Studio Code go to the Extension Tab on the left side and install the downloaded file via `Install from VSIX...`
 
 ![Install VSIX](https://i.imgur.com/F8uLHCw.png)
-
-[Express & Angular App](https://github.com/Deezmax/BusinessTrip)
 
 ## Features
   * Typechecking for endpoints Request/Result types (Express)
@@ -36,3 +36,11 @@ Installation of all required packages is done using the
 ```bash
 $ npm install
 ```
+
+After installation you can open the root of this repository inside of Visual Studio Code and navigate to the Debug Tab.
+In the Debug Tab select either Launch Client (for opening a second instance of Visual Studio Code with the extension)
+or select client + server to be capable to debug this extension.
+Then hit the play button.
+
+![Debug](https://i.imgur.com/AEv8Pfx.png)
+
