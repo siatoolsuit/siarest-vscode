@@ -6,7 +6,7 @@
   },
   "description": "A language server for rest endpoint verification",
   "license": "MIT",
-  "version": "0.1.0-alpha",
+  "version": "0.2.0",
   "main": "./client/dist/extension",
   "engines": {
     "vscode": "^1.22.0"
