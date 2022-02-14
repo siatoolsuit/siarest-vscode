@@ -1,4 +1,3 @@
-import { DiagnosticSeverity, getLanguageService, JSONSchema, LanguageService } from 'vscode-json-languageservice';
 import {
   createConnection,
   ProposedFeatures,
@@ -6,187 +5,132 @@ import {
   InitializeParams,
   InitializeResult,
   CancellationToken,
-  HoverParams,
   CompletionParams,
-  Diagnostic,
-} from 'vscode-languageserver';
+  CompletionItem,
+  Hover,
+  LocationLink,
+  ReferenceParams,
+  Location,
+  CodeActionParams,
+  CodeAction,
+  _Connection,
+  TextDocumentChangeEvent,
+} from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { cleanTempFiles } from './analyzer/siarc/handlers/file/index';
+import { TYPE_TYPESCRIPT } from './analyzer/utils';
+import { SiarcController } from './analyzer/siarc/controller';
+import { initializeResult } from './config';
 
-import { Analyzer, SemanticError } from './analyzer';
-import { ConfigValidator } from './analyzer/config';
+/**
+ * Const that resablmed the connection between client and server
+ */
+export const connection: _Connection = createConnection(ProposedFeatures.all);
+/**
+ * contains a list of documents that are open in the editor
+ */
+export const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-import * as siaSchema from './analyzer/config/config.schema.json';
+let siarcController: SiarcController;
 
-const connection = createConnection(ProposedFeatures.all);
-const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
-
-let jsonLanguageService: LanguageService;
-
-const configValidator: ConfigValidator = new ConfigValidator();
-const analyzer: Analyzer = new Analyzer();
-
-const pendingValidations: { [uri: string]: NodeJS.Timer } = {};
-const validationDelay = 300;
-
+/**
+ * Gets called from extensions.ts on start
+ * @param InitializeParams contains information send by the extension to the server
+ */
 connection.onInitialize(async (params: InitializeParams) => {
-  jsonLanguageService = getLanguageService({
-    clientCapabilities: params.capabilities,
-  });
+  connection.console.info('Starting init of siarc server');
+  const result: InitializeResult = initializeResult;
 
-  const result: InitializeResult = {
-    capabilities: {
-      completionProvider: {
-        resolveProvider: false,
-      },
-      hoverProvider: true,
-    },
-  };
-
-  // Load package.json and .siarc.json, if they exists
-  if (params.initializationOptions) {
-    if (params.initializationOptions.siarcTextDoc) {
-      const siarc = params.initializationOptions.siarcTextDoc;
-      const textDoc = TextDocument.create(siarc.uri, siarc.languageId, siarc.version, siarc.content);
-      await validateConfig(textDoc);
-    }
-    if (params.initializationOptions.packageJson) {
-      loadPackageJson(params.initializationOptions.packageJson);
-    }
-  }
+  siarcController = new SiarcController(params);
 
   return result;
 });
 
-documents.onDidOpen((event) => {
-  checkForValidation(event.document);
+/**
+ * If a file is opened inside the editor this gets called.
+ */
+documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
+  siarcController.validate(event.document);
 });
-
+/**
+ * If a file is saved by editor this gets called.
+ */
 documents.onDidSave((event) => {
-  checkForValidation(event.document);
+  siarcController.validate(event.document);
 });
 
+/**
+ * If a file was recently written inside the editor this gets called.
+ */
+documents.onDidChangeContent((event) => {
+  siarcController.validate(event.document);
+});
+
+/**
+ * If a file is closed inside the editor this gets called.
+ * Deletes all tempory files used by the extension
+ */
 documents.onDidClose((event) => {
-  cleanPendingValidations(event.document);
+  siarcController.cleanPendingValidations(event.document.uri);
+  if (event.document.languageId === TYPE_TYPESCRIPT.LANGUAGE_ID) {
+    cleanTempFiles(event.document.uri)
+      .then((fileUri) => {
+        connection.console.log(`Removed file at ${fileUri}`);
+      })
+      .catch((error) => {
+        connection.console.error(error);
+      });
+  }
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-connection.onCompletion((textDocumentPosition: CompletionParams, token: CancellationToken) => {
-  // Create completion for the configuration file or a typescript file
-  const path = textDocumentPosition.textDocument.uri;
-  if (path.endsWith('.ts')) {
-    // TODO: Check if we have a valid config
-    return [];
-  }
-  return null;
+/**
+ * If the user start is looking for definition in his code this gets called.
+ * @returns LocationLinks to the definition he is looking for
+ */
+connection.onDefinition((params, token): LocationLink[] => {
+  const locationLinks = siarcController.getDefintion(params, token);
+  return locationLinks;
 });
 
-connection.onHover((textDocumentPosition: HoverParams, token: CancellationToken) => {
-  // Create hover description for the configuration file
-  const path = textDocumentPosition.textDocument.uri;
-  if (path.endsWith('.ts')) {
-    return null; // TODO: Maybe give a documentation of the endpoint
-  }
+/**
+ * If the user start is looking for references in his code this gets called.
+ * @returns References of the request
+ */
+connection.onReferences((params: ReferenceParams, token: CancellationToken): Location[] => {
+  const locations = siarcController.getReferences(params, token);
+  return locations;
 });
 
-function cleanPendingValidations(textDoc: TextDocument): void {
-  const request = pendingValidations[textDoc.uri];
-  if (request) {
-    clearTimeout(request);
-    delete pendingValidations[textDoc.uri];
-  }
-}
+/**
+ * If the user uses vscodes autocompletion feature this gets called.
+ * @returns AutoCompletion items
+ */
+connection.onCompletion((params: CompletionParams, token: CancellationToken): CompletionItem[] => {
+  const completionItems: CompletionItem[] = siarcController.getCompletionItems(params, token);
+  return completionItems;
+});
 
-function triggerConfValidation(textDoc: TextDocument): void {
-  cleanPendingValidations(textDoc);
-  pendingValidations[textDoc.uri] = setTimeout(async () => {
-    delete pendingValidations[textDoc.uri];
-    await validateConfig(textDoc);
-  }, validationDelay);
-}
+/**
+ * If the user hovers somewhere in his files this gets called.
+ * @returns Return information at the hover location
+ */
+connection.onHover((event): Hover | undefined => {
+  return siarcController.getHover(event);
+});
 
-function triggerTypescriptValidation(textDoc: TextDocument): void {
-  cleanPendingValidations(textDoc);
-  pendingValidations[textDoc.uri] = setTimeout(() => {
-    delete pendingValidations[textDoc.uri];
-    validateTypescript(textDoc);
-  }, validationDelay);
-}
+/**
+ * Not implemented
+ */
+connection.onCodeAction((params: CodeActionParams, token: CancellationToken): CodeAction[] => {
+  // TODO maybe add quickfix?
 
-function checkForValidation(textDoc: TextDocument): void {
-  if (textDoc.languageId === 'json') {
-    if (textDoc.uri.endsWith('.siarc.json')) {
-      triggerConfValidation(textDoc);
-    } else if (textDoc.uri.endsWith('package.json')) {
-      loadPackageJson(textDoc.getText());
-      // Revalidate all typescript files
-      documents.all().forEach((doc: TextDocument) => {
-        if (doc.languageId === 'typescript') {
-          triggerTypescriptValidation(doc);
-        }
-      });
-    }
-  } else if (textDoc.languageId === 'typescript') {
-    triggerTypescriptValidation(textDoc);
-  }
-}
+  return [];
+});
 
-async function validateConfig(textDoc: TextDocument): Promise<void> {
-  const jsonDoc = jsonLanguageService.parseJSONDocument(textDoc);
-
-  const syntaxErrors = await jsonLanguageService.doValidation(
-    textDoc,
-    jsonDoc,
-    { schemaValidation: 'error', trailingCommas: 'error' },
-    siaSchema as JSONSchema,
-  );
-  const semanticErrors = configValidator.validateConfigSemantic(textDoc, jsonDoc);
-
-  if (syntaxErrors.length === 0 && semanticErrors.length === 0) {
-    analyzer.config = textDoc.getText();
-    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: [] });
-    documents.all().forEach(async (doc: TextDocument) => {
-      if (doc.languageId === 'typescript') {
-        triggerTypescriptValidation(doc);
-      }
-    });
-  } else {
-    connection.sendDiagnostics({ uri: textDoc.uri, diagnostics: semanticErrors });
-  }
-}
-
-function validateTypescript(textDoc: TextDocument): void {
-  const diagnostics: Diagnostic[] = [];
-
-  const version = textDoc.version;
-  analyzer.analyzeEndpoints(textDoc.uri).forEach((error: SemanticError) => {
-    diagnostics.push({
-      message: error.message,
-      range: {
-        start: textDoc.positionAt(error.position.start),
-        end: textDoc.positionAt(error.position.end),
-      },
-      severity: DiagnosticSeverity.Error,
-    });
-  });
-
-  setImmediate(() => {
-    // To be clear to send the correct diagnostics to the current document
-    const currDoc = documents.get(textDoc.uri);
-    if (currDoc && currDoc.version === version) {
-      connection.sendDiagnostics({ uri: textDoc.uri, diagnostics });
-    }
-  });
-}
-
-function loadPackageJson(text: string) {
-  if (text) {
-    const pack = JSON.parse(text);
-    if (pack.name) {
-      analyzer.currentService = pack.name;
-    }
-    analyzer.detectFrameworkOrLibrary(pack);
-  }
-}
-
+/**
+ * documents and connection listens to the client/extension that it was started by.
+ */
 documents.listen(connection);
 connection.listen();
+connection.console.info(`Siarc server running in node ${process.version}`);

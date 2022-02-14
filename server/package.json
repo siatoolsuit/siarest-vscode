@@ -7,8 +7,13 @@
     "node": ">14.0.0"
   },
   "dependencies": {
-    "vscode-json-languageservice": "^3.9.0",
-    "vscode-languageserver": "6.1.1",
-    "vscode-languageserver-textdocument": "1.0.1"
+    "fast-glob": "^3.2.7",
+    "vscode-json-languageservice": "^4.1.8",
+    "vscode-languageserver": "^7.0.0",
+    "vscode-languageserver-textdocument": "^1.0.2",
+    "vscode-uri": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^16.4.10"
   }
 }
